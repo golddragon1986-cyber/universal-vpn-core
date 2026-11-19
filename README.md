@@ -1,8 +1,19 @@
 # Универсальный VPN-контейнер
 
-## Последний релиз · 0.3b
+## Установка 0.31b напрямую из GitHub
 
-[Комплект ARMv7 и ARM64](version/0.3b.181126.1732/universal-vpn/README.md) · [Изменения](version/0.3b.181126.1732/universal-vpn/CHANGELOG.md).
+На RouterOS с установленным пакетом `container` и включённым `device-mode container` выполните в терминале:
+
+```routeros
+/tool fetch url="https://github.com/golddragon1986-cyber/universal-vpn-core/releases/download/v0.31b.191126.1600/install-from-github.rsc" dst-path="install-from-github.rsc" check-certificate=yes http-max-redirect-count=5
+/import file-name="install-from-github.rsc"
+```
+
+Скрипт определяет ARMv7 или ARM64, выбирает подходящий образ, загружает его и четыре скрипта установки в `universal-vpn` на единственном подходящем диске ext4 либо во внутреннем хранилище. После загрузки он выводит точный путь и команды для проверки и запуска `01-install.rsc`. Перед запуском установки сохраните резервную копию RouterOS и прочитайте [инструкцию 0.31b](version/0.31b.191126.1600/universal-vpn/README.md). Загрузка через HTTPS проверяет сертификат; RouterOS при этом не сверяет SHA-256 образа, поэтому при сомнении сравните файл с [контрольными суммами](version/0.31b.191126.1600/universal-vpn/SHA256SUMS) на компьютере.
+
+## Последний релиз · 0.31b
+
+[Комплект ARMv7 и ARM64](version/0.31b.191126.1600/universal-vpn/README.md) · [Изменения](version/0.31b.191126.1600/universal-vpn/CHANGELOG.md) · [Скачать релиз](https://github.com/golddragon1986-cyber/universal-vpn-core/releases/tag/v0.31b.191126.1600).
 
 4 ноября 2026 собрана и запущена версия `0.1.0-core.20261104` на RB4011
 (10.0.0.3, RouterOS 7.25, ARMv7) отдельным контейнером `universal-vpn-core`.
