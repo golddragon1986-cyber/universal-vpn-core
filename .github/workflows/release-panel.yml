@@ -1,0 +1,66 @@
+name: Publish panel update
+
+on:
+  push:
+    tags:
+      - 'panel-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Build verified panel archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#panel-v}"
+          mkdir -p dist
+          python scripts/build-panel-release.py "$VERSION" dist/panel.tar.gz > dist/release-info.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('dist/release-info.json').read_text())
+          print(f"::notice::Panel {d['version']} archive: {d['size']} bytes, SHA-256 {d['sha256']}")
+          PY
+      - name: Publish GitHub release asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/panel.tar.gz --title "Panel ${{ github.ref_name }}" --notes "Universal VPN Core control panel update. The updater verifies the archive SHA-256 before installation."
+      - name: Update stable manifest on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#panel-v}"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          info=json.loads(Path('dist/release-info.json').read_text())
+          tag=os.environ['GITHUB_REF_NAME']
+          repository=os.environ['GITHUB_REPOSITORY']
+          data={'version':info['version'],'tag':tag,
+                'url':f"https://github.com/{repository}/releases/download/{tag}/panel.tar.gz",
+                'sha256':info['sha256'],'size':info['size']}
+          Path('dist/stable.json').write_text(json.dumps(data,indent=2)+'\n')
+          PY
+          git fetch origin main
+          git switch -C main origin/main
+          mkdir -p updates/panel
+          cp dist/stable.json updates/panel/stable.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add updates/panel/stable.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish panel ${VERSION} update manifest"
+            git push origin main
+          fi

@@ -1,0 +1,36 @@
+<section class="logs-panel">
+<h2>Логи</h2>
+<p>Журнал ядра Mihomo. В памяти хранятся последние 512 записей; после перезапуска журнал очищается.</p>
+<form id="log-settings"><label>Уровень записи ядра <select id="log-core-level" aria-label="Уровень записи ядра"><option>silent</option><option>error</option><option>warning</option><option>info</option><option>debug</option></select></label> <button>Сохранить уровень</button> <span id="log-setting-status" role="status"></span></form>
+<p>Уровень общий для ядра. Фильтры ниже меняют только отображение. Для журнала подключений выберите info или debug.</p>
+<div class="log-filters">
+<label>Уровень <select id="log-level"><option value="">Все уровни</option><option>error</option><option>warning</option><option>info</option><option>debug</option></select></label>
+<label>VPN / маршрут <select id="log-vpn"><option value="">Все VPN</option><option value="__system">Системные / без VPN</option></select></label>
+<label>Протокол <select id="log-protocol"><option value="">Все протоколы</option></select></label>
+<label>Поиск <input id="log-search" type="search" placeholder="Домен, адрес или сообщение"></label>
+<button id="log-pause" type="button" aria-pressed="false">Пауза</button><button id="log-clear" type="button">Очистить экран</button><button id="log-download" type="button">Скачать показанные</button>
+</div>
+<p id="log-status" role="status">Подключение…</p>
+<p>VPN определяется по явно указанной в сообщении цепочке маршрута. Записи без такой цепочки относятся к системным.</p>
+<div class="log-table-wrap"><table class="log-table"><thead><tr><th>Время</th><th>Уровень</th><th>VPN / маршрут</th><th>Сообщение</th></tr></thead><tbody id="log-rows"></tbody></table></div>
+</section>
+<style>
+body .unified-main #log-settings{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:16px 0}
+body .unified-main #log-settings>label{display:flex;align-items:center;gap:10px;margin:0;white-space:nowrap}
+body .unified-main #log-settings :is(select,button){height:40px;min-height:40px;margin:0;box-sizing:border-box}
+body .unified-main #log-settings>button{white-space:nowrap}
+.logs-panel{padding:20px;border:1px solid #cbd5e1;border-radius:12px}.log-filters{display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin-top:18px}.log-filters label{display:grid;gap:5px}.logs-panel select,.logs-panel input,.logs-panel button{padding:8px;border:1px solid #94a3b8;border-radius:7px;font:inherit}.log-table-wrap{max-height:560px;overflow:auto}.log-table{width:100%;border-collapse:collapse;font-size:13px}.log-table th,.log-table td{text-align:left;vertical-align:top;padding:8px;border-bottom:1px solid #cbd5e1}.log-table td:last-child{white-space:pre-wrap;overflow-wrap:anywhere;min-width:220px}.log-table th{position:sticky;top:0;background:#edf2fa;color:#17243d}.log-table tr[data-level=error]{color:#b42318}.log-table tr[data-level=warning]{color:#996000}
+@media(prefers-color-scheme:dark){.log-table tr[data-level=error]{color:#ff9890}.log-table tr[data-level=warning]{color:#ffd180}}
+</style>
+<script>
+(()=>{const $=id=>document.getElementById(id);let rows=[],cursor=0,paused=false,ready=false,busy=false,polling=false;
+function visible(){const level=$('log-level').value,vpn=$('log-vpn').value,protocol=$('log-protocol').value,q=$('log-search').value.toLowerCase();return rows.filter(r=>(!level||r.level===level)&&(!vpn||(vpn==='__system'?!r.vpns.length:r.vpns.includes(vpn)))&&(!protocol||r.protocols.includes(protocol))&&(!q||(r.message+' '+r.vpns.join(' ')).toLowerCase().includes(q))).reverse();}
+function draw(){const selected=visible(),body=$('log-rows');body.replaceChildren();for(const r of selected){const tr=document.createElement('tr');tr.dataset.level=r.level;for(const value of [r.time,r.level,r.vpns.join(' → ')||'Системное',r.message]){const td=document.createElement('td');td.textContent=value;tr.append(td);}body.append(tr);}if(!selected.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='Нет записей для выбранных фильтров';tr.append(td);body.append(tr);}}
+function options(id,values){const el=$(id),selected=el.value;while(el.options.length>(id==='log-vpn'?2:1))el.remove(el.options.length-1);for(const name of values)el.add(new Option(name,name));if([...el.options].some(o=>o.value===selected))el.value=selected;}
+async function poll(){if(paused||polling)return;polling=true;try{const response=await fetch('/api/logs?after='+cursor,{cache:'no-store'});const data=await response.json();if(paused)return;if(!response.ok)throw Error(data.message||'Ошибка ядра');if(data.cursor<cursor){rows=[];cursor=0;return;}const lost=cursor&&data.first>cursor+1;cursor=data.cursor;rows=rows.concat(data.rows).slice(-512);if(!ready){$('log-core-level').value=data.level;ready=true;}options('log-vpn',data.vpns);options('log-protocol',data.protocols);$('log-status').textContent=data.status+' · Новые сверху · В буфере экрана: '+rows.length+(lost?' · Старые записи вытеснены':'');draw();}catch(e){if(!paused)$('log-status').textContent='Нет связи: '+e.message;}finally{polling=false;}}
+for(const id of ['log-level','log-vpn','log-protocol','log-search'])$(id).addEventListener('input',draw);
+$('log-pause').onclick=()=>{paused=!paused;$('log-pause').textContent=paused?'Продолжить':'Пауза';$('log-pause').setAttribute('aria-pressed',String(paused));$('log-status').textContent=paused?'Отображение на паузе · Сбор логов продолжается':'Обновление…';if(!paused)poll();};$('log-clear').onclick=()=>{rows=[];draw();};
+$('log-download').onclick=()=>{const blob=new Blob([visible().map(r=>`${r.time} ${r.level} [${r.vpns.join(' → ')||'system'}] ${r.message}`).join('\n')],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='mihomo-logs.txt';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('log-settings').onsubmit=async e=>{e.preventDefault();if(busy)return;busy=true;const button=e.target.querySelector('button');button.disabled=true;try{const response=await fetch('/api/logs/settings',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({level:$('log-core-level').value})}),data=await response.json();if(!response.ok)throw Error(data.message);$('log-setting-status').textContent='Сохранено';}catch(e){$('log-setting-status').textContent=e.message;}finally{busy=false;button.disabled=false;}};
+poll();const timer=setInterval(poll,2000);window.addEventListener('pagehide',()=>clearInterval(timer));})();
+</script>

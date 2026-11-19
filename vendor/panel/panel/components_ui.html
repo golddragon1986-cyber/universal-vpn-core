@@ -1,0 +1,85 @@
+<section class="routing-panel components-panel">
+<h2>Компоненты</h2>
+<p>Ядро Linux контейнера — <strong>KERNEL_RELEASE</strong></p>
+<p>Использовано контейнером — <strong>DISK_USED МБ</strong> / Свободно на разделе — <strong>DISK_FREE МБ</strong></p>
+<section class="panel-update-card" aria-labelledby="panel-update-title">
+<div><h3 id="panel-update-title">Обновление панели из GitHub</h3><p id="panel-update-status" role="status">Текущая версия: определяется после проверки GitHub.</p></div>
+<div class="panel-update-actions"><button type="button" id="panel-update-check">Проверить обновление</button><div id="panel-update-install"></div></div>
+</section>
+<div class="component-catalog-toolbar"><button type="button" id="component-check-all">Проверить доступные версии</button><span id="component-catalog-status" role="status">Проверка не устанавливает компоненты.</span></div>
+<div class="component-table-wrap"><table class="components-table"><thead><tr><th>Компонент</th><th>Текущая версия</th><th>Управление</th></tr></thead><tbody>COMPONENT_ROWS</tbody></table></div>
+<p class="component-help">Проверка загружает только каталоги версий для архитектуры контейнера. Установка или переустановка выполняется отдельной кнопкой и сохраняет настройки.</p>
+<p class="component-help">Для Mihomo, sing-box и Xray доступны стабильные сборки из последних 100 публикаций GitHub. OpenVPN и WireGuard tools используют версии из подключённых репозиториев Alpine.</p>
+<p class="component-help">Для установленных системных пакетов проверка показывает версии из репозиториев Alpine. Кнопка «Обновить» применяет обновление пакета и его зависимостей.</p>
+<p class="component-help">Mihomo обслуживает DNS и маршрутизацию, поэтому его нельзя удалить. Перед заменой ядра и VPN-клиентов выбранная сборка проверяется с текущей конфигурацией. Несовместимая сборка не заменяет работающую.</p>
+</section>
+<style>
+.component-update[hidden],.component-version-form button[hidden]{display:none!important}
+.component-version-note[hidden]{display:none}
+body .components-panel .component-update{margin:8px 0 0}
+body .components-panel .panel-update-card{display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;border:1px solid #46516a;border-radius:10px;padding:16px;margin:18px 0;background:rgba(255,255,255,.02)}
+body .components-panel .panel-update-card h3{margin:0 0 6px}
+body .components-panel .panel-update-card p{margin:0;color:#a9b8d0;font-size:13px}
+body .components-panel .panel-update-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+body .components-panel .panel-update-actions form{margin:0}
+body .components-panel #panel-update-install button{background:#315ee8;border-color:#315ee8;color:#fff}
+body .components-panel .component-update button{background:#315ee8;border-color:#315ee8;color:#fff}
+body .components-panel .component-update button:not(:disabled):hover{background:#244dcc;border-color:#244dcc}
+.components-panel form[inert]{opacity:.45}
+.component-catalog-toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:20px 0}.component-catalog-toolbar span{font-size:13px}.component-table-wrap{overflow-x:auto;border:1px solid #46516a;border-radius:10px}.components-table{width:100%;border-collapse:collapse;min-width:760px}.components-table th,.components-table td{padding:16px 12px;text-align:left;vertical-align:top;border-bottom:1px solid #46516a}.components-table th{font-size:13px;color:#b9c7e1}.components-table tr:last-child td{border-bottom:0}.component-state{display:block;font-size:12px;color:#94a3b8;margin-top:8px}.component-state.installed{color:#3fcd91}.component-version-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.component-version-form select{max-width:300px;min-width:200px;width:100%;padding:9px;border-radius:7px;background:#1e293b;color:inherit;border:1px solid #526078}.component-version-form button{min-height:38px}.component-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.component-controls form{margin:0}.component-controls button{min-height:40px;white-space:nowrap}.component-controls .component-version-form select{width:clamp(155px,18vw,220px);min-width:0}body .components-panel button.component-remove{background:#c62828;border-color:#c62828;color:#fff}body .components-panel button.component-remove:not(:disabled):hover{background:#a91f1f;border-color:#a91f1f}.component-version-note{display:block;max-width:340px;font-size:12px;margin-top:8px;color:#a9b8d0}.component-help{font-size:13px;color:#a9b8d0;line-height:1.55}.components-panel button:disabled{opacity:.45;cursor:not-allowed}.components-panel select:disabled{opacity:.6}@media(prefers-color-scheme:light){.components-table th,.component-help,.component-version-note{color:#475569}.component-version-form select{background:#fff;color:#17243d}.component-state.installed{color:#16803c}}
+</style>
+<script>
+(()=>{const button=document.getElementById('component-check-all'),status=document.getElementById('component-catalog-status');let busy=false;
+function show(data){
+ if(data.unchecked)return;
+ for(const row of document.querySelectorAll('[data-system-component]')){
+  const id=row.dataset.systemComponent;
+  const entries=data.items[id]||[];
+  const versions=entries.map(item=>item.version);
+  const update=row.querySelector('.component-update'), latest=entries.find(item=>item.newer);
+  if(update){
+   update.hidden=!latest;
+   if(latest)update.querySelector('button').textContent='Обновить до '+latest.version;
+  }
+  const note=row.querySelector('.component-version-note');
+  note.textContent=data.errors[id]||(!versions.length?'Проверьте доступные версии':'');
+  note.hidden=!note.textContent;
+ }
+ let total=0;
+ for(const row of document.querySelectorAll('[data-component]')){
+  const id=row.dataset.component,select=row.querySelector('select'),install=row.querySelector('.install-selected'),note=row.querySelector('.component-version-note'),old=select.value;
+  select.replaceChildren(new Option('Выберите версию',''));
+  const versions=data.items[id]||[];
+  for(const version of versions){const option=new Option(version.version+' · '+version.source+(version.note?' · '+version.note:''),version.id);option.disabled=!version.installable;select.add(option);}
+  select.disabled=!versions.length;
+  if([...select.options].some(x=>x.value===old&&old))select.value=old;
+  else if(versions.some(x=>x.newer))select.value=versions.find(x=>x.newer).id;
+  else if(versions.some(x=>x.id.startsWith('installed:')))select.value=versions.find(x=>x.id.startsWith('installed:')).id;
+  function updateAction(){
+   const selected=versions.find(item=>item.id===select.value);
+   const update=row.querySelector('.update-selected');
+   const upgrading=row.dataset.installed==='1' && selected?.newer;
+   install.hidden=!!upgrading;
+   install.disabled=!selected?.installable||!!upgrading;
+   update.hidden=!upgrading;
+   update.disabled=!upgrading;
+  }
+  select.onchange=updateAction;
+  updateAction();
+  note.textContent=data.errors[id]||((id==='openvpn'||id==='wireguard-tools')?data.errors.alpine:'')||(!versions.length?'Нет сборок для этой архитектуры':'');
+  note.hidden=!note.textContent;
+  total+=versions.length;
+ }
+ const failures=Object.keys(data.errors||{}).length;
+ status.textContent='Проверено: '+data.checked_at+' · '+data.architecture+' · Версий: '+total+(failures?' · Есть ошибки каталогов':'');
+}
+async function check(refresh){if(busy)return;busy=true;if(refresh){button.disabled=true;button.textContent='Проверка каталогов…';status.textContent='Получаем версии. Установленные компоненты не изменяются.';}try{const r=await fetch('/api/components/versions?refresh='+(refresh?'1':'0'),{cache:'no-store'}),data=await r.json();if(!r.ok)throw Error(data.message||'Не удалось проверить версии');show(data);}catch(e){status.textContent=e.message;}finally{busy=false;button.disabled=false;button.textContent='Проверить доступные версии';}}
+button.onclick=()=>check(true);check(false);
+})();
+</script>
+<script>
+(()=>{
+const button=document.getElementById('panel-update-check'),status=document.getElementById('panel-update-status'),install=document.getElementById('panel-update-install');let busy=false;
+button.addEventListener('click',async()=>{if(busy)return;busy=true;button.disabled=true;button.textContent='Проверяем GitHub…';status.textContent='Проверяем манифест стабильного выпуска.';install.replaceChildren();try{const response=await fetch('/api/panel-update/check',{cache:'no-store'}),data=await response.json();if(!response.ok||!data.ok)throw new Error(data.message||'Не удалось проверить GitHub');status.textContent='Установлено: '+data.installed+' · Доступно: '+data.available+(data.update_available?' · обновление готово':' · установлена актуальная версия');if(data.update_available){const form=document.createElement('form');form.method='post';form.action='/action';form.addEventListener('submit',event=>{if(!confirm('Скачать и установить панель версии '+data.available+'? После установки веб-панель перезапустится. VPN-ядро и конфигурация не меняются.'))event.preventDefault();});const action=document.createElement('input');action.type='hidden';action.name='action';action.value='panel_update_install';const version=document.createElement('input');version.type='hidden';version.name='version';version.value=data.available;const apply=document.createElement('button');apply.type='submit';apply.textContent='Скачать и установить '+data.available;form.append(action,version,apply);install.append(form);}}catch(error){status.textContent=error.message;}finally{busy=false;button.disabled=false;button.textContent='Проверить обновление';}});
+})();
+</script>

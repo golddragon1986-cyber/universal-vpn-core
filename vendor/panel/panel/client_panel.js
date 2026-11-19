@@ -1,0 +1,103 @@
+(()=>{
+const layout=document.createElement('style');layout.textContent=`
+body .unified-main .clients-table{min-width:700px;table-layout:fixed}
+body .unified-main .clients-table :is(th,td){padding:9px 6px}
+body .unified-main .clients-table :is(input,select){width:100%;min-width:0;max-width:100%;height:40px;margin:0}
+body .unified-main .clients-table :is(th,td):nth-child(1){width:150px}
+body .unified-main .clients-table :is(th,td):nth-child(2){width:125px}
+body .unified-main .clients-table :is(th,td):nth-child(3){width:200px;min-width:0}
+body .unified-main .clients-table :is(th,td):nth-child(4){width:170px;min-width:0;white-space:nowrap}
+body .unified-main .clients-table td:last-child button{font-size:13px;padding:8px;margin-right:4px}
+`;document.head.append(layout);
+const seed=JSON.parse(document.getElementById('clients-data').textContent),body=document.getElementById('clients-table-body'),search=document.getElementById('clients-search');
+const legacyAdd=document.getElementById('client-add-form');
+if(legacyAdd)legacyAdd.closest('details').remove();
+const header=document.querySelector('.clients-table thead tr');
+if(header.cells.length===6){header.cells[2].remove();header.cells[2].remove();}
+const clone=value=>JSON.parse(JSON.stringify(value));
+const original=seed.state.rows,old=new Map(original.map(row=>[row.id,row]));
+let rows=clone(seed.pending?.rows||original),view={...seed.view,page:1},error='';
+const baseline=seed.pending?.baseline||seed.baseline,stale=baseline!==seed.baseline;
+const signature=row=>JSON.stringify({id:row.id,list:row.list,address:row.address,label:row.label,name:(row.name||'').trim(),route:row.route||'RULES',enabled:row.enabled});
+const ip=value=>{const parts=value.split('.');if(parts.length!==4||parts.some(p=>!/^\d{1,3}$/.test(p)||Number(p)>255))throw Error('Укажите IPv4-адрес');return parts.reduce((n,p)=>n*256+Number(p),0);};
+function canonical(value){
+ value=value.trim();
+ if(value.includes('-')){const parts=value.split('-');if(parts.length!==2||ip(parts[0])>ip(parts[1]))throw Error('Некорректный диапазон IPv4');return parts.map(p=>p.split('.').map(Number).join('.')).join('-');}
+ const [host,prefix='32',extra]=value.split('/'),bits=Number(prefix),n=ip(host);
+ if(extra!==undefined||!Number.isInteger(bits)||bits<1||bits>32||n%2**(32-bits)!==0)throw Error('Укажите адрес сети с правильной маской');
+ return host.split('.').map(Number).join('.')+(bits===32?'':'/'+bits);
+}
+function interval(value){if(value.includes('-'))return value.split('-').map(ip);const [host,prefix='32']=value.split('/'),size=2**(32-Number(prefix)),start=Math.floor(ip(host)/size)*size;return [start,start+size-1];}
+function matches(row){
+ if(view.source&&view.source!==row.list)return false;
+ if(view.status&&((view.status==='enabled')!==!!row.enabled))return false;
+ const q=(view.q||'').trim().toLowerCase();if(!q)return true;
+ try{const [a,b]=interval(row.address),[c,d]=interval(q);return a<=d&&c<=b;}catch(e){return [row.address,row.name,row.label,row.list].some(v=>String(v).toLowerCase().includes(q));}
+}
+function persist(){
+ error='';window.configurationDraft?.set('clients',new URLSearchParams({action:'client_apply',client_token:seed.token,baseline,rows_baseline:seed.rows_baseline,clients:JSON.stringify(rows)}));
+}
+function button(text,fn,danger=false){const b=document.createElement('button');b.type='button';b.textContent=text;if(danger)b.className='danger';b.addEventListener('click',fn);b.disabled=!seed.state.live;return b;}
+function input(value,label,change){const field=document.createElement('input');field.value=value;field.setAttribute('aria-label',label);field.disabled=!seed.state.live;field.addEventListener('input',()=>{change(field.value);persist();updateStatus();});return field;}
+function rowChanged(row){return !old.has(row.id)||signature(row)!==signature(old.get(row.id));}
+function status(row,removed,readonly){
+ if(removed)return 'Будет удалён';
+ if(!readonly&&rowChanged(row))return old.has(row.id)?(row.enabled?'Включён · ожидает':'Отключён · ожидает'):'Ожидает добавления';
+ if(!row.enabled)return 'Отключён';
+ return seed.state.lists[row.list]?.active?'Активен':'Маршрутизация отключена';
+}
+function updateStatus(){
+ const byId=new Map(rows.map(row=>[row.id,row]));
+ for(const tr of body.rows){const row=byId.get(tr.dataset.clientId);if(row){const pending=rowChanged(row);tr.classList.toggle('client-pending',pending);tr.title=status(row,false,false);const toggle=tr.querySelector('[data-toggle-on]');if(toggle){toggle.dataset.togglePending=pending?'1':'0';window.paintToggle?.(toggle,row.enabled,pending);}}}
+ document.getElementById('clients-inline-status').textContent=error||(stale?'Список RouterOS изменился. Отмените черновик и повторите изменения.':!seed.state.live?'RouterOS недоступен; показан последний сохранённый список.':'');
+}
+function draw(){
+ const ids=new Set(rows.map(row=>row.id));
+ const list=[...rows.map(row=>({row,removed:false,readonly:false})),...original.filter(row=>!ids.has(row.id)).map(row=>({row,removed:true,readonly:false})),...seed.state.readonly.map(row=>({row,removed:false,readonly:true}))].filter(item=>matches(item.row));
+ list.sort((a,b)=>{if(!a.row.address||!b.row.address)return Number(!a.row.address)-Number(!b.row.address);try{return interval(a.row.address)[0]-interval(b.row.address)[0]||a.row.address.localeCompare(b.row.address);}catch(e){return a.row.address.localeCompare(b.row.address);}});
+ const pages=Math.max(1,Math.ceil(list.length/25));view.page=Math.min(view.page,pages);body.replaceChildren();
+ for(const {row,removed,readonly} of list.slice((view.page-1)*25,view.page*25)){
+  const tr=body.insertRow();tr.dataset.clientId=row.id;tr.classList.toggle('client-removed',removed);tr.classList.toggle('client-pending',removed||!readonly&&rowChanged(row));
+  if(removed||readonly){tr.insertCell().textContent=row.address;tr.insertCell().textContent=row.name||'—';}
+  else{
+   const field=input(row.address,'Адрес клиента '+(row.address||'(новый)'),value=>{row.address=value;});
+   field.placeholder='IPv4-адрес или сеть/маска';field.required=true;
+   field.addEventListener('change',()=>{try{row.address=canonical(field.value);field.value=row.address;persist();}catch(e){error=e.message;updateStatus();}});tr.insertCell().append(field);
+   const label=input(row.name||'','Внутреннее имя клиента '+row.address,value=>{row.name=value;});label.maxLength=100;tr.insertCell().append(label);
+  }
+  tr.title=status(row,removed,readonly);
+  const routeCell=tr.insertCell(),routeSelect=document.createElement('select');routeSelect.setAttribute('aria-label','Маршрут клиента '+row.address);if(old.has(row.id))routeSelect.dataset.activeRoute=old.get(row.id).route||'RULES';
+  const labels={RULES:'По общим правилам',BYPASS:'Через RouterOS (NAT)',SELECTOR:'Основной маршрут',LOADBALANCE:'Балансировка'};
+  for(const value of seed.routes){const option=document.createElement('option');option.value=value;option.textContent=labels[value]||value.replace(/^CHANNEL-/,'');routeSelect.append(option);}
+  if(!seed.routes.includes(row.route||'RULES')){const option=document.createElement('option');option.value=row.route;option.textContent=row.route+' (недоступен)';routeSelect.append(option);}
+  routeSelect.value=row.route||'RULES';routeSelect.disabled=removed||readonly||!seed.state.live;routeSelect.addEventListener('change',()=>{row.route=routeSelect.value;persist();updateStatus();});routeCell.append(routeSelect);
+  const actions=tr.insertCell();
+  if(readonly)actions.textContent='Динамическая / внешняя запись';
+  else if(removed)actions.append(button('Вернуть',()=>{rows.push(clone(row));persist();draw();}));
+  else{
+   const toggle=button(row.enabled?'Включено':'Отключено',()=>{row.enabled=!row.enabled;persist();draw();});toggle.dataset.toggleOn=row.enabled?'1':'0';toggle.dataset.togglePending=rowChanged(row)?'1':'0';window.paintToggle?.(toggle,row.enabled,rowChanged(row));actions.append(toggle);
+   actions.append(button('Удалить',()=>{rows=rows.filter(value=>value.id!==row.id);persist();draw();},true));
+  }
+ }
+ if(!list.length){const cell=body.insertRow().insertCell();cell.colSpan=4;cell.textContent='Нет клиентов по заданному запросу';}
+ document.getElementById('clients-count').textContent='Найдено: '+list.length;
+ const pagination=document.getElementById('clients-pages');pagination.replaceChildren();const label=document.createElement('span');label.textContent='Страница '+view.page+' из '+pages;
+ const prev=button('Назад',()=>{view.page--;draw();});prev.disabled=view.page===1;
+ const next=button('Далее',()=>{view.page++;draw();});next.disabled=view.page===pages;pagination.append(prev,label,next);
+ updateStatus();
+}
+const addRow=document.getElementById('client-add-row')||button('Добавить клиента',()=>{});
+addRow.id='client-add-row';addRow.disabled=!seed.state.live||!Object.keys(seed.state.lists).length;
+if(!addRow.parentElement)document.querySelector('.clients-scroll').after(addRow);
+addRow.addEventListener('click',()=>{
+ const names=Object.keys(seed.state.lists),source=names.includes('uvpn-main-lan')?'uvpn-main-lan':names[0];
+ const row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address:'',label:'',name:'Новый клиент',route:'RULES',enabled:true};
+ rows.push(row);search.reset();find();view.page=Math.ceil((rows.length+seed.state.readonly.length+original.filter(r=>!rows.some(v=>v.id===r.id)).length)/25);persist();draw();
+ const tr=Array.from(body.rows).find(tr=>tr.dataset.clientId===row.id);tr?.querySelector('input')?.focus();
+});
+for(const key of ['q','source','status'])search.elements[key].value=view[key]||'';
+function find(){const values=new FormData(search);for(const key of ['q','source','status'])view[key]=String(values.get(key)||'');view.page=1;draw();const url=new URL(location.href);for(const key of ['q','source','status']){if(view[key])url.searchParams.set(key,view[key]);else url.searchParams.delete(key);}history.replaceState(null,'',url);}
+search.addEventListener('submit',event=>{event.preventDefault();find();});
+document.getElementById('clients-search-reset').addEventListener('click',()=>{search.reset();find();});
+draw();
+})();

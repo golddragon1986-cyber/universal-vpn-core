@@ -1,0 +1,261 @@
+<script>
+// Keep traffic labels consistent even while the panel process uses an older renderer.
+(()=>{function start(){const root=document.querySelector('.proxy-manager');if(!root)return;
+function format(){for(const cell of root.querySelectorAll('[data-vpn-traffic]')){const text=cell.textContent.replace(/≈\s*/g,'').replace(/КиБ/g,'КБ').replace(/МиБ/g,'МБ').replace(/ГиБ/g,'ГБ').replace(/ТиБ/g,'ТБ');if(text!==cell.textContent)cell.textContent=text;}}
+const observer=new MutationObserver(format);observer.observe(root,{childList:true,subtree:true,characterData:true});format();window.addEventListener('pagehide',()=>observer.disconnect(),{once:true});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();})();
+</script>
+<details id="config-queue" class="config-queue">
+<summary class="config-queue-summary"><strong>Очередь/Журнал</strong><span id="config-queue-title" role="status" aria-live="polite">Очередь пуста</span></summary>
+<div class="config-queue-heading"><strong>Последние действия</strong><button id="config-queue-refresh" type="button" hidden>Обновить отображение</button></div>
+<ol id="config-queue-list"></ol><button id="config-queue-more" type="button" hidden>Показать ещё</button>
+</details>
+<style>
+body .config-queue{height:56px;min-height:56px;max-height:56px;width:100%;box-sizing:border-box;overflow:hidden;margin:0 0 18px;padding:14px 16px;border:1px solid #b8c9ef;border-radius:10px;background:#eef3ff;color:#182033}
+body .config-queue[open]{height:508px;min-height:508px;max-height:508px}
+body .config-queue-summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;height:26px;line-height:26px}
+body .config-queue-summary::-webkit-details-marker{display:none}
+body .config-queue-summary::before{content:"";width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;flex:none}
+body .config-queue[open]>.config-queue-summary::before{transform:rotate(90deg)}
+body .config-queue-summary strong{flex:none}
+body #config-queue-title{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+body .config-queue-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;height:32px;margin-top:8px}
+body .config-queue li{margin:7px 0;overflow-wrap:anywhere;font-size:13px;line-height:1.5}
+body .config-queue .job-failed{color:#b42318}
+body #config-queue-list{height:360px;min-height:360px;max-height:360px;overflow:auto;margin:8px 0;padding-left:22px;box-sizing:border-box}
+body .config-queue button{padding:5px 10px;min-height:30px;font-size:12px;margin:0}
+body #config-queue-refresh[hidden],body #config-queue-more[hidden]{display:block!important;visibility:hidden}
+body .config-queue li details{margin:3px 0}body .config-queue li summary{cursor:pointer;font-size:12px}
+body .config-queue pre{white-space:pre-wrap;overflow:visible;max-height:none;overflow-wrap:anywhere;word-break:break-word;margin:5px 0;font:12px/1.5 ui-monospace,monospace}
+@media(max-width:500px){body .config-queue-summary{gap:7px}body .config-queue-summary strong{font-size:13px}body #config-queue-title{font-size:12px}}
+@media(prefers-color-scheme:dark){body .config-queue{background:#202a3b;color:#edf1fa;border-color:#465168}body .config-queue .job-failed{color:#ff929b}}
+</style>
+<script>
+(()=>{
+const box=document.getElementById("config-queue"),title=document.getElementById("config-queue-title"),list=document.getElementById("config-queue-list"),refresh=document.getElementById("config-queue-refresh");
+let wasPending=false,requests=0,reloading=false,polling=false;
+const inlineRouteJobs=new Map();
+const maintenanceJobs=new Map();
+function maintenanceLock(form,on){for(const button of document.querySelectorAll('[form="'+form.id+'"]'))button.disabled=on;}
+let activeComponents=new Set();
+const sendingComponents=new Set(),submittedComponents=new Set();
+function componentBusy(name){return activeComponents.has(name)||sendingComponents.has(name)||submittedComponents.has(name);}
+function renderComponentLocks(){
+ for(const row of document.querySelectorAll('[data-component], [data-system-component]')){
+  const busy=componentBusy(row.dataset.component||row.dataset.systemComponent);
+  row.toggleAttribute('aria-busy',busy);
+  for(const form of row.querySelectorAll('form'))form.inert=busy;
+ }
+}
+const more=document.getElementById("config-queue-more"),jobs=new Map();
+let cursor=null,latest=0,total=0,lastRender="";
+const dateFormat=new Intl.DateTimeFormat("ru-RU",{timeZone:"Europe/Moscow",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"});
+const seconds=new Intl.NumberFormat("ru-RU",{maximumFractionDigits:1,minimumFractionDigits:1});
+try{box.open=sessionStorage.getItem("mihomo-queue-expanded")==="1";}catch(e){}
+box.addEventListener("toggle",()=>{try{sessionStorage.setItem("mihomo-queue-expanded",box.open?"1":"0");}catch(e){}});
+function mergeRecent(data){
+ total=data.total;
+ const rows=data.jobs;
+ if(rows.length){
+  const oldest=rows[rows.length-1].id;
+  if(cursor===null||(latest&&oldest>latest+1))cursor=oldest;
+  latest=Math.max(latest,rows[0].id);
+ }
+ for(const job of rows)jobs.set(job.id,job);
+ renderJobs();
+}
+function renderJobs(){
+ const rows=[...jobs.values()].sort((a,b)=>b.id-a.id);
+ more.hidden=rows.length>=total||cursor===null||cursor===0;
+ const key=JSON.stringify(rows);if(key===lastRender)return;lastRender=key;
+ const opened=new Set([...list.querySelectorAll("details[open]")].map(d=>d.dataset.job));
+ const scroll=list.scrollTop;list.replaceChildren();
+ const states={queued:"В очереди",running:"Применяется",done:"Готово",failed:"Ошибка"};
+ for(const job of rows){
+  const li=document.createElement("li");li.className="job-"+job.status;
+  const start=job.started||job.created;
+  const when=dateFormat.format(new Date(start*1000));
+  let state=states[job.status];
+  if(job.status==="running"&&job.message)state+=" · "+job.message;
+  if(Number.isFinite(job.duration))state+=(job.status==="done"?" за ":" через ")+seconds.format(job.duration)+" сек.";
+  const line=document.createElement("div");
+  line.textContent=(job.started?"":"Ожидание с ")+when+" — "+(job.subject||job.label)+(job.change_text?" — "+job.change_text:"")+" — "+state;
+  li.append(line);
+  if(job.message&&(job.status==="done"||job.status==="failed")){
+   const details=document.createElement("details");details.dataset.job=String(job.id);details.open=opened.has(String(job.id));
+   const summary=document.createElement("summary");summary.textContent="Подробности";
+   const pre=document.createElement("pre");pre.textContent=job.message;details.append(summary,pre);li.append(details);
+  }
+  list.append(li);
+ }
+ if(!rows.length){const li=document.createElement("li");li.textContent="Действий пока нет";list.append(li);}
+ list.scrollTop=scroll;
+}
+more.addEventListener("click",async()=>{
+ more.disabled=true;
+ try{
+  const r=await fetch("/api/actions/history?before="+(cursor||0),{cache:"no-store"});if(!r.ok)throw new Error("История недоступна");
+  const data=await r.json();total=data.total;
+  for(const job of data.jobs)jobs.set(job.id,job);
+  cursor=data.jobs.length?data.jobs[data.jobs.length-1].id:0;
+  renderJobs();
+ }catch(e){title.textContent="Не удалось загрузить историю. Повторите попытку.";}
+ finally{more.disabled=false;}
+});
+
+try{wasPending=sessionStorage.getItem("mihomo-actions-pending")==="1";}catch(e){}
+function dirty(){return !!document.querySelector('form[data-queue-dirty="1"]');}
+const viewRefreshJobs=new Set();
+const vpnHeaderJobs=new Set();
+async function refreshVpnHeader(){
+ const response=await fetch(location.href,{cache:"no-store"});
+ if(!response.ok)throw new Error("Не удалось обновить список VPN");
+ const page=new DOMParser().parseFromString(await response.text(),"text/html");
+ const selector=".unified-topbar .unified-health-group";
+ const current=document.querySelector(selector),updated=page.querySelector(selector);
+ if(!current||!updated)throw new Error("Список VPN недоступен");
+ current.replaceChildren(...updated.childNodes);
+ restoreProxyHealth();
+}
+const subscriptionViewKey="mihomo-subscription-view";
+function subscriptionControls(){
+ const panel=document.querySelector(".subscription-table")?.closest(".proxy-manager");
+ if(!panel)return null;
+ return {
+  panel,
+  add:panel.querySelector(".vpn-subscription-add"),
+  groups:[...panel.querySelectorAll("[data-vpn-group]")],
+  automation:[...panel.querySelectorAll("[data-vpn-auto]")],
+  tls:[...panel.querySelectorAll(".vpn-client-form details")],
+  filters:[...panel.querySelectorAll("[data-vpn-filter]")]
+ };
+}
+function tlsNode(details){return details.closest("form").elements.namedItem("name").value;}
+function saveSubscriptionView(){
+ const view=subscriptionControls();
+ if(!view)return;
+ sessionStorage.setItem(subscriptionViewKey,JSON.stringify({
+  add:view.add?.open,
+  groups:view.groups.filter(group=>group.querySelector(".vpn-group-toggle").getAttribute("aria-expanded")==="true").map(group=>group.dataset.vpnGroup),
+  automation:view.automation.filter(details=>details.open).map(details=>details.dataset.vpnAuto),
+  tls:view.tls.filter(details=>details.open).map(tlsNode),
+  filters:Object.fromEntries(view.filters.map(filter=>[filter.dataset.vpnFilter,filter.value]))
+ }));
+}
+document.addEventListener("DOMContentLoaded",()=>{
+ try{
+  const view=subscriptionControls(),state=JSON.parse(sessionStorage.getItem(subscriptionViewKey));
+  sessionStorage.removeItem(subscriptionViewKey);
+  if(!view||!state)return;
+  if(view.add)view.add.open=Boolean(state.add);
+  for(const group of view.groups)group.querySelector(".vpn-group-toggle").setAttribute("aria-expanded",String(state.groups.includes(group.dataset.vpnGroup)));
+  for(const details of view.tls)details.open=state.tls.includes(tlsNode(details));
+  for(const details of view.automation)details.open=(state.automation||[]).includes(details.dataset.vpnAuto);
+  for(const filter of view.filters){
+   const value=state.filters[filter.dataset.vpnFilter];
+   if([...filter.options].some(option=>option.value===value))filter.value=value;
+  }
+  updateSubscriptionGroups(view.panel);
+ }catch(e){}
+});
+function reloadView(){if(reloading)return;reloading=true;try{sessionStorage.setItem("mihomo-proxy-tab-navigation","1");sessionStorage.removeItem("mihomo-actions-pending");saveSubscriptionView();}catch(e){}location.reload();}
+refresh.addEventListener("click",reloadView);
+for(const kind of ["input","change"])document.addEventListener(kind,e=>{const f=e.target.form;if(f)f.dataset.queueDirty="1";});
+function queued(){wasPending=true;box.hidden=false;title.textContent="Действие добавлено в очередь";try{sessionStorage.setItem("mihomo-actions-pending","1");}catch(e){}}
+function optimistic(form,data){
+ const action=data.get("action"),button=form.querySelector('button[type="submit"]');
+ if(action==="proxy_balance"&&button){const on=data.get("enabled")==="1";button.textContent=on?"Включено":"Отключено";button.style.background=on?"#16803c":"#c62828";button.value=on?"0":"1";
+  const row=form.closest("tr"),box=row?.querySelector('input[name="selected"]');
+  if(box)box.dataset.balanceEnabled=on?"1":"0";
+  row?.closest(".proxy-manager")?.querySelector('[data-vpn-filter="status"]')?.dispatchEvent(new Event("change",{bubbles:true}));
+ }
+ if(action==="service_toggle"&&button){const on=(button.querySelector("span")?.textContent||button.textContent).trim()!=="Включено";button.textContent=on?"Включено":"Отключено";button.style.background=on?"#16803c":"#c62828";}
+ if(action==="service_delete"||action==="delete")form.closest("tr")?.remove();
+ if(action==="proxy_delete_selected")for(const c of document.querySelectorAll('input[name="selected"]:checked'))c.closest("tr")?.remove();
+ if(action==="routing_save"){const b=form.querySelector('button[name="services_enabled"]');if(b){const on=data.getAll("services_enabled").at(-1)==="1";b.value=on?"0":"1";b.textContent=on?"Включено":"Отключено";b.classList.toggle("service-on",on);b.classList.toggle("service-off",!on);const h=form.querySelector('input[name="services_enabled"]');if(h)h.value=on?"1":"0";}}
+}
+document.addEventListener("submit",async event=>{
+ const form=event.target;if(event.defaultPrevented||form.method.toLowerCase()!=="post")return;
+ if(form.dataset.queueSending==="1"||form.dataset.inlineBusy==="1"){event.preventDefault();return;}
+ const data=new URLSearchParams(new FormData(form,event.submitter));
+ const baseline=new URLSearchParams(new FormData(form)).toString();
+ if(!data.has("action"))return;
+ const component=data.get('action')==='component_change'?data.get('component'):null;
+ if(component&&componentBusy(component)){event.preventDefault();return;}
+ event.preventDefault();form.dataset.queueSending="1";requests++;
+ if(component){sendingComponents.add(component);renderComponentLocks();}
+ const button=event.submitter;if(button)button.disabled=true;
+ try{
+  const r=await fetch("/api/actions/queue",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:data});
+  const result=await r.json();if(!r.ok||!result.ok)throw new Error(result.message||"Не удалось добавить действие");
+  if(["subscription_add","subscription_refresh","subscription_delete","subscription_automation"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
+  if(["service_geodata_import","service_refresh_geodata","service_set_target","service_move","service_reorder","service_toggle","service_delete","service_save"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
+  if(form.classList.contains("domain-toggle"))viewRefreshJobs.add(result.job_id);
+  if(["dns_flush","core_restart"].includes(data.get("action"))){maintenanceJobs.set(result.job_id,form);form.dataset.inlineBusy="1";maintenanceLock(form,true);}
+  if(["dns_save","configuration_apply"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
+  if(["route_add","route_target","route_delete","route_toggle","route_metric","route_apply"].includes(data.get("action"))&&window.refreshRouteRows){inlineRouteJobs.set(result.job_id,{form,baseline,action:data.get("action")});form.dataset.inlineBusy="1";form.inert=true;}
+  if(["proxy_balance","proxy_enable_selected","proxy_delete","proxy_delete_selected"].includes(data.get("action")))vpnHeaderJobs.add(result.job_id);
+  if(component)submittedComponents.add(component);
+  if(new URLSearchParams(new FormData(form)).toString()===baseline)delete form.dataset.queueDirty;
+  optimistic(form,data);queued();
+ }catch(error){box.hidden=false;title.textContent="Действие не принято: "+error.message;if(data.get("action")==="configuration_apply")window.configurationDraft?.applyFailed(error.message);}
+ finally{delete form.dataset.queueSending;requests--;if(button)button.disabled=form.dataset.inlineBusy==="1";if(data.get("action")==="route_apply"&&!form.dataset.inlineBusy)window.routeDraftBusy?.(false);if(component){sendingComponents.delete(component);renderComponentLocks();}poll();}
+});
+async function poll(){
+ if(reloading||polling)return;
+ polling=true;
+ const acknowledged=[...submittedComponents];
+ try{
+  const r=await fetch("/api/actions/status",{cache:"no-store"});if(!r.ok)return;
+  const data=await r.json(),pending=data.queued+data.running;
+  for(const job of data.jobs){
+   const form=maintenanceJobs.get(job.id);if(!form||!["done","failed"].includes(job.status))continue;
+   maintenanceJobs.delete(job.id);delete form.dataset.inlineBusy;maintenanceLock(form,false);
+   let note=document.getElementById(form.id+'-result');
+   if(!note){note=document.createElement('p');note.id=form.id+'-result';note.className='runtime-result';note.setAttribute('role','status');form.after(note);}
+   note.textContent=(job.status==='failed'?'Ошибка: ':'')+job.message;
+   if(!pending&&!requests&&!maintenanceJobs.size){wasPending=false;try{sessionStorage.removeItem('mihomo-actions-pending');}catch(e){}}
+  }
+  for(const job of data.jobs){
+   const context=inlineRouteJobs.get(job.id);if(!context||!["done","failed"].includes(job.status))continue;
+   try{await window.refreshRouteRows(context,job);}catch(error){document.getElementById("route-inline-status").textContent=error.message;continue;}
+   inlineRouteJobs.delete(job.id);delete context.form.dataset.inlineBusy;context.form.inert=false;
+   for(const button of context.form.querySelectorAll('button[type="submit"],button:not([type])'))button.disabled=false;
+   if(context.action==="route_apply")window.routeDraftBusy?.(false);
+   if(!pending&&!requests&&!inlineRouteJobs.size){wasPending=false;try{sessionStorage.removeItem("mihomo-actions-pending");}catch(e){}}
+  }
+  if(!requests && data.jobs.some(job=>viewRefreshJobs.has(job.id) && job.status==="done")){
+   reloadView();return;
+  }
+  for(const job of data.jobs)if(job.status==="failed"){if(viewRefreshJobs.has(job.id))window.configurationDraft?.applyFailed(job.message);viewRefreshJobs.delete(job.id);}
+  const vpnDone=data.jobs.filter(job=>vpnHeaderJobs.has(job.id)&&job.status==="done");
+  if(vpnDone.length){
+   await refreshVpnHeader();
+   for(const job of vpnDone)vpnHeaderJobs.delete(job.id);
+  }
+  for(const job of data.jobs)if(job.status==="failed")vpnHeaderJobs.delete(job.id);
+  activeComponents=new Set(data.active_components||[]);
+  for(const component of acknowledged)submittedComponents.delete(component);
+  renderComponentLocks();
+  const failed=data.jobs.filter(j=>j.status==="failed");
+  if(pending){wasPending=true;box.hidden=false;title.textContent="Применяется: "+data.running+". В очереди: "+data.queued+".";refresh.hidden=true;}
+  else if(wasPending){box.hidden=false;title.textContent=failed.length?"Очередь завершена. Есть ошибки — откройте список действий.":"Все изменения применены.";refresh.hidden=false;
+   if(vpnDone.length&&!requests){wasPending=false;try{sessionStorage.removeItem("mihomo-actions-pending");}catch(e){}}
+   else if(!dirty()&&!requests&&!box.open&&!inlineRouteJobs.size){reloadView();return;}}
+  else if(failed.length){box.hidden=false;title.textContent="Некоторые действия не выполнены — откройте список.";refresh.hidden=true;}
+  else{box.hidden=false;title.textContent="Очередь пуста";refresh.hidden=true;}
+  mergeRecent(data);
+ }catch(error){if(wasPending){box.hidden=false;title.textContent="Ожидаем связь с панелью. Принятые действия сохранены в очереди.";}}
+ finally{polling=false;}
+}
+setTimeout(poll,0);setInterval(poll,1500);
+})();
+</script>
+<script>
+document.addEventListener('DOMContentLoaded',()=>{if(document.body.dataset.page==='components'){
+ for(const p of document.querySelectorAll('.routing-panel p')){
+  const used=p.textContent.match(/^Использовано\s+([\d.,]+)\s+МБ/);
+  if(used){const value=document.createElement('strong');value.textContent=used[1]+' МБ';p.replaceChildren(document.createTextNode('Использование диска — '),value);}
+ }
+}});
+</script>
