@@ -1,19 +1,20 @@
-name: Publish panel update
+name: Attach panel update to core release
 
 on:
-  push:
-    tags:
-      - 'panel-v*'
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  panel:
+    if: startsWith(github.event.release.tag_name, 'v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
@@ -22,7 +23,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#panel-v}"
+          VERSION="$(tr -d '\r\n' < updates/panel/VERSION)"
           mkdir -p dist
           python scripts/build-panel-release.py "$VERSION" dist/panel.tar.gz > dist/release-info.json
           python - <<'PY'
@@ -31,22 +32,23 @@ jobs:
           d=json.loads(Path('dist/release-info.json').read_text())
           print(f"::notice::Panel {d['version']} archive: {d['size']} bytes, SHA-256 {d['sha256']}")
           PY
-      - name: Publish GitHub release asset
+      - name: Attach panel to core release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/panel.tar.gz --title "Panel ${{ github.ref_name }}" --notes "Universal VPN Core control panel update. The updater verifies the archive SHA-256 before installation."
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/panel.tar.gz --clobber
       - name: Update stable manifest on main
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#panel-v}"
           python - <<'PY'
           import json, os
           from pathlib import Path
           info=json.loads(Path('dist/release-info.json').read_text())
-          tag=os.environ['GITHUB_REF_NAME']
+          tag=os.environ['TAG']
           repository=os.environ['GITHUB_REPOSITORY']
           data={'version':info['version'],'tag':tag,
                 'url':f"https://github.com/{repository}/releases/download/{tag}/panel.tar.gz",
@@ -61,6 +63,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add updates/panel/stable.json
           if ! git diff --cached --quiet; then
-            git commit -m "Publish panel ${VERSION} update manifest"
+            git commit -m "Point panel updates to ${TAG}"
             git push origin main
           fi

@@ -77,14 +77,14 @@ def read_manifest():
         raw = _get(MANIFEST_URL, 64 * 1024)
     except RuntimeError as error:
         if '404' in str(error):
-            raise RuntimeError('В GitHub ещё не опубликован стабильный выпуск панели. Первый выпуск создаётся тегом panel-vX.Y.Z.') from error
+            raise RuntimeError('В GitHub ещё не опубликован выпуск с обновлением панели.') from error
         raise
     data = json.loads(raw)
     version = str(data.get('version', ''))
     _version(version)
     tag = str(data.get('tag', ''))
-    if tag != 'panel-v' + version:
-        raise ValueError('Тег выпуска панели не совпадает с версией')
+    if tag != 'panel-v' + version and not re.fullmatch(r'v\d+\.\d+[a-z]?\.\d{6}\.\d{4}', tag):
+        raise ValueError('Некорректный тег выпуска панели или контейнера')
     url = str(data.get('url', ''))
     expected = 'https://github.com/' + REPOSITORY + '/releases/download/' + tag + '/panel.tar.gz'
     if url != expected:
