@@ -6,7 +6,43 @@
 
 ## Установка последнего релиза из GitHub
 
-На роутере должны быть установлены пакет RouterOS `container` и включён `device-mode container`. Сохраните резервную копию RouterOS. Затем выполните в его терминале:
+Перед установкой сохраните резервную копию конфигурации RouterOS на компьютер. Для контейнера нужны архитектура ARMv7 (`arm`) или ARM64 (`arm64`), пакет `container` и разрешение в device mode. Проверить архитектуру и установленные пакеты можно в терминале роутера:
+
+```routeros
+/system/resource/print
+/system/package/print
+```
+
+Если пакета `container` ещё нет, установите его **непосредственно с сервера MikroTik** (RouterOS 7.18 и новее). Выполните проверку обновлений, дождитесь её завершения и убедитесь, что `container` появился в списке доступных пакетов:
+
+```routeros
+/system/package/update/check-for-updates
+/system/package/print where name=container
+```
+
+Затем запланируйте установку и примените её. Роутер скачает пакет и перезагрузится:
+
+```routeros
+/system/package/enable [find where name=container]
+/system/package/apply-changes
+```
+
+После возвращения роутера проверьте, что `container` установлен и включён:
+
+```routeros
+/system/package/print where name=container
+```
+
+Если пакет уже был установлен и включён, пропустите его установку. Теперь проверьте device mode и, если в выводе указано `container: no`, разрешите контейнеры:
+
+```routeros
+/system/device-mode/print
+/system/device-mode/update container=yes
+```
+
+**В течение 5 минут подтвердите изменение физически:** коротко нажмите кнопку Reset или Mode либо выключите и снова включите питание роутера. Не удерживайте Reset до сброса настроек. Обычная команда `/system/reboot` отменит ожидающее изменение. После подтверждения роутер перезагрузится; проверьте `/system/device-mode/print` — должно быть `container: yes`. Если контейнеры уже разрешены, команду `update` и физическое подтверждение пропустите. [Инструкция MikroTik по пакетам](https://help.mikrotik.com/docs/spaces/ROS/pages/40992872/Packages) и [device mode](https://manual.mikrotik.com/docs/system-information-and-utilities/device-mode/).
+
+Теперь скачайте установщик текущего релиза в терминале роутера:
 
 ```routeros
 /tool fetch url="https://github.com/golddragon1986-cyber/universal-vpn-core/releases/latest/download/install-latest.rsc" dst-path="install-latest.rsc" check-certificate=yes http-max-redirect-count=5
