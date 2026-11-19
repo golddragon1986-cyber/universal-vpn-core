@@ -32,11 +32,11 @@ jobs:
           d=json.loads(Path('dist/release-info.json').read_text())
           print(f"::notice::Panel {d['version']} archive: {d['size']} bytes, SHA-256 {d['sha256']}")
           PY
-      - name: Attach panel to core release
+      - name: Attach panel and stable installer to core release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG" dist/panel.tar.gz --clobber
+        run: gh release upload "$TAG" dist/panel.tar.gz scripts/install-latest.rsc --clobber
       - name: Update stable manifest on main
         env:
           GH_TOKEN: ${{ github.token }}
