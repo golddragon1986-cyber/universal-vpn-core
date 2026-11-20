@@ -42,11 +42,10 @@
 
 **В течение 5 минут подтвердите изменение физически:** коротко нажмите кнопку Reset или Mode либо выключите и снова включите питание роутера. Не удерживайте Reset до сброса настроек. Обычная команда `/system/reboot` отменит ожидающее изменение. После подтверждения роутер перезагрузится; проверьте `/system/device-mode/print` — должны быть `container: yes` и `fetch: yes`. Если оба разрешения уже включены, команду `update` и физическое подтверждение пропустите. [Инструкция MikroTik по пакетам](https://help.mikrotik.com/docs/spaces/ROS/pages/40992872/Packages) и [device mode](https://manual.mikrotik.com/docs/system-information-and-utilities/device-mode/).
 
-Теперь скачайте установщик текущего релиза в терминале роутера:
+Для новой установки выполните в терминале роутера **одну команду**. Она скачает скрипт и сразу запустит его:
 
 ```routeros
-/tool fetch url="https://raw.githubusercontent.com/golddragon1986-cyber/universal-vpn-core/main/scripts/install-latest.rsc" dst-path="install-latest.rsc" check-certificate=yes
-/import file-name="install-latest.rsc"
+{ /tool fetch url="https://raw.githubusercontent.com/golddragon1986-cyber/universal-vpn-core/main/scripts/install-latest.rsc" dst-path="install-latest.rsc" check-certificate=yes; /import file-name="install-latest.rsc" }
 ```
 
 Один запуск скачает образ и установочные скрипты последнего релиза, развернёт и запустит контейнер, дождётся ответа панели, включит DNS клиентов и маршрут Fake-IP. По завершении он покажет отчёт и адрес панели. Перед запуском прочитайте [полную инструкцию текущего релиза](version/0.31b.191126.1600/universal-vpn/README.md).
