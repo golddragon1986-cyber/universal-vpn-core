@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui
 """Per-connection client selection. Reject lossy conversions before changing traffic."""
 import copy, hashlib, html, json, os, re, shutil, signal, subprocess, tempfile, threading, time
 from pathlib import Path
@@ -375,11 +376,11 @@ def remove_unused(names):
 
 def form(node):
     engine=current(node);e=lambda x:html.escape(str(x),quote=True)
-    options=''.join('<option value="'+key+'"'+(' selected' if key==engine else '')+(' disabled' if not binary(key) else '')+'>'+label+(' · не установлен' if not binary(key) else '')+'</option>' for key,label in NAMES.items())
+    options=''.join('<option value="'+key+'"'+(' selected' if key==engine else '')+(' disabled' if not binary(key) else '')+'>'+label+(_ui(' · не установлен') if not binary(key) else '')+'</option>' for key,label in NAMES.items())
     profile=canonical(node)
     tls=''
     if profile.get('tls') and 'xray_outbound' not in profile:
         selected=node.get('tls_fingerprint','')
         fingerprints=''.join(f'<option value="{fp}" {"selected" if fp==selected else ""}>{fp}</option>' for fp in TLS_PROFILES)
-        tls='<details><summary>TLS-профиль</summary><select name="fingerprint" aria-label="TLS-профиль"><option value="source">Из источника</option>'+fingerprints+'</select></details>'
-    return '<form method="post" class="vpn-client-form"><input type="hidden" name="action" value="vpn_client"><input type="hidden" name="name" value="'+e(node['proxy']['name'])+'"><select name="client" aria-label="Клиент '+e(node['proxy']['name'])+'">'+options+'</select>'+tls+'<button type="submit">Применить</button></form>'
+        tls=_ui('<details><summary>TLS-профиль</summary><select name="fingerprint" aria-label="TLS-профиль"><option value="source">Из источника</option>')+fingerprints+'</select></details>'
+    return '<form method="post" class="vpn-client-form"><input type="hidden" name="action" value="vpn_client"><input type="hidden" name="name" value="'+e(node['proxy']['name'])+_ui('"><select name="client" aria-label="Клиент ')+e(node['proxy']['name'])+'">'+options+'</select>'+tls+_ui('<button type="submit">Применить</button></form>')

@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui, message as _ui_message
 from durable_io import replace as durable_replace
 #!/usr/bin/env python3
 import copy
@@ -64,7 +65,7 @@ def mrs_domains(path):
                 subprocess.run(
                     mrs_command(131072, "domain", "mrs", str(path), output),
                     env={**os.environ, "GOGC": "35", "GOMEMLIMIT": "80MiB"},
-                    capture_output=True, check=True, timeout=15,
+                    capture_output=True, check=True, timeout=30,
                 )
                 current = path.stat()
                 if (current.st_ino, current.st_ctime_ns) != (source_stat.st_ino, source_stat.st_ctime_ns):
@@ -822,16 +823,16 @@ def render_services(params, targets=None):
     if service_id:
         matches=[i for i,item in enumerate(items) if item.get("id")==service_id or "name:"+str(item.get("name",""))==service_id]
         if len(matches)!=1:
-            raise ValueError("Правило уже удалено. Обновите список.")
+            raise ValueError(_ui('Правило уже удалено. Обновите список.'))
         edit_index=matches[0]
     current = {}
     if 0 <= edit_index < len(items):
         current = items[edit_index]
 
     title = (
-        "Редактировать правило"
+        _ui('Редактировать правило')
         if current else
-        "Добавить правило"
+        _ui('Добавить правило')
     )
     name_value = esc(current.get("name", ""))
     domains = current.get("domains", [])
@@ -851,14 +852,13 @@ def render_services(params, targets=None):
     if current.get("geo_sets"):
         category = esc(", ".join(dict.fromkeys(ref["category"] for ref in geo_sources(current))) or current["name"])
         count = f'{current["geo_count"]:,}'.replace(",", "\u202f") if "geo_count" in current else "—"
-        geo_note = (f'<p class="hint">Набор GeoDAT <strong>{category}</strong> хранится отдельным файлом. '
-                    f'Записей в наборе — {count}. В поле ниже можно добавить отдельные правила.</p>')
+        geo_note = (''.join((_ui('<p class="hint">Набор GeoDAT <strong>'), f'{category}', _ui('</strong> хранится отдельным файлом. Записей в наборе — '), f'{count}', _ui('. В поле ниже можно добавить отдельные правила.</p>'))))
     selected_target = current.get("target") or "SELECTOR"
 
     options = []
     for target in targets:
         selected = " selected" if target == selected_target else ""
-        options.append(f'<option value="{esc(target)}"{selected}>{esc(ROUTE_LABELS.get(target, target))}</option>')
+        options.append(f'<option value="{esc(target)}"{selected}>{esc(_ui(ROUTE_LABELS[target]) if target in ROUTE_LABELS else target)}</option>')
 
     lookup = params.get("service_domain", [""])[0].strip()
     lookup_error = ""
@@ -866,16 +866,16 @@ def render_services(params, targets=None):
     if lookup:
         try:
             if not SERVICE_LOOKUP_LOCK.acquire(blocking=False):
-                raise ValueError("Поиск уже выполняется.")
+                raise ValueError(_ui('Поиск уже выполняется.'))
             try:
                 visible_items = {id(item) for item in matching_services(items, lookup)}
             finally:
                 SERVICE_LOOKUP_LOCK.release()
         except ValueError as error:
-            lookup_error = f'<p role="alert">{esc(error)}</p>'
+            lookup_error = f'<p role="alert">{esc(_ui_message(error))}</p>'
             visible_items = set()
         except (OSError, subprocess.SubprocessError):
-            lookup_error = '<p role="alert">Не удалось выполнить поиск. Проверьте домен и доступность файлов наборов.</p>'
+            lookup_error = _ui('<p role="alert">Не удалось выполнить поиск. Проверьте домен и доступность файлов наборов.</p>')
             visible_items = set()
     rows = []
     for i, item in enumerate(items):
@@ -885,276 +885,31 @@ def render_services(params, targets=None):
         move_buttons = "".join(
             f'<button type="button" data-rule-move="{direction}" aria-label="{label}">{arrow}</button>'
             for direction, label, arrow, disabled in (
-                ("up", "Переместить выше", "↑", i == 0),
-                ("down", "Переместить ниже", "↓", i == len(items)-1),
+                ("up", _ui('Переместить выше'), "↑", i == 0),
+                ("down", _ui('Переместить ниже'), "↓", i == len(items)-1),
             )
         )
         target = item.get("target", "")
         selection = "".join(
-            f'<option value="{esc(value)}"{" selected" if value == target else ""}>{esc(ROUTE_LABELS.get(value, value))}</option>'
+            f'<option value="{esc(value)}"{" selected" if value == target else ""}>{esc(_ui(ROUTE_LABELS[value]) if value in ROUTE_LABELS else value)}</option>'
             for value in dict.fromkeys([target, *targets])
         )
-        target_form = f'''<form method="post" class="service-route-form"><input type="hidden" name="action" value="service_set_target">
-<input type="hidden" name="index" value="{i}"><input type="hidden" name="service_id" value="{esc(item.get('id') or 'name:'+str(item.get('name','')))}">
-<select name="target" aria-label="Группа правила {esc(item.get('name', ''))}" onchange="this.form.requestSubmit()">{selection}</select></form>'''
+        target_form = ''.join(('<form method="post" class="service-route-form"><input type="hidden" name="action" value="service_set_target">\n<input type="hidden" name="index" value="', f'{i}', '"><input type="hidden" name="service_id" value="', f"{esc(item.get('id') or 'name:' + str(item.get('name', '')))}", _ui('">\n<select name="target" aria-label="Группа правила '), f"{esc(item.get('name', ''))}", '" onchange="this.form.requestSubmit()">', f'{selection}', '</select></form>'))
         count_label = "—" if item.get("geo_sets") and "geo_count" not in item else f"{total:,}".replace(",", "\u202f")
         enabled = bool(item.get("enabled", True))
-        status_label = "Включено" if enabled else "Отключено"
+        status_label = _ui('Включено') if enabled else _ui('Отключено')
         status_color = "#16803c" if enabled else "#c62828"
         status_button = f'''<form method="post"><input type="hidden" name="action" value="service_toggle"><input type="hidden" name="index" value="{i}"><input type="hidden" name="service_id" value="{esc(item.get('id') or 'name:'+str(item.get('name','')))}"><button type="submit" style="background:{status_color};color:white;font-weight:700;width:130px;min-width:130px;box-sizing:border-box;text-align:center;white-space:nowrap">{status_label}</button></form>'''
         source_update = ""
         if geo_sources(item):
-            source_update = f'''<form method="post"><input type="hidden" name="action" value="service_refresh_geodata">
-<input type="hidden" name="index" value="{i}"><input type="hidden" name="service_id" value="{esc(item.get('id') or 'name:'+str(item.get('name','')))}">
-<button type="submit">Обновить</button></form>'''
+            source_update = ''.join(('<form method="post"><input type="hidden" name="action" value="service_refresh_geodata">\n<input type="hidden" name="index" value="', f'{i}', '"><input type="hidden" name="service_id" value="', f"{esc(item.get('id') or 'name:' + str(item.get('name', '')))}", _ui('">\n<button type="submit">Обновить</button></form>')))
         elif item.get("source_repo") == SOURCE_REPO and item.get("source_service"):
-            source_update = f"""<form method=\"post\"><input type=\"hidden\" name=\"action\" value=\"service_update_source\"><input type=\"hidden\" name=\"index\" value=\"{i}\"><input type=\"hidden\" name=\"service_id\" value=\"{esc(item.get('id') or 'name:'+str(item.get('name','')))}\"><button type=\"submit\">Обновить</button></form>"""
-        rows.append(f"""
-<tr data-rule-id="{esc(item.get("id") or "name:"+item["name"])}">
-<td><div class="rule-order"><span>{i+1}</span>{move_buttons}</div></td>
-<td>{esc(item.get('name', ''))}</td>
-<td>{count_label}</td>
-<td>{target_form}</td>
-<td>{status_button}</td>
-<td class="actions"><div class="service-row-actions">
-<a class="action-button" href="{esc(service_edit_url(item))}">Изменить</a>
-{source_update}
-<form method="post" onsubmit="return confirm('Подтвердить удаление?')">
-<input type="hidden" name="action" value="service_delete">
-<input type="hidden" name="index" value="{i}"><input type="hidden" name="service_id" value="{esc(item.get('id') or 'name:'+str(item.get('name','')))}">
-<button type="submit" class="danger">Удалить</button></form>
-</div></td></tr>""")
+            source_update = ''.join(('<form method="post"><input type="hidden" name="action" value="service_update_source"><input type="hidden" name="index" value="', f'{i}', '"><input type="hidden" name="service_id" value="', f"{esc(item.get('id') or 'name:' + str(item.get('name', '')))}", _ui('"><button type="submit">Обновить</button></form>')))
+        rows.append(''.join(('\n<tr data-rule-id="', f"{esc(item.get('id') or 'name:' + item['name'])}", '">\n<td><div class="rule-order"><span>', f'{i + 1}', '</span>', f'{move_buttons}', '</div></td>\n<td>', f"{esc(item.get('name', ''))}", '</td>\n<td>', f'{count_label}', '</td>\n<td>', f'{target_form}', '</td>\n<td>', f'{status_button}', '</td>\n<td class="actions"><div class="service-row-actions">\n<a class="action-button" href="', f'{esc(service_edit_url(item))}', _ui('">Изменить</a>\n'), f'{source_update}', _ui('\n<form method="post" onsubmit="return confirm(\'Подтвердить удаление?\')">\n<input type="hidden" name="action" value="service_delete">\n<input type="hidden" name="index" value="'), f'{i}', '"><input type="hidden" name="service_id" value="', f"{esc(item.get('id') or 'name:' + str(item.get('name', '')))}", _ui('">\n<button type="submit" class="danger">Удалить</button></form>\n</div></td></tr>'))))
 
     table_rows = "\n".join(rows) or (
-        '<tr><td colspan="6">Совпадений нет.</td></tr>' if lookup and not lookup_error else "" if lookup else
-        '<tr><td colspan="6">Нет правил. Добавьте первое правило.</td></tr>'
+        _ui('<tr><td colspan="6">Совпадений нет.</td></tr>') if lookup and not lookup_error else "" if lookup else
+        _ui('<tr><td colspan="6">Нет правил. Добавьте первое правило.</td></tr>')
     )
 
-    return f"""<!doctype html>
-<html lang="ru"><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Mihomo Control — Правила</title>
-<style>
-body{{font:15px system-ui,sans-serif;max-width:1200px;margin:28px auto;padding:0 16px;background:#f5f7fa;color:#182230}}
-h1,h2{{margin-top:0}} .panel{{background:white;border:1px solid #dce2ea;border-radius:12px;padding:18px;margin:16px 0}}
-input,textarea,select,button{{font:inherit;padding:9px;border:1px solid #b9c4d2;border-radius:7px;box-sizing:border-box}}
-input,textarea,select{{width:100%;margin:5px 0 14px}} textarea{{min-height:110px}}
-button{{cursor:pointer;background:#e8eef7}} .danger{{color:#9b1c1c}}
-.catalog-service-list{{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px;margin:12px 0}}
-.catalog-service{{display:flex;align-items:center;gap:9px;padding:8px;border:1px solid #e1e6ed;border-radius:7px;cursor:pointer}}
-.catalog-service input{{width:auto;margin:0;flex:none}}.catalog-service span{{display:flex;flex-direction:column;min-width:0}}
-.catalog-service small{{color:#657184;overflow-wrap:anywhere}}.catalog-import-form select{{max-width:420px}}
-.catalog-error{{color:#a52222}}
-table{{width:100%;border-collapse:collapse}} th,td{{padding:10px;border-bottom:1px solid #e1e6ed;text-align:left;vertical-align:middle}}
-.reset-button,.action-button{{display:inline-block;font:inherit;padding:9px 12px;
-border:1px solid #aab4c4;border-radius:8px;background:#eef1f6;color:#182033 !important;
-text-decoration:none;line-height:1.2;vertical-align:middle}}
-.reset-button:hover,.action-button:hover{{background:#e0e7f1}}
-.actions{{vertical-align:middle}}
-.actions form{{display:inline-block;vertical-align:middle;margin:4px}}
-.actions a{{margin:4px}}
-.actions form{{display:inline-block;margin:4px}} .hint{{color:#4d5a6b}} a{{color:#185abc}}
-
-@media(prefers-color-scheme:dark){{
-.reset-button,.action-button{{background:#252d3b;color:#edf1fa !important;border-color:#465168}}
-.reset-button:hover,.action-button:hover{{background:#303b4d}}
-}}
-</style>
-<div class="panel">
-<details id="service-editor" class="panel-spoiler"{" open" if current else ""}><summary>{title}</summary>
-<form method="post">
-<input type="hidden" name="action" value="service_save">
-<input type="hidden" name="index" value="{edit_index if current else -1}"><input type="hidden" name="service_id" value="{esc(current.get('id') or ('name:'+str(current.get('name','')) if current else ''))}">
-<label>Название правила</label>
-<input name="name" maxlength="100" required value="{name_value}" placeholder="Имя, например YouTube">
-{geo_note}
-<label>Домены и IPv4-сети. Разделяйте записи точкой с запятой или новой строкой.</label>
-<textarea name="domains" {"required" if not current.get("geo_sets") else ""} placeholder="youtube.com; googlevideo.com&#10;8.8.4.0/24">{domains_value}</textarea>
-<label>Группа маршрутизации</label>
-<select name="target" aria-label="Маршрут правила">{"".join(options)}</select>
-<button type="submit">Сохранить</button>
-<a class="reset-button" href="/?tab=services">Сбросить</a>
-</form></details></div>
-<div class="panel"><details class="panel-spoiler"><summary>Поиск по источникам GeoDAT</summary>
-<form class="geodata-search-form" method="get">
-<input name="q" type="search" maxlength="253" aria-label="Категория, домен, IP или сеть" placeholder="Категория, домен, IP или сеть" required>
-<button type="submit">Найти</button></form>
-<p class="hint" id="geodata-search-status" role="status"></p>
-<div id="geodata-search-results" style="overflow:auto"></div>
-<template id="geodata-service-form">
-<form method="post" action="/action" class="geodata-search-form">
-<input type="hidden" name="action" value="service_geodata_import">
-<input type="hidden" name="geo_id"><input type="hidden" name="geo_category">
-<input name="name" placeholder="Название правила" aria-label="Название правила" maxlength="100" required>
-<select name="target" aria-label="Маршрут">{"".join(options)}</select>
-<button type="submit">Создать правило</button></form>
-</template>
-</details></div>
-<style>.geodata-search-form{{display:flex;gap:10px;align-items:center;margin-top:12px}}
-body .unified-main .geodata-search-form input{{width:min(100%,420px);min-width:0;margin:0}}
-body .unified-main .geodata-search-form button{{margin:0}}
-.geodata-category-preview{{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto}}
-body .unified-main #geodata-search-results form{{flex-wrap:wrap}}
-body .unified-main #geodata-search-results select{{width:auto;max-width:100%;margin:0}}</style>
-<script>
-function geodataCategory(item){{
- const details=document.createElement("details"), title=document.createElement("summary");
- const preview=document.createElement("pre"), more=document.createElement("button");
- const form=document.getElementById("geodata-service-form").content.firstElementChild.cloneNode(true);
- title.textContent=item.name;details.append(title);
- preview.className="geodata-category-preview";preview.setAttribute("aria-live","polite");
- more.type="button";more.textContent="Показать ещё";more.hidden=true;
- form.elements.geo_id.value=item.source_id;form.elements.geo_category.value=item.name;
- form.elements.name.value=item.name.slice(0,100);
- details.append(preview,more,form);
- let next=0, loaded=false;
- async function load(){{
-  if(more.disabled || next===null)return;
-  more.disabled=true;
-  if(!loaded)preview.textContent="Читаем категорию…";
-  try{{
-   const args=new URLSearchParams({{source:item.source_id,name:item.name,offset:next}});
-   const response=await fetch("/api/geodata/category?"+args,{{cache:"no-store"}});
-   const data=await response.json();
-   if(!response.ok)throw new Error(data.message);
-   if(!loaded)preview.textContent="";
-   preview.textContent+=data.records.join(String.fromCharCode(10))+(data.records.length?String.fromCharCode(10):"");
-   if(!preview.textContent)preview.textContent="Категория пуста.";
-   loaded=true;next=data.next;more.hidden=next===null;
-   more.textContent="Показать ещё";
-  }}catch(error){{
-   if(!loaded)preview.textContent=error.message;
-   more.textContent="Повторить";more.hidden=false;
-  }}finally{{more.disabled=false;}}
- }}
- details.addEventListener("toggle",()=>{{if(details.open&&!loaded)load();}});
- more.addEventListener("click",load);
- return details;
-}}
-const geoSearchForm=document.querySelector("form.geodata-search-form");
-const geoSearchStatus=document.getElementById("geodata-search-status");
-const geoSearchOutput=document.getElementById("geodata-search-results");
-const geoSearchStorageKey="uvpnc-last-geodat-search";
-function renderGeodataSearch(data){{
-  const status=geoSearchStatus,out=geoSearchOutput;
-  out.replaceChildren();
-  status.textContent="Найдено категорий: "+data.results.length;
-  for(const error of data.errors){{
-   const line=document.createElement("p");
-   line.className="catalog-error";line.textContent=error;out.append(line);
-  }}
-  if(!data.results.length)return;
-  const table=document.createElement("table"), headings=table.createTHead().insertRow();
-  for(const label of ["Категория","Источник","Записей","Совпадение"]){{
-   const th=document.createElement("th");th.textContent=label;headings.append(th);
-  }}
-  const body=table.createTBody();
-  for(const item of data.results){{
-   const row=body.insertRow();
-   row.insertCell().append(geodataCategory(item));
-   row.insertCell().textContent=item.source+(item.kind==="ipcidr"?":IP":item.kind==="domain"?":domain":"");
-   row.insertCell().textContent=Number(item.count).toLocaleString("ru-RU");
-   row.insertCell().textContent=item.example||"Название категории";
-  }}
-  out.append(table);
-}}
-try{{
- const saved=JSON.parse(sessionStorage.getItem(geoSearchStorageKey));
- if(saved&&typeof saved.query==="string"&&Array.isArray(saved.data?.results)&&Array.isArray(saved.data?.errors)){{
-  geoSearchForm.elements.q.value=saved.query;
-  renderGeodataSearch(saved.data);
-  geoSearchForm.closest("details").open=true;
- }}
-}}catch(error){{}}
-geoSearchForm.addEventListener("submit", async event=>{{
- event.preventDefault();
- const form=event.currentTarget,button=form.querySelector("button"),status=geoSearchStatus;
- if(button.disabled)return;
- button.disabled=true;
- status.textContent="Читаем источники GeoDAT…";
- try{{
-  const query=new URLSearchParams(new FormData(form));
-  const response=await fetch("/api/geodata/search?"+query,{{cache:"no-store"}});
-  const data=await response.json();
-  if(!response.ok)throw new Error(data.message);
-  renderGeodataSearch(data);
-  try{{sessionStorage.setItem(geoSearchStorageKey,JSON.stringify({{query:query.get("q"),data}}));}}catch(error){{}}
- }}catch(error){{status.textContent=error.message||"Не удалось завершить поиск.";}}
- finally{{button.disabled=false;}}
-}});
-</script>
-<div class="panel"><div class="configured-services-header"><h2>Настроенные правила</h2>
-<div class="rules-toolbar">
-<form method="post" id="rule-order-form">
-<input type="hidden" name="action" value="service_reorder">
-<input type="hidden" name="order_before" value="{esc(json.dumps([item.get('id') or 'name:'+item['name'] for item in items]))}">
-<input type="hidden" name="order">
-<button type="submit" hidden id="rule-order-apply" disabled>Применить</button>
-<button type="button" hidden id="rule-order-cancel" disabled>Отмена</button>
-</form>
-<form method="get" class="service-domain-search">
-<input type="hidden" name="tab" value="services">
-<input type="search" name="service_domain" maxlength="253" aria-label="Домен или часть домена в настроенных правилах" value="{esc(lookup)}" placeholder="Домен или часть домена" required>
-<button type="submit">Найти правило</button>
-{'<a class="reset-button" href="/?tab=services">Сбросить поиск</a>' if lookup else ''}
-</form></div></div>
-{lookup_error}
-<p class="hint">Правила проверяются сверху вниз. Первое совпавшее включённое правило выбирает действие. PASS продолжает проверку. Новое правило добавляется в конец.</p>
-<table class="configured-services"><thead><tr><th>Порядок</th><th>Правило</th><th>Записей</th><th>Группа</th><th>Состояние</th><th>Действия</th></tr></thead>
-<tbody>{table_rows}</tbody></table></div>
-<style>
-body .unified-main .configured-services-header{{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:12px;margin-bottom:12px}}
-body .unified-main .configured-services-header h2{{margin:0}}
-body .unified-main .rules-toolbar{{display:flex;align-items:center;gap:12px;flex-wrap:wrap}}
-body .unified-main #rule-order-form{{display:flex;align-items:center;gap:8px;margin:0}}
-body .unified-main #rule-order-apply{{background:var(--ui-primary);border-color:var(--ui-primary);color:white}}
-body .unified-main .service-domain-search{{display:flex;align-items:center;gap:8px;max-width:100%;margin:0}}
-body[data-page=services] .unified-main .panel form.service-domain-search > input[type=search]{{flex:1 1 270px;width:270px;min-width:0;height:40px;margin:0}}
-body .unified-main .service-domain-search :is(button,.reset-button){{flex:none;min-width:max-content;height:40px;white-space:nowrap}}
-body .unified-main .configured-services :is(th,td){{padding:10px 12px}}
-body .unified-main .configured-services :is(th,td):nth-child(3){{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}}
-body .unified-main .rule-order{{display:flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}}
-body .unified-main .rule-order button{{padding:9px 6px;min-width:28px}}
-body .unified-main .rule-order span{{min-width:16px}}
-body .unified-main .configured-services form{{margin:0}}
-body[data-page=services] .unified-main .panel .configured-services .service-route-form > select{{width:100%;min-width:210px;max-width:290px;height:40px;margin:0}}
-body .unified-main .configured-services .service-row-actions{{display:flex;align-items:center;gap:8px;white-space:nowrap}}
-body .unified-main .configured-services .service-row-actions :is(form,.action-button){{margin:0}}
-body .unified-main .configured-services .service-row-actions :is(button,.action-button){{height:40px;white-space:nowrap}}
-@media(max-width:520px){{body .unified-main .service-domain-search:has(.reset-button){{flex-wrap:wrap}}}}
-</style>
-<script>
-(()=>{{
- const form=document.getElementById("rule-order-form");
- const body=document.querySelector(".configured-services tbody");
- const baseline=JSON.parse(form.elements.order_before.value);
- const originalRows=[...body.querySelectorAll("tr[data-rule-id]")];
- const visibleSlots=originalRows.map(row=>baseline.indexOf(row.dataset.ruleId));
- const cancel=document.getElementById("rule-order-cancel"),apply=document.getElementById("rule-order-apply");
- function update(){{
-  const rows=[...body.querySelectorAll("tr[data-rule-id]")],order=[...baseline];
-  rows.forEach((row,index)=>{{
-   order[visibleSlots[index]]=row.dataset.ruleId;
-   row.querySelector(".rule-order span").textContent=String(visibleSlots[index]+1);
-   row.querySelector('[data-rule-move="up"]').disabled=index===0;
-   row.querySelector('[data-rule-move="down"]').disabled=index===rows.length-1;
-  }});
-  form.elements.order.value=JSON.stringify(order);
-  const changed=order.some((key,index)=>key!==baseline[index]);
-  cancel.disabled=apply.disabled=!changed;
-  if(changed)form.dataset.queueDirty="1";else delete form.dataset.queueDirty;
- }}
- body.addEventListener("click",event=>{{
-  const button=event.target.closest("[data-rule-move]");
-  if(!button)return;
-  const row=button.closest("tr");
-  if(button.dataset.ruleMove==="up"){{if(row.previousElementSibling)body.insertBefore(row,row.previousElementSibling);}}
-  else if(row.nextElementSibling)body.insertBefore(row.nextElementSibling,row);
-  update();
-  window.configurationDraft?.set("order",new URLSearchParams(new FormData(form)));
- }});
- cancel.addEventListener("click",()=>{{originalRows.forEach(row=>body.append(row));update();}});
- update();
-}})();
-</script>
-</html>"""
+    return ''.join((_ui('<!doctype html>\n<html lang="ru"><meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>Mihomo Control — Правила</title>\n<style>\nbody{font:15px system-ui,sans-serif;max-width:1200px;margin:28px auto;padding:0 16px;background:#f5f7fa;color:#182230}\nh1,h2{margin-top:0} .panel{background:white;border:1px solid #dce2ea;border-radius:12px;padding:18px;margin:16px 0}\ninput,textarea,select,button{font:inherit;padding:9px;border:1px solid #b9c4d2;border-radius:7px;box-sizing:border-box}\ninput,textarea,select{width:100%;margin:5px 0 14px} textarea{min-height:110px}\nbutton{cursor:pointer;background:#e8eef7} .danger{color:#9b1c1c}\n.catalog-service-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:6px;margin:12px 0}\n.catalog-service{display:flex;align-items:center;gap:9px;padding:8px;border:1px solid #e1e6ed;border-radius:7px;cursor:pointer}\n.catalog-service input{width:auto;margin:0;flex:none}.catalog-service span{display:flex;flex-direction:column;min-width:0}\n.catalog-service small{color:#657184;overflow-wrap:anywhere}.catalog-import-form select{max-width:420px}\n.catalog-error{color:#a52222}\ntable{width:100%;border-collapse:collapse} th,td{padding:10px;border-bottom:1px solid #e1e6ed;text-align:left;vertical-align:middle}\n.reset-button,.action-button{display:inline-block;font:inherit;padding:9px 12px;\nborder:1px solid #aab4c4;border-radius:8px;background:#eef1f6;color:#182033 !important;\ntext-decoration:none;line-height:1.2;vertical-align:middle}\n.reset-button:hover,.action-button:hover{background:#e0e7f1}\n.actions{vertical-align:middle}\n.actions form{display:inline-block;vertical-align:middle;margin:4px}\n.actions a{margin:4px}\n.actions form{display:inline-block;margin:4px} .hint{color:#4d5a6b} a{color:#185abc}\n\n@media(prefers-color-scheme:dark){\n.reset-button,.action-button{background:#252d3b;color:#edf1fa !important;border-color:#465168}\n.reset-button:hover,.action-button:hover{background:#303b4d}\n}\n</style>\n<div class="panel">\n<details id="service-editor" class="panel-spoiler"'), f"{(' open' if current else '')}", '><summary>', f'{title}', '</summary>\n<form method="post">\n<input type="hidden" name="action" value="service_save">\n<input type="hidden" name="index" value="', f'{(edit_index if current else -1)}', '"><input type="hidden" name="service_id" value="', f"{esc(current.get('id') or ('name:' + str(current.get('name', '')) if current else ''))}", _ui('">\n<label>Название правила</label>\n<input name="name" maxlength="100" required value="'), f'{name_value}', _ui('" placeholder="Имя, например YouTube">\n'), f'{geo_note}', _ui('\n<label>Домены и IPv4-сети. Разделяйте записи точкой с запятой или новой строкой.</label>\n<textarea name="domains" '), f"{('required' if not current.get('geo_sets') else '')}", ' placeholder="youtube.com; googlevideo.com&#10;8.8.4.0/24">', f'{domains_value}', _ui('</textarea>\n<label>Группа маршрутизации</label>\n<select name="target" aria-label="Маршрут правила">'), f"{''.join(options)}", _ui('</select>\n<button type="submit">Сохранить</button>\n<a class="reset-button" href="/?tab=services">Сбросить</a>\n</form></details></div>\n<div class="panel"><details class="panel-spoiler"><summary>Поиск по источникам GeoDAT</summary>\n<form class="geodata-search-form" method="get">\n<input name="q" type="search" maxlength="253" aria-label="Категория, домен, IP или сеть" placeholder="Категория, домен, IP или сеть" required>\n<button type="submit">Найти</button></form>\n<p class="hint" id="geodata-search-status" role="status"></p>\n<div id="geodata-search-results" style="overflow:auto"></div>\n<template id="geodata-service-form">\n<form method="post" action="/action" class="geodata-search-form">\n<input type="hidden" name="action" value="service_geodata_import">\n<input type="hidden" name="geo_id"><input type="hidden" name="geo_category">\n<input name="name" placeholder="Название правила" aria-label="Название правила" maxlength="100" required>\n<select name="target" aria-label="Маршрут">'), f"{''.join(options)}", _ui('</select>\n<button type="submit">Создать правило</button></form>\n</template>\n</details></div>\n<style>.geodata-search-form{display:flex;gap:10px;align-items:center;margin-top:12px}\nbody .unified-main .geodata-search-form input{width:min(100%,420px);min-width:0;margin:0}\nbody .unified-main .geodata-search-form button{margin:0}\n.geodata-category-preview{white-space:pre-wrap;overflow-wrap:anywhere;max-height:260px;overflow:auto}\nbody .unified-main #geodata-search-results form{flex-wrap:wrap}\nbody .unified-main #geodata-search-results select{width:auto;max-width:100%;margin:0}</style>\n<script>\nfunction geodataCategory(item){\n const details=document.createElement("details"), title=document.createElement("summary");\n const preview=document.createElement("pre"), more=document.createElement("button");\n const form=document.getElementById("geodata-service-form").content.firstElementChild.cloneNode(true);\n title.textContent=item.name;details.append(title);\n preview.className="geodata-category-preview";preview.setAttribute("aria-live","polite");\n more.type="button";more.textContent="Показать ещё";more.hidden=true;\n form.elements.geo_id.value=item.source_id;form.elements.geo_category.value=item.name;\n form.elements.name.value=item.name.slice(0,100);\n details.append(preview,more,form);\n let next=0, loaded=false;\n async function load(){\n  if(more.disabled || next===null)return;\n  more.disabled=true;\n  if(!loaded)preview.textContent="Читаем категорию…";\n  try{\n   const args=new URLSearchParams({source:item.source_id,name:item.name,offset:next});\n   const response=await fetch("/api/geodata/category?"+args,{cache:"no-store"});\n   const data=await response.json();\n   if(!response.ok)throw new Error(data.message);\n   if(!loaded)preview.textContent="";\n   preview.textContent+=data.records.join(String.fromCharCode(10))+(data.records.length?String.fromCharCode(10):"");\n   if(!preview.textContent)preview.textContent="Категория пуста.";\n   loaded=true;next=data.next;more.hidden=next===null;\n   more.textContent="Показать ещё";\n  }catch(error){\n   if(!loaded)preview.textContent=error.message;\n   more.textContent="Повторить";more.hidden=false;\n  }finally{more.disabled=false;}\n }\n details.addEventListener("toggle",()=>{if(details.open&&!loaded)load();});\n more.addEventListener("click",load);\n return details;\n}\nconst geoSearchForm=document.querySelector("form.geodata-search-form");\nconst geoSearchStatus=document.getElementById("geodata-search-status");\nconst geoSearchOutput=document.getElementById("geodata-search-results");\nconst geoSearchStorageKey="uvpnc-last-geodat-search";\nfunction renderGeodataSearch(data){\n  const status=geoSearchStatus,out=geoSearchOutput;\n  out.replaceChildren();\n  status.textContent="Найдено категорий: "+data.results.length;\n  for(const error of data.errors){\n   const line=document.createElement("p");\n   line.className="catalog-error";line.textContent=error;out.append(line);\n  }\n  if(!data.results.length)return;\n  const table=document.createElement("table"), headings=table.createTHead().insertRow();\n  for(const label of ["Категория","Источник","Записей","Совпадение"]){\n   const th=document.createElement("th");th.textContent=label;headings.append(th);\n  }\n  const body=table.createTBody();\n  for(const item of data.results){\n   const row=body.insertRow();\n   row.insertCell().append(geodataCategory(item));\n   row.insertCell().textContent=item.source+(item.kind==="ipcidr"?":IP":item.kind==="domain"?":domain":"");\n   row.insertCell().textContent=Number(item.count).toLocaleString("ru-RU");\n   row.insertCell().textContent=item.example||"Название категории";\n  }\n  out.append(table);\n}\ntry{\n const saved=JSON.parse(sessionStorage.getItem(geoSearchStorageKey));\n if(saved&&typeof saved.query==="string"&&Array.isArray(saved.data?.results)&&Array.isArray(saved.data?.errors)){\n  geoSearchForm.elements.q.value=saved.query;\n  renderGeodataSearch(saved.data);\n  geoSearchForm.closest("details").open=true;\n }\n}catch(error){}\ngeoSearchForm.addEventListener("submit", async event=>{\n event.preventDefault();\n const form=event.currentTarget,button=form.querySelector("button"),status=geoSearchStatus;\n if(button.disabled)return;\n button.disabled=true;\n status.textContent="Читаем источники GeoDAT…";\n try{\n  const query=new URLSearchParams(new FormData(form));\n  const response=await fetch("/api/geodata/search?"+query,{cache:"no-store"});\n  const data=await response.json();\n  if(!response.ok)throw new Error(data.message);\n  renderGeodataSearch(data);\n  try{sessionStorage.setItem(geoSearchStorageKey,JSON.stringify({query:query.get("q"),data}));}catch(error){}\n }catch(error){status.textContent=error.message||"Не удалось завершить поиск.";}\n finally{button.disabled=false;}\n});\n</script>\n<div class="panel"><div class="configured-services-header"><h2>Настроенные правила</h2>\n<div class="rules-toolbar">\n<form method="post" id="rule-order-form">\n<input type="hidden" name="action" value="service_reorder">\n<input type="hidden" name="order_before" value="'), f"{esc(json.dumps([item.get('id') or 'name:' + item['name'] for item in items]))}", _ui('">\n<input type="hidden" name="order">\n<button type="submit" hidden id="rule-order-apply" disabled>Применить</button>\n<button type="button" hidden id="rule-order-cancel" disabled>Отмена</button>\n</form>\n<form method="get" class="service-domain-search">\n<input type="hidden" name="tab" value="services">\n<input type="search" name="service_domain" maxlength="253" aria-label="Домен или часть домена в настроенных правилах" value="'), f'{esc(lookup)}', _ui('" placeholder="Домен или часть домена" required>\n<button type="submit">Найти правило</button>\n'), f"""{(_ui('<a class="reset-button" href="/?tab=services">Сбросить поиск</a>') if lookup else '')}""", '\n</form></div></div>\n', f'{lookup_error}', _ui('\n<p class="hint">Правила проверяются сверху вниз. Первое совпавшее включённое правило выбирает действие. PASS продолжает проверку. Новое правило добавляется в конец.</p>\n<table class="configured-services"><thead><tr><th>Порядок</th><th>Правило</th><th>Записей</th><th>Группа</th><th>Состояние</th><th>Действия</th></tr></thead>\n<tbody>'), f'{table_rows}', '</tbody></table></div>\n<style>\nbody .unified-main .configured-services-header{display:flex;align-items:center;flex-wrap:wrap;justify-content:space-between;gap:12px;margin-bottom:12px}\nbody .unified-main .configured-services-header h2{margin:0}\nbody .unified-main .rules-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}\nbody .unified-main #rule-order-form{display:flex;align-items:center;gap:8px;margin:0}\nbody .unified-main #rule-order-apply{background:var(--ui-primary);border-color:var(--ui-primary);color:white}\nbody .unified-main .service-domain-search{display:flex;align-items:center;gap:8px;max-width:100%;margin:0}\nbody[data-page=services] .unified-main .panel form.service-domain-search > input[type=search]{flex:1 1 270px;width:270px;min-width:0;height:40px;margin:0}\nbody .unified-main .service-domain-search :is(button,.reset-button){flex:none;min-width:max-content;height:40px;white-space:nowrap}\nbody .unified-main .configured-services :is(th,td){padding:10px 12px}\nbody .unified-main .configured-services :is(th,td):nth-child(3){text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}\nbody .unified-main .rule-order{display:flex;align-items:center;gap:4px;font-variant-numeric:tabular-nums}\nbody .unified-main .rule-order button{padding:9px 6px;min-width:28px}\nbody .unified-main .rule-order span{min-width:16px}\nbody .unified-main .configured-services form{margin:0}\nbody[data-page=services] .unified-main .panel .configured-services .service-route-form > select{width:100%;min-width:210px;max-width:290px;height:40px;margin:0}\nbody .unified-main .configured-services .service-row-actions{display:flex;align-items:center;gap:8px;white-space:nowrap}\nbody .unified-main .configured-services .service-row-actions :is(form,.action-button){margin:0}\nbody .unified-main .configured-services .service-row-actions :is(button,.action-button){height:40px;white-space:nowrap}\n@media(max-width:520px){body .unified-main .service-domain-search:has(.reset-button){flex-wrap:wrap}}\n</style>\n<script>\n(()=>{\n const form=document.getElementById("rule-order-form");\n const body=document.querySelector(".configured-services tbody");\n const baseline=JSON.parse(form.elements.order_before.value);\n const originalRows=[...body.querySelectorAll("tr[data-rule-id]")];\n const visibleSlots=originalRows.map(row=>baseline.indexOf(row.dataset.ruleId));\n const cancel=document.getElementById("rule-order-cancel"),apply=document.getElementById("rule-order-apply");\n function update(){\n  const rows=[...body.querySelectorAll("tr[data-rule-id]")],order=[...baseline];\n  rows.forEach((row,index)=>{\n   order[visibleSlots[index]]=row.dataset.ruleId;\n   row.querySelector(".rule-order span").textContent=String(visibleSlots[index]+1);\n   row.querySelector(\'[data-rule-move="up"]\').disabled=index===0;\n   row.querySelector(\'[data-rule-move="down"]\').disabled=index===rows.length-1;\n  });\n  form.elements.order.value=JSON.stringify(order);\n  const changed=order.some((key,index)=>key!==baseline[index]);\n  cancel.disabled=apply.disabled=!changed;\n  if(changed)form.dataset.queueDirty="1";else delete form.dataset.queueDirty;\n }\n body.addEventListener("click",event=>{\n  const button=event.target.closest("[data-rule-move]");\n  if(!button)return;\n  const row=button.closest("tr");\n  if(button.dataset.ruleMove==="up"){if(row.previousElementSibling)body.insertBefore(row,row.previousElementSibling);}\n  else if(row.nextElementSibling)body.insertBefore(row.nextElementSibling,row);\n  update();\n  window.configurationDraft?.set("order",new URLSearchParams(new FormData(form)));\n });\n cancel.addEventListener("click",()=>{originalRows.forEach(row=>body.append(row));update();});\n update();\n})();\n</script>\n</html>'))

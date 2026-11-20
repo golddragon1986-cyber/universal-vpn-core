@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui
 """DNS resolver configuration and wire-format diagnostics."""
 
 import ast
@@ -486,38 +487,5 @@ def render():
     try: choices = route_choices()
     except Exception: choices = ['DIRECT', 'LOADBALANCE']
     return (render_settings(values, choices) + render_local_zones() +
-        '<div class="panel"><details class="panel-spoiler"><summary>Проверка DNS</summary>'
-        '<form id="dns-probe-form"><input name="domain" aria-label="Домен для проверки DNS" placeholder="Домен, например example.com" required maxlength="253">'
-        '<button type="submit">Проверить</button>'
-        '<p class="hint">Проверяются DNS контейнера, DNS RouterOS и каждый DNS из таблицы по заданному маршруту, включая отключённые строки. DNS контейнера и RouterOS учитывают свой кеш. Время включает соединение и получение ответа.</p>'
-        '</form><div id="dns-probe-result" role="status"></div></details></div>'
-        '<style>body .unified-main .dns-settings-form{display:grid;grid-template-columns:minmax(0,560px);gap:16px;justify-content:start}'
-        'body .unified-main .dns-settings-form>p{grid-column:1/-1}'
-        'body .unified-main .dns-settings-form>label{display:block;margin:0;width:100%}body .unified-main .dns-settings-form textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:70px;margin:6px 0}'
-        'body .unified-main .dns-routed-field>label:first-child{display:block;margin:0}'
-        'body .unified-main .dns-routed-toggle{display:flex;align-items:center;gap:8px;margin:4px 0 8px}'
-        'body .unified-main .dns-routed-toggle input{width:18px;height:18px;margin:0}'
-        'body .unified-main #dns-probe-form textarea{min-height:70px;margin:6px 0}'
-        'body .unified-main .dns-settings-form small{display:block;color:var(--ui-muted);font-weight:400}'
-        'body .unified-main .dns-settings-form>button{justify-self:start}'
-        'body .unified-main #dns-probe-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:16px;align-items:center}'
-        'body .unified-main #dns-probe-form>textarea,body .unified-main #dns-probe-form>p{grid-column:1/-1}'
-        'body .unified-main #dns-probe-form>input,body .unified-main #dns-probe-form>select,body .unified-main #dns-probe-form>button{height:40px;box-sizing:border-box;margin:0;min-width:0}body .unified-main #dns-probe-form>button{white-space:nowrap}'
-        'body .unified-main #dns-probe-result{overflow:auto}'
-        'body .unified-main #dns-probe-result a,body .unified-main #dns-probe-result a:visited{color:#b8d5ff}'
-        '@media(max-width:650px){body .unified-main .dns-settings-form{grid-template-columns:minmax(0,1fr);width:100%}}</style>'
-        '<script>(()=>{'
-        'const form=document.getElementById("dns-probe-form"),out=document.getElementById("dns-probe-result");'
-        'form.addEventListener("submit",async event=>{event.preventDefault();const button=form.querySelector("button");'
-        'if(button.disabled)return;button.disabled=true;out.textContent="Проверяем DNS…";'
-        'try{const response=await fetch("/api/dns/probe?"+new URLSearchParams(new FormData(form)),{cache:"no-store"});'
-        'const data=await response.json();if(!response.ok)throw new Error(data.message||"Ошибка проверки DNS");'
-        'out.replaceChildren();const table=document.createElement("table"),head=table.createTHead().insertRow();'
-        'for(const title of ["DNS","Путь","Время, мс","Ответ","Записи / TTL, сек."]){const th=document.createElement("th");th.textContent=title;head.append(th);}'
-        'const body=table.createTBody();for(const item of data.results){const row=body.insertRow();'
-        'let col=0;for(const value of [item.server,item.via,item.ms,item.error||item.status,'
-        '(item.records||[]).map(r=>r.type+" "+r.value+" / "+r.ttl).join("\\n")||"—"]){const td=row.insertCell();'
-        'if(col===1&&item.via_url){const link=document.createElement("a");link.href=item.via_url;link.textContent=value;td.append(link);}else td.textContent=value;'
-        'col++;td.style.whiteSpace="pre-wrap";}}out.append(table);'
-        '}catch(error){out.textContent=error.message;}finally{button.disabled=false;}});})();</script>'
+        _ui('<div class="panel"><details class="panel-spoiler"><summary>Проверка DNS</summary><form id="dns-probe-form"><input name="domain" aria-label="Домен для проверки DNS" placeholder="Домен, например example.com" required maxlength="253"><button type="submit">Проверить</button><p class="hint">Проверяются DNS контейнера, DNS RouterOS и каждый DNS из таблицы по заданному маршруту, включая отключённые строки. DNS контейнера и RouterOS учитывают свой кеш. Время включает соединение и получение ответа.</p></form><div id="dns-probe-result" role="status"></div></details></div><style>body .unified-main .dns-settings-form{display:grid;grid-template-columns:minmax(0,560px);gap:16px;justify-content:start}body .unified-main .dns-settings-form>p{grid-column:1/-1}body .unified-main .dns-settings-form>label{display:block;margin:0;width:100%}body .unified-main .dns-settings-form textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:70px;margin:6px 0}body .unified-main .dns-routed-field>label:first-child{display:block;margin:0}body .unified-main .dns-routed-toggle{display:flex;align-items:center;gap:8px;margin:4px 0 8px}body .unified-main .dns-routed-toggle input{width:18px;height:18px;margin:0}body .unified-main #dns-probe-form textarea{min-height:70px;margin:6px 0}body .unified-main .dns-settings-form small{display:block;color:var(--ui-muted);font-weight:400}body .unified-main .dns-settings-form>button{justify-self:start}body .unified-main #dns-probe-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin-top:16px;align-items:center}body .unified-main #dns-probe-form>textarea,body .unified-main #dns-probe-form>p{grid-column:1/-1}body .unified-main #dns-probe-form>input,body .unified-main #dns-probe-form>select,body .unified-main #dns-probe-form>button{height:40px;box-sizing:border-box;margin:0;min-width:0}body .unified-main #dns-probe-form>button{white-space:nowrap}body .unified-main #dns-probe-result{overflow:auto}body .unified-main #dns-probe-result a,body .unified-main #dns-probe-result a:visited{color:#b8d5ff}@media(max-width:650px){body .unified-main .dns-settings-form{grid-template-columns:minmax(0,1fr);width:100%}}</style><script>(()=>{const form=document.getElementById("dns-probe-form"),out=document.getElementById("dns-probe-result");form.addEventListener("submit",async event=>{event.preventDefault();const button=form.querySelector("button");if(button.disabled)return;button.disabled=true;out.textContent="Проверяем DNS…";try{const response=await fetch("/api/dns/probe?"+new URLSearchParams(new FormData(form)),{cache:"no-store"});const data=await response.json();if(!response.ok)throw new Error(data.message||"Ошибка проверки DNS");out.replaceChildren();const table=document.createElement("table"),head=table.createTHead().insertRow();for(const title of ["DNS","Путь","Время, мс","Ответ","Записи / TTL, сек."]){const th=document.createElement("th");th.textContent=title;head.append(th);}const body=table.createTBody();for(const item of data.results){const row=body.insertRow();let col=0;for(const value of [item.server,item.via,item.ms,item.error||item.status,(item.records||[]).map(r=>r.type+" "+r.value+" / "+r.ttl).join("\\n")||"—"]){const td=row.insertCell();if(col===1&&item.via_url){const link=document.createElement("a");link.href=item.via_url;link.textContent=value;td.append(link);}else td.textContent=value;col++;td.style.whiteSpace="pre-wrap";}}out.append(table);}catch(error){out.textContent=error.message;}finally{button.disabled=false;}});})();</script>')
     )

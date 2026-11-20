@@ -1,0 +1,101 @@
+diff --git a/common/tls/reality_client.go b/common/tls/reality_client.go
+index be4806f..e1a959a 100644
+--- a/common/tls/reality_client.go
++++ b/common/tls/reality_client.go
+@@ -46,10 +46,11 @@ import (
+ var _ ConfigCompat = (*RealityClientConfig)(nil)
+ 
+ type RealityClientConfig struct {
+-	ctx       context.Context
+-	uClient   *UTLSClientConfig
+-	publicKey []byte
+-	shortID   [8]byte
++	ctx         context.Context
++	uClient     *UTLSClientConfig
++	publicKey   []byte
++	shortID     [8]byte
++	enableMLKEM bool
+ }
+ 
+ func NewRealityClient(ctx context.Context, logger logger.ContextLogger, serverAddress string, options option.OutboundTLSOptions) (Config, error) {
+@@ -85,7 +86,7 @@ func newRealityClient(ctx context.Context, logger logger.ContextLogger, serverAd
+ 		return nil, E.New("invalid short_id")
+ 	}
+ 
+-	var config Config = &RealityClientConfig{ctx, uClient.(*UTLSClientConfig), publicKey, shortID}
++	var config Config = &RealityClientConfig{ctx, uClient.(*UTLSClientConfig), publicKey, shortID, options.Reality.EnableMLKEM}
+ 	if options.KernelRx || options.KernelTx {
+ 		if !C.IsLinux {
+ 			return nil, E.New("kTLS is only supported on Linux")
+@@ -146,22 +147,24 @@ func (e *RealityClientConfig) ClientHandshake(ctx context.Context, conn net.Conn
+ 	if err != nil {
+ 		return nil, err
+ 	}
+-	for _, extension := range uConn.Extensions {
+-		if ce, ok := extension.(*utls.SupportedCurvesExtension); ok {
+-			ce.Curves = common.Filter(ce.Curves, func(curveID utls.CurveID) bool {
+-				return curveID != utls.X25519MLKEM768
+-			})
++	if !e.enableMLKEM {
++		for _, extension := range uConn.Extensions {
++			if ce, ok := extension.(*utls.SupportedCurvesExtension); ok {
++				ce.Curves = common.Filter(ce.Curves, func(curveID utls.CurveID) bool {
++					return curveID != utls.X25519MLKEM768
++				})
++			}
++			if ks, ok := extension.(*utls.KeyShareExtension); ok {
++				ks.KeyShares = common.Filter(ks.KeyShares, func(share utls.KeyShare) bool {
++					return share.Group != utls.X25519MLKEM768
++				})
++			}
+ 		}
+-		if ks, ok := extension.(*utls.KeyShareExtension); ok {
+-			ks.KeyShares = common.Filter(ks.KeyShares, func(share utls.KeyShare) bool {
+-				return share.Group != utls.X25519MLKEM768
+-			})
++		err = uConn.BuildHandshakeState()
++		if err != nil {
++			return nil, err
+ 		}
+ 	}
+-	err = uConn.BuildHandshakeState()
+-	if err != nil {
+-		return nil, err
+-	}
+ 
+ 	if len(uConfig.NextProtos) > 0 {
+ 		for _, extension := range uConn.Extensions {
+@@ -201,6 +204,9 @@ func (e *RealityClientConfig) ClientHandshake(ctx context.Context, conn net.Conn
+ 		return nil, E.New("nil KeyShareKeys")
+ 	}
+ 	ecdheKey := keyShareKeys.Ecdhe
++	if ecdheKey == nil && e.enableMLKEM {
++		ecdheKey = keyShareKeys.MlkemEcdhe
++	}
+ 	if ecdheKey == nil {
+ 		return nil, E.New("nil ecdheKey")
+ 	}
+@@ -280,6 +286,7 @@ func (e *RealityClientConfig) Clone() Config {
+ 		e.uClient.Clone().(*UTLSClientConfig),
+ 		e.publicKey,
+ 		e.shortID,
++		e.enableMLKEM,
+ 	}
+ }
+ 
+diff --git a/option/tls.go b/option/tls.go
+index 5c807d6..ff1ac0f 100644
+--- a/option/tls.go
++++ b/option/tls.go
+@@ -250,7 +250,8 @@ type OutboundUTLSOptions struct {
+ }
+ 
+ type OutboundRealityOptions struct {
+-	Enabled   bool   `json:"enabled,omitempty"`
+-	PublicKey string `json:"public_key,omitempty"`
+-	ShortID   string `json:"short_id,omitempty"`
++	Enabled     bool   `json:"enabled,omitempty"`
++	PublicKey   string `json:"public_key,omitempty"`
++	ShortID     string `json:"short_id,omitempty"`
++	EnableMLKEM bool   `json:"enable_mlkem,omitempty"`
+ }

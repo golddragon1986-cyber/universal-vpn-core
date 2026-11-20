@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Universal VPN · USB или внутренняя память · ARMv7 и ARM64 · 0.2b</title>
+<style>
+:root { color-scheme: light; --ink: #17263c; --muted: #50627b; --line: #d5dfea; --paper: #fff; --page: #eef3f8; --accent: #1556ae; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.62 system-ui, sans-serif; }
+main { max-width: 920px; margin: 32px auto; padding: clamp(20px, 5vw, 56px); background: var(--paper); border: 1px solid var(--line); border-radius: 18px; }
+h1, h2, h3 { line-height: 1.2; }
+h1 { margin: .3em 0 .65em; font-size: clamp(28px, 5vw, 42px); }
+h2 { margin-top: 1.75em; border-top: 1px solid var(--line); padding-top: .8em; }
+.eyebrow { color: var(--accent); font-size: .82rem; font-weight: 750; letter-spacing: .08em; }
+a { color: var(--accent); }
+p { overflow-wrap: anywhere; }
+p code { padding: .12em .32em; border-radius: 4px; background: var(--page); }
+blockquote { margin: 1rem 0 1.35rem clamp(12px, 3vw, 30px); }
+.command { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #f5f8fc; }
+.command-bar { display: flex; align-items: center; justify-content: space-between; gap: .65rem; padding: .45rem .8rem; background: #e7eef7; color: var(--muted); font-size: .84rem; font-weight: 650; }
+.command button { border: 1px solid #9db4cf; border-radius: 6px; padding: .38rem .65rem; background: #fff; color: var(--ink); font: inherit; cursor: pointer; }
+.command button:hover { background: #d8e8ff; }
+.command button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+pre { overflow-x: auto; margin: 0; padding: .8rem; font: 14px/1.55 ui-monospace, Consolas, monospace; }
+@media (max-width: 600px) { main { margin: 0; border-radius: 0; } }
+@media print { main { margin: 0; padding: 0; border: 0; } .command button { display: none; } pre { white-space: pre-wrap; } }
+</style>
+</head>
+<body>
+<main>
+<div class="eyebrow">USB ИЛИ ВНУТРЕННЯЯ ПАМЯТЬ · ARMv7 и ARM64 · 0.2b</div>
+<h1>Установка Universal VPN Core · ARMv7 и ARM64 · 0.2b</h1>
+<p>Один комплект для внешнего диска и внутреннего хранилища MikroTik. Установщик читает <code>architecture-name</code> и выбирает <code>universal-vpn-core-armv7.tar</code> для <code>arm</code> или <code>universal-vpn-core-arm64.tar</code> для <code>arm64</code>. Оба образа можно держать в одной папке <code>universal-vpn</code>. Чтобы сэкономить место, достаточно скопировать четыре скрипта и TAR для вашего роутера. Если подходящего TAR нет или найдено несколько его копий, скрипт остановится до изменения настроек. Если на роутере осталась прежняя установка из USB-, внутреннего или универсального комплекта, выполните полное удаление из раздела 5. Полное удаление стирает рабочие данные.</p>
+<h2>1. Подготовка</h2>
+<p>Сохраните резервную копию RouterOS. Выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/system resource print
+/system package print
+/system device-mode print
+/file print where name=&quot;flash&quot;
+/disk print
+/interface list member print
+</code></pre></div>
+</blockquote>
+<p>Если пакет <code>container</code> отсутствует, скачайте пакет для установленной версии RouterOS и архитектуры, указанной в <code>architecture-name</code> (<code>arm</code> или <code>arm64</code>). Загрузите NPK в корень списка <strong>WinBox → Files</strong> и перезагрузите роутер. <a href="https://mikrotik.com/download">Загрузки MikroTik</a>.</p>
+<p>Если в Device Mode указано <code>container: no</code>, выполните в терминале MikroTik и подтвердите изменение по подсказке роутера:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/system device-mode update container=yes
+</code></pre></div>
+</blockquote>
+<p>Скопируйте папку <code>universal-vpn</code> в корень внешнего диска ext4 или во внутреннее хранилище. На роутере должна быть одна копия каждого установочного скрипта. Для внутренней памяти используйте каталог <code>flash</code>, если он есть в WinBox → Files. Иначе используйте корень Files. <a href="https://manual.mikrotik.com/docs/system-information-and-utilities/files/#storage-details">Документация MikroTik по хранилищу</a>.</p>
+<p>Установщик задаёт мягкий порог памяти контейнера <strong>160 МиБ</strong> и жёсткий лимит <strong>200 МиБ</strong>. Требуется версия RouterOS с поддержкой параметра <code>memory-max</code>.</p>
+<p>Если архив находится во внутренней памяти и после копирования свободно меньше <strong>200 МиБ</strong>, установщик размещает <code>rootfs</code> и <code>data</code> на подходящем внешнем диске ext4. Для ARM64 действует запас <strong>256 МиБ</strong>, поэтому при меньшем остатке установщик также ищет внешний диск. Архив и скрипты остаются в исходной папке. Если архив сразу скопирован на внешний диск, используется этот диск. При недостатке места, нескольких подходящих внешних дисках для автоматического переноса или нескольких копиях образа скрипт остановится до изменения сетевых настроек.</p>
+<p>Установщик настраивает HTTPS REST на порту 8443 для панели и ограничивает доступ адресом контейнера. Для установки служба www-ssl должна быть отключена и иметь штатные настройки порта, сертификата и доступных адресов. Маршруты из сервисов появятся после включения маршрутизации скриптом 02-enable-routing.rsc и синхронизации панели.</p>
+<p>Используется список интерфейсов <code>LAN</code> и диапазоны <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> и <code>192.168.0.0/16</code>. Если список доверенных интерфейсов называется иначе, задайте одинаковое значение <code>lan</code> в обоих скриптах. Список <code>WAN</code> должен включать выходы в интернет. Подсети <code>172.31.41.0/24</code> и <code>198.18.0.0/16</code> должны быть свободны.</p>
+<h2>2. Установка</h2>
+<p>Проверьте скрипт в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>{
+    :local scriptName &quot;01-install.rsc&quot;
+    :local scriptPath (&quot;universal-vpn/&quot; . $scriptName)
+    :if ([:len [/file find where name=&quot;flash&quot;]] &gt; 0) do={ :set scriptPath (&quot;flash/&quot; . $scriptPath) }
+    :local hits [:len [/file find where name=$scriptPath]]
+    :foreach disk in=[/disk find where mount-filesystem=yes] do={
+        :local mount [/disk get $disk mount-point]
+        :if ([:len $mount] &gt; 0 &amp;&amp; $mount != &quot;flash&quot;) do={
+            :local candidate ($mount . &quot;/universal-vpn/&quot; . $scriptName)
+            :if ([:len [/file find where name=$candidate]] = 1) do={ :set scriptPath $candidate; :set hits ($hits + 1) }
+        }
+    }
+    :if ($hits != 1) do={ :error &quot;Expected exactly one copy of the script in universal-vpn&quot; }
+    /import file-name=$scriptPath verbose=yes dry-run
+}
+</code></pre></div>
+</blockquote>
+<p>Если проверка прошла без ошибок, выполните:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>{
+    :local scriptName &quot;01-install.rsc&quot;
+    :local scriptPath (&quot;universal-vpn/&quot; . $scriptName)
+    :if ([:len [/file find where name=&quot;flash&quot;]] &gt; 0) do={ :set scriptPath (&quot;flash/&quot; . $scriptPath) }
+    :local hits [:len [/file find where name=$scriptPath]]
+    :foreach disk in=[/disk find where mount-filesystem=yes] do={
+        :local mount [/disk get $disk mount-point]
+        :if ([:len $mount] &gt; 0 &amp;&amp; $mount != &quot;flash&quot;) do={
+            :local candidate ($mount . &quot;/universal-vpn/&quot; . $scriptName)
+            :if ([:len [/file find where name=$candidate]] = 1) do={ :set scriptPath $candidate; :set hits ($hits + 1) }
+        }
+    }
+    :if ($hits != 1) do={ :error &quot;Expected exactly one copy of the script in universal-vpn&quot; }
+    /import file-name=$scriptPath
+}
+/container print detail where name=&quot;universal-vpn-core&quot;
+</code></pre></div>
+</blockquote>
+<p>Установщик ждёт окончания распаковки и сообщает об успехе, когда контейнер переходит в <code>S</code> (остановлен). Если за 15 минут контейнер не перешёл в <code>S</code>, проверьте его статус и журнал контейнера. После успешного завершения запустите контейнер:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/container start [find where name=&quot;universal-vpn-core&quot; and interface=&quot;uvpn-main-veth&quot;]
+/log print follow where topics~&quot;container&quot;
+</code></pre></div>
+</blockquote>
+<p>Дождитесь <code>STARTUP READY</code>, нажмите Ctrl+C и откройте <a href="http://172.31.41.2:9091/">панель</a> с ПК из разрешённой сети. Проверьте DNS на клиентском ПК:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>PowerShell · Windows</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>nslookup example.com 172.31.41.2
+</code></pre></div>
+</blockquote>
+<p>Домены вне списков маршрутизации должны получать реальный адрес вне <code>198.18.0.0/16</code>. Образ ARMv7 0.2b содержит домены и сервисы с RB4011, образ ARM64 0.2b — с hAP ax³. VPN-профили добавляются после установки.</p>
+<h2>3. Подключение клиентов</h2>
+<p>Когда контейнер запущен и DNS отвечает, проверьте скрипт в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>{
+    :local scriptName &quot;02-enable-routing.rsc&quot;
+    :local scriptPath (&quot;universal-vpn/&quot; . $scriptName)
+    :if ([:len [/file find where name=&quot;flash&quot;]] &gt; 0) do={ :set scriptPath (&quot;flash/&quot; . $scriptPath) }
+    :local hits [:len [/file find where name=$scriptPath]]
+    :foreach disk in=[/disk find where mount-filesystem=yes] do={
+        :local mount [/disk get $disk mount-point]
+        :if ([:len $mount] &gt; 0 &amp;&amp; $mount != &quot;flash&quot;) do={
+            :local candidate ($mount . &quot;/universal-vpn/&quot; . $scriptName)
+            :if ([:len [/file find where name=$candidate]] = 1) do={ :set scriptPath $candidate; :set hits ($hits + 1) }
+        }
+    }
+    :if ($hits != 1) do={ :error &quot;Expected exactly one copy of the script in universal-vpn&quot; }
+    /import file-name=$scriptPath verbose=yes dry-run
+}
+</code></pre></div>
+</blockquote>
+<p>После успешной проверки выполните:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>{
+    :local scriptName &quot;02-enable-routing.rsc&quot;
+    :local scriptPath (&quot;universal-vpn/&quot; . $scriptName)
+    :if ([:len [/file find where name=&quot;flash&quot;]] &gt; 0) do={ :set scriptPath (&quot;flash/&quot; . $scriptPath) }
+    :local hits [:len [/file find where name=$scriptPath]]
+    :foreach disk in=[/disk find where mount-filesystem=yes] do={
+        :local mount [/disk get $disk mount-point]
+        :if ([:len $mount] &gt; 0 &amp;&amp; $mount != &quot;flash&quot;) do={
+            :local candidate ($mount . &quot;/universal-vpn/&quot; . $scriptName)
+            :if ([:len [/file find where name=$candidate]] = 1) do={ :set scriptPath $candidate; :set hits ($hits + 1) }
+        }
+    }
+    :if ($hits != 1) do={ :error &quot;Expected exactly one copy of the script in universal-vpn&quot; }
+    /import file-name=$scriptPath
+}
+/ip route print detail where comment=&quot;uvpn-main: routing&quot;
+/ip firewall nat print stats where comment=&quot;uvpn-main: routing&quot;
+</code></pre></div>
+</blockquote>
+<p>Ожидается маршрут <code>198.18.0.0/16</code> через <code>172.31.41.2</code>. Обычные IPv4 DNS-запросы клиентов по TCP/UDP 53 перенаправляются в контейнер. Настройки DHCP и DNS самого роутера сохраняются. Скрипт также включает автозапуск контейнера.</p>
+<h2>4. Откат маршрутизации</h2>
+<p>Выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>{
+    :local scriptName &quot;03-disable-routing.rsc&quot;
+    :local scriptPath (&quot;universal-vpn/&quot; . $scriptName)
+    :if ([:len [/file find where name=&quot;flash&quot;]] &gt; 0) do={ :set scriptPath (&quot;flash/&quot; . $scriptPath) }
+    :local hits [:len [/file find where name=$scriptPath]]
+    :foreach disk in=[/disk find where mount-filesystem=yes] do={
+        :local mount [/disk get $disk mount-point]
+        :if ([:len $mount] &gt; 0 &amp;&amp; $mount != &quot;flash&quot;) do={
+            :local candidate ($mount . &quot;/universal-vpn/&quot; . $scriptName)
+            :if ([:len [/file find where name=$candidate]] = 1) do={ :set scriptPath $candidate; :set hits ($hits + 1) }
+        }
+    }
+    :if ($hits != 1) do={ :error &quot;Expected exactly one copy of the script in universal-vpn&quot; }
+    /import file-name=$scriptPath
+}
+</code></pre></div>
+</blockquote>
+<p>Контейнер и его данные сохраняются. Удаляются маршрут Fake-IP и правила перенаправления DNS.</p>
+<h2>5. Полное удаление</h2>
+<p>Скрипт удаляет контейнер, его настройки и каталоги <code>rootfs</code> и <code>data</code>, включая профили. Архив и установочные скрипты остаются на исходном носителе.</p>
+<p>Проверьте скрипт в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>{
+    :local scriptName &quot;04-uninstall.rsc&quot;
+    :local scriptPath (&quot;universal-vpn/&quot; . $scriptName)
+    :if ([:len [/file find where name=&quot;flash&quot;]] &gt; 0) do={ :set scriptPath (&quot;flash/&quot; . $scriptPath) }
+    :local hits [:len [/file find where name=$scriptPath]]
+    :foreach disk in=[/disk find where mount-filesystem=yes] do={
+        :local mount [/disk get $disk mount-point]
+        :if ([:len $mount] &gt; 0 &amp;&amp; $mount != &quot;flash&quot;) do={
+            :local candidate ($mount . &quot;/universal-vpn/&quot; . $scriptName)
+            :if ([:len [/file find where name=$candidate]] = 1) do={ :set scriptPath $candidate; :set hits ($hits + 1) }
+        }
+    }
+    :if ($hits != 1) do={ :error &quot;Expected exactly one copy of the script in universal-vpn&quot; }
+    /import file-name=$scriptPath verbose=yes dry-run
+}
+</code></pre></div>
+</blockquote>
+<p>После успешной проверки выполните:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>{
+    :local scriptName &quot;04-uninstall.rsc&quot;
+    :local scriptPath (&quot;universal-vpn/&quot; . $scriptName)
+    :if ([:len [/file find where name=&quot;flash&quot;]] &gt; 0) do={ :set scriptPath (&quot;flash/&quot; . $scriptPath) }
+    :local hits [:len [/file find where name=$scriptPath]]
+    :foreach disk in=[/disk find where mount-filesystem=yes] do={
+        :local mount [/disk get $disk mount-point]
+        :if ([:len $mount] &gt; 0 &amp;&amp; $mount != &quot;flash&quot;) do={
+            :local candidate ($mount . &quot;/universal-vpn/&quot; . $scriptName)
+            :if ([:len [/file find where name=$candidate]] = 1) do={ :set scriptPath $candidate; :set hits ($hits + 1) }
+        }
+    }
+    :if ($hits != 1) do={ :error &quot;Expected exactly one copy of the script in universal-vpn&quot; }
+    /import file-name=$scriptPath
+}
+</code></pre></div>
+</blockquote>
+<p>После сообщения об успешном удалении проверьте состояние:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/container print where interface=&quot;uvpn-main-veth&quot;
+/interface print where name~&quot;^uvpn-main-&quot;
+/ip address print where comment=&quot;uvpn-main: base&quot;
+/ip route print where comment=&quot;uvpn-main: routing&quot;
+/ip firewall nat print where comment~&quot;^uvpn-main:&quot;
+/ip firewall filter print where comment~&quot;^uvpn-main:&quot;
+/container mounts print where list=&quot;uvpn-main&quot;
+/container envs print where list=&quot;uvpn-main&quot;
+/ip firewall address-list print where list=&quot;uvpn-main-lan&quot;
+/file print where name~&quot;universal-vpn.install-marker&quot;
+</code></pre></div>
+</blockquote>
+<p>Списки должны быть пустыми или содержать только заголовки. На носителе, указанном установщиком в строке Storage, проверьте, что каталоги <code>rootfs</code> и <code>data</code> исчезли. На клиентском ПК проверьте обычный DNS:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>PowerShell · Windows</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>nslookup example.com
+</code></pre></div>
+</blockquote>
+
+</main>
+<script>
+document.querySelectorAll('.command button').forEach((button) => {
+  let reset;
+  button.addEventListener('click', async () => {
+    const code = button.closest('.command').querySelector('code');
+    const command = code.textContent.replace(/\r?\n$/, '');
+    clearTimeout(reset);
+    try {
+      if (!navigator.clipboard) throw new Error();
+      await navigator.clipboard.writeText(command);
+    } catch {
+      const temporary = document.createElement('textarea');
+      temporary.value = command;
+      temporary.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.append(temporary);
+      temporary.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch {}
+      temporary.remove();
+      button.focus();
+      if (!copied) {
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        button.textContent = 'Нажмите Ctrl+C';
+        return;
+      }
+    }
+    button.textContent = 'Скопировано';
+    reset = setTimeout(() => { button.textContent = 'Копировать'; }, 2000);
+  });
+});
+</script>
+</body>
+</html>

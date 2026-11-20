@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui
 """Active configuration values used to distinguish live state from draft edits."""
 import json
 from pathlib import Path
@@ -18,4 +19,4 @@ def render(base):
             'mainRoute':routing.get('main_proxy','DIRECT'),
             'routing':routing.get('services_enabled',True)}
     encoded = json.dumps(active).replace('<', '\\u003c')
-    return '<script>window.activeToggleStates='+encoded+';window.activeRouteStates=window.activeToggleStates;</script><script>'+Path(__file__).with_suffix('.js').read_text(encoding='utf-8')+'</script>'
+    return '<script>window.activeToggleStates='+encoded+';window.activeRouteStates=window.activeToggleStates;</script><script>'+_ui(Path(__file__).with_suffix('.js').read_text(encoding='utf-8'))+'</script>'

@@ -1,6 +1,8 @@
+from ui_i18n import text as _ui, message as _ui_message
 from durable_io import replace as durable_replace
 #!/usr/bin/env python3
 import html
+from ui_i18n import language_button
 import json
 import os
 import proxy_manager
@@ -144,48 +146,23 @@ def render_routing_panel():
         options = ['<option value="DIRECT">DIRECT</option>']
         selected = "DIRECT"
         services_enabled = False
-        error = '<p class="routing-error">' + html.escape(str(e)) + '</p>'
+        error = '<p class="routing-error">' + html.escape(_ui_message(e)) + '</p>'
 
-    heading = "Основной маршрут"
-    button_text = "Применить конфигурацию"
-    services_title = "Правила"
+    heading = _ui('Основной маршрут')
+    button_text = _ui('Применить конфигурацию')
+    services_title = _ui('Правила')
     selected_value = html.escape(selected, quote=True)
 
     if services_enabled:
         service_button = (
-            '<button type="submit" name="services_enabled" value="0" '
-            'class="service-toggle service-on" title="Правила включены — нажмите, чтобы отключить" '
-            'aria-label="Правила включены, нажмите чтобы отключить">Включено</button>'
+            _ui('<button type="submit" name="services_enabled" value="0" class="service-toggle service-on" title="Правила включены — нажмите, чтобы отключить" aria-label="Правила включены, нажмите чтобы отключить">Включено</button>')
         )
     else:
         service_button = (
-            '<button type="submit" name="services_enabled" value="1" '
-            'class="service-toggle service-off" title="Правила отключены — нажмите, чтобы включить" '
-            'aria-label="Правила отключены, нажмите чтобы включить">Отключено</button>'
+            _ui('<button type="submit" name="services_enabled" value="1" class="service-toggle service-off" title="Правила отключены — нажмите, чтобы включить" aria-label="Правила отключены, нажмите чтобы включить">Отключено</button>')
         )
 
-    return f"""
-<section class="routing-panel">
-  <div class="routing-grid">
-    <div class="routing-heading">{heading}</div>
-    <div class="routing-heading">{services_title}</div>
-    <div class="routing-heading"></div>
-
-    <form method="post" action="/" class="routing-controls">
-      <input type="hidden" name="action" value="routing_save">
-      <input type="hidden" name="services_enabled" value="{'1' if services_enabled else '0'}">
-      <select id="main_proxy" name="main_proxy">{"".join(options)}</select>
-      {service_button}
-      <button type="button" id="configuration-apply" disabled>{button_text}</button>
-      <button type="button" id="configuration-cancel" disabled>Отмена</button>
-      <button type="submit" form="core-restart-form">Перезапустить ядро</button>
-      <span id="configuration-message" role="status"></span>
-    </form>
-  </div>
-  <form method="post" class="runtime-action" id="core-restart-form"><input type="hidden" name="action" value="core_restart"></form>
-  {error}
-</section>
-"""
+    return ''.join(('\n<section class="routing-panel">\n  <div class="routing-grid">\n    <div class="routing-heading">', f'{heading}', '</div>\n    <div class="routing-heading">', f'{services_title}', '</div>\n    <div class="routing-heading"></div>\n\n    <form method="post" action="/" class="routing-controls">\n      <input type="hidden" name="action" value="routing_save">\n      <input type="hidden" name="services_enabled" value="', f"{('1' if services_enabled else '0')}", '">\n      <select id="main_proxy" name="main_proxy">', f"{''.join(options)}", '</select>\n      ', f'{service_button}', '\n      <button type="button" id="configuration-apply" disabled>', f'{button_text}', _ui('</button>\n      <button type="button" id="configuration-cancel" disabled>Отмена</button>\n      <button type="submit" form="core-restart-form">Перезапустить ядро</button>\n      '), f'{language_button()}', '\n      <span id="configuration-message" role="status"></span>\n    </form>\n  </div>\n  <form method="post" class="runtime-action" id="core-restart-form"><input type="hidden" name="action" value="core_restart"></form>\n  ', f'{error}', '\n</section>\n'))
 
 def handle_routing_action(data):
     info = global_info()

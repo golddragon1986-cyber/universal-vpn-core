@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui
 """Import and manage standalone Mihomo rule sets."""
 
 import hashlib
@@ -300,15 +301,12 @@ def handle(form):
 def render(message=""):
     escape = html.escape
     token = f'<input type="hidden" name="token" value="{TOKEN}">'
-    fields = '<input name="name" aria-label="Название" placeholder="Название" maxlength="100" required>'
-    file_field = ('<span class="geodata-file">'
-                  '<input type="file" name="file" aria-label="Выберите файл .mrs или .dat" accept=".mrs,.dat" required>'
-                  '<span class="geodata-file-button" aria-hidden="true">Выберите .mrs / .dat</span>'
-                  '<span class="geodata-file-name" aria-live="polite"></span></span>')
+    fields = _ui('<input name="name" aria-label="Название" placeholder="Название" maxlength="100" required>')
+    file_field = (_ui('<span class="geodata-file"><input type="file" name="file" aria-label="Выберите файл .mrs или .dat" accept=".mrs,.dat" required><span class="geodata-file-button" aria-hidden="true">Выберите .mrs / .dat</span><span class="geodata-file-name" aria-live="polite"></span></span>'))
     forms = []
     for op, title, submit, field, encoding in (
-        ("upload", "Загрузить файл", "Загрузить файл", file_field, ' enctype="multipart/form-data"'),
-        ("register", "Источник GeoDAT", "Добавить источник", '<input type="url" name="url" aria-label="Ссылка" placeholder="Ссылка" maxlength="4096" required>', ""),
+        ("upload", _ui('Загрузить файл'), _ui('Загрузить файл'), file_field, ' enctype="multipart/form-data"'),
+        ("register", _ui('Источник GeoDAT'), _ui('Добавить источник'), _ui('<input type="url" name="url" aria-label="Ссылка" placeholder="Ссылка" maxlength="4096" required>'), ""),
     ):
         forms.append(f'<details class="panel-spoiler"><summary>{title}</summary>'
                      f'<form class="geodata-form" method="post" action="/api/geodata"{encoding}>{token}'
@@ -317,31 +315,29 @@ def render(message=""):
     rows = []
     for sid, item in entries().items():
         geodat = item.get("kind") == "geodat"
-        source = item["url"] or "Локальный файл"
+        source = item["url"] or _ui('Локальный файл')
         behavior = item.get("behavior")
         suffix = {"domain": ":domain", "ipcidr": ":ip"}.get(behavior, "")
         kind = "GeoDAT" + suffix if geodat else BEHAVIORS[behavior] + suffix
-        size = f'{item["size"]/1024:.1f} КиБ' if item.get("file") else "—"
+        size = ''.join((f"{item['size'] / 1024:.1f}", _ui(' КиБ'))) if item.get("file") else "—"
         def button(operation, label, attrs=""):
             return (f'<form method="post" action="/api/geodata" {attrs}>{token}'
                     f'<input type="hidden" name="id" value="{escape(sid)}">'
                     f'<input type="hidden" name="operation" value="{operation}">'
                     f'<button type="submit">{label}</button></form>')
-        refresh_label = "Скачать" if geodat and not item.get("file") else "Обновить"
+        refresh_label = _ui('Скачать') if geodat and not item.get("file") else _ui('Обновить')
         actions = button("refresh", refresh_label) if item["url"] else ""
         if geodat and item.get("file") and item.get('url'):
-            actions += button("delete_file", "Удалить файл", """onsubmit="return confirm('Удалить локальную копию базы?')" """)
-        actions += button("remove", "Удалить", """onsubmit="return confirm('Удалить этот источник?')" """)
+            actions += button("delete_file", _ui('Удалить файл'), _ui('onsubmit="return confirm(\'Удалить локальную копию базы?\')" '))
+        actions += button("remove", _ui('Удалить'), _ui('onsubmit="return confirm(\'Удалить этот источник?\')" '))
         rows.append(f'<tr><td title="{escape(source)}"><strong>{escape(item["name"])}</strong></td>'
                     f'<td>{kind}</td><td>{size}</td>'
                     f'<td>{escape(item["updated"])}</td><td class="geodata-actions">{actions}</td></tr>')
     status = f'<p class="msg" role="status">{escape(message)}</p>' if message else ""
-    listing = ('<div style="overflow:auto"><table><thead><tr><th>Название</th><th>Тип</th>'
-               '<th>Размер</th><th>Добавлен / обновлён</th><th>Управление</th></tr></thead>'
-               '<tbody>' + "".join(rows) + '</tbody></table></div>') if rows else '<p>Источники ещё не добавлены.</p>'
+    listing = (_ui('<div style="overflow:auto"><table><thead><tr><th>Название</th><th>Тип</th><th>Размер</th><th>Добавлен / обновлён</th><th>Управление</th></tr></thead><tbody>') + "".join(rows) + '</tbody></table></div>') if rows else _ui('<p>Источники ещё не добавлены.</p>')
     return ('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>GeoDAT</title></head><body>'
             + status + "".join('<div class="panel">' + form + '</div>' for form in forms)
-            + '<div class="panel"><h2>Источники GeoDAT</h2>' + listing + '</div>'
+            + _ui('<div class="panel"><h2>Источники GeoDAT</h2>') + listing + '</div>'
             '<style>.geodata-form{display:grid;grid-template-columns:minmax(0,220px) minmax(0,360px) max-content;'
             'gap:10px;align-items:center;margin-top:12px}'
             'body .unified-main .geodata-form>input:not([type=hidden]){width:100%;min-width:0;margin:0;height:40px}'

@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui
 """Fixed component catalog; package commands never accept user-supplied names or URLs."""
 import html
 import json
@@ -185,20 +186,20 @@ def render():
     for item in state['items']:
         key=esc(item['id']);present=item['installed']
         if item.get('bundled'):
-            rows.append(f'<tr><td><strong>{esc(item["title"])}</strong><span class="component-state">Системный пакет Alpine</span></td><td>{esc(item["version"])}</td><td colspan="2">Обновляется вместе с образом</td></tr>')
+            rows.append(''.join(('<tr><td><strong>', f"{esc(_ui(item['title']))}", _ui('</strong><span class="component-state">Системный пакет Alpine</span></td><td>'), f"{esc(item['version'])}", _ui('</td><td colspan="2">Обновляется вместе с образом</td></tr>'))))
             continue
         actions=''
         if present:
             if item['id'] in SYSTEM_PACKAGES:
-                actions+='<form method="post" class="component-update" hidden><input type="hidden" name="action" value="component_change"><input type="hidden" name="component" value="'+key+'"><button name="operation" value="update">Обновить</button></form>'
-            if item['id']!='mihomo' and item['id'] not in SYSTEM_PACKAGES:actions+='<form method="post" data-component-title="'+esc(item['title'])+'" onsubmit="return confirm(\'Удалить компонент «\'+this.dataset.componentTitle+\'»?\')"><input type="hidden" name="action" value="component_change"><input type="hidden" name="component" value="'+key+'"><button class="component-remove" name="operation" value="remove">Удалить</button></form>'
+                actions+='<form method="post" class="component-update" hidden><input type="hidden" name="action" value="component_change"><input type="hidden" name="component" value="'+key+_ui('"><button name="operation" value="update">Обновить</button></form>')
+            if item['id']!='mihomo' and item['id'] not in SYSTEM_PACKAGES:actions+='<form method="post" data-component-title="'+esc(_ui(item['title']))+_ui('" onsubmit="return confirm(\'Удалить компонент «\'+this.dataset.componentTitle+\'»?\')"><input type="hidden" name="action" value="component_change"><input type="hidden" name="component" value="')+key+_ui('"><button class="component-remove" name="operation" value="remove">Удалить</button></form>')
         if item['id'] in SYSTEM_PACKAGES:
-            rows.append(f'<tr data-system-component="{key}"><td><strong>{esc(item["title"])}</strong><span class="component-state">Системный пакет Alpine</span></td><td>{esc(item["version"])}</td><td><span class="component-version-note">Проверьте доступные версии</span>{actions}</td></tr>')
+            rows.append(''.join(('<tr data-system-component="', f'{key}', '"><td><strong>', f"{esc(_ui(item['title']))}", _ui('</strong><span class="component-state">Системный пакет Alpine</span></td><td>'), f"{esc(item['version'])}", _ui('</td><td><span class="component-version-note">Проверьте доступные версии</span>'), f'{actions}', '</td></tr>')))
             continue
-        rows.append('<tr data-component="'+key+'" data-installed="'+('1' if present else '0')+'"><td><strong>'+esc(item['title'])+'</strong><span class="component-state '+('installed' if present else '')+'">'+('Установлен' if present else 'Не установлен')+'</span></td><td title="'+esc(item.get('detail',item['version']))+'">'+esc(item['version'] or '—')+'</td><td><div class="component-controls"><form method="post" class="component-version-form"><input type="hidden" name="action" value="component_change"><input type="hidden" name="component" value="'+key+'"><select name="version_id" required disabled aria-label="Версия '+esc(item['title'])+'"><option value="">Сначала проверьте версии</option></select><button name="operation" value="set_version" class="install-selected" disabled>'+('Переустановить' if present else 'Установить')+'</button>'+('<button name="operation" value="restart" formnovalidate>Перезапустить</button>' if present and item['id'] in ('mihomo','sing-box','xray') else '')+'<button name="operation" value="set_version" class="update-selected" hidden disabled>Обновить</button></form>'+actions+'</div><small class="component-version-note"></small></td></tr>')
-    body=Path(__file__).with_name('components_ui.html').read_text(encoding='utf-8')
+        rows.append('<tr data-component="'+key+'" data-installed="'+('1' if present else '0')+'"><td><strong>'+esc(_ui(item['title']))+'</strong><span class="component-state '+('installed' if present else '')+'">'+(_ui('Установлен') if present else _ui('Не установлен'))+'</span></td><td title="'+esc(item.get('detail',item['version']))+'">'+esc(item['version'] or '—')+'</td><td><div class="component-controls"><form method="post" class="component-version-form"><input type="hidden" name="action" value="component_change"><input type="hidden" name="component" value="'+key+_ui('"><select name="version_id" required disabled aria-label="Версия ')+esc(_ui(item['title']))+_ui('"><option value="">Сначала проверьте версии</option></select><button name="operation" value="set_version" class="install-selected" disabled>')+(_ui('Переустановить') if present else _ui('Установить'))+'</button>'+(_ui('<button name="operation" value="restart" formnovalidate>Перезапустить</button>') if present and item['id'] in ('mihomo','sing-box','xray') else '')+_ui('<button name="operation" value="set_version" class="update-selected" hidden disabled>Обновить</button></form>')+actions+'</div><small class="component-version-note"></small></td></tr>')
+    body=_ui(Path(__file__).with_name('components_ui.html').read_text(encoding='utf-8'))
     body=body.replace('DISK_USED',str(round(state['used']/1_000_000,1)))
     body=body.replace('DISK_FREE',str(round(shutil.disk_usage('/').free/1_000_000,1)))
     body=body.replace('KERNEL_RELEASE',esc(os.uname().release)).replace('COMPONENT_ROWS',''.join(rows))
-    return '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Компоненты</title></head><body>'+body+'</body></html>'
+    return _ui('<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Компоненты</title></head><body>')+body+'</body></html>'
 

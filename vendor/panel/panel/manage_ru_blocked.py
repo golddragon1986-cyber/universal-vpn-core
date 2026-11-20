@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui, message as _ui_message
 from durable_io import replace as durable_replace
 from pathlib import Path
 from configuration_draft import state_path
@@ -263,39 +264,7 @@ def _create_data_backup():
 
 
 def render_backup_page():
-    return """
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Резервная копия</title><style></style></head><body>
-<section class="panel backup-panel"><h2>Резервная копия</h2>
-<p>Сохраняются полные настройки Mihomo: активная и стартовая конфигурации, шаблон, настройки DNS, маршрутов и прокси, базы доменов и правил, ручные изменения и фильтры загрузки.</p>
-<p class="backup-note"><strong>Важно:</strong> файл содержит адреса серверов и данные доступа к прокси. Храните его в безопасном месте.</p>
-<div class="backup-actions"><a class="backup-download" href="/?download=backup">Скачать резервную копию</a></div>
-<hr><h3>Восстановить из файла</h3>
-<p>Выберите ранее сохранённый JSON-файл. Текущие настройки Mihomo, базы доменов и правил будут заменены данными из файла.</p>
-<div class="backup-actions"><input id="backup-file" type="file" accept=".json,application/json">
-<button id="backup-restore" type="button" disabled>Восстановить из файла</button></div>
-<div id="backup-result" role="status" aria-live="polite"></div></section>
-<style>
-.backup-panel{width:100%;max-width:none;box-sizing:border-box;padding:24px;margin:0 0 18px}.backup-panel p{line-height:1.55}
-body .backup-panel .backup-note{padding:12px 14px;border-left:4px solid #315ee8;background:#eef3ff;color:#182033;border-radius:7px}body .backup-panel .backup-note strong{color:inherit}
-.backup-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}
-body .backup-panel .backup-download,body .backup-panel #backup-restore{display:inline-flex;align-items:center;justify-content:center;min-height:40px;margin:0;padding:8px 14px;box-sizing:border-box;border:1px solid #315ee8;border-radius:7px;background:#315ee8;color:#fff;text-decoration:none;font:inherit;font-weight:700;line-height:1.4;cursor:pointer}body .backup-panel #backup-restore:disabled{opacity:.5;cursor:not-allowed}body .backup-panel .backup-download:hover,body .backup-panel #backup-restore:not(:disabled):hover{background:#244dcc;border-color:#244dcc}@media(prefers-color-scheme:dark){body .backup-panel .backup-note{background:#202a3b;color:#edf1fa;border-left-color:#8aa9ff}}
-.backup-panel hr{border:0;border-top:1px solid #d8deea;margin:22px 0}
-#backup-result{margin-top:12px;white-space:pre-wrap}#backup-result.error{color:#b42318}#backup-result.success{color:#087443}
-</style>
-<script>
-const bf=document.getElementById("backup-file"),br=document.getElementById("backup-restore"),out=document.getElementById("backup-result");
-bf.addEventListener("change",()=>{br.disabled=!bf.files.length;out.textContent="";out.className="";});
-br.addEventListener("click",async()=>{const file=bf.files[0];if(!file)return;
- if(file.size>32*1024*1024){out.textContent="Файл превышает допустимый размер 32 МБ.";out.className="error";return;}
- if(!confirm("Настройки Mihomo и базы доменов и правил будут заменены. Продолжить восстановление?"))return;
- br.disabled=true;out.textContent="Проверка и восстановление…";out.className="";
- try{const r=await fetch("/api/backup/restore",{method:"POST",headers:{"Content-Type":"application/json"},body:file});
- const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.message||"Не удалось восстановить данные");
- out.textContent=j.message;out.className="success";setTimeout(()=>location.href="/?tab=backup&msg="+encodeURIComponent(j.message),700);
- }catch(e){out.textContent="Ошибка восстановления: "+e.message;out.className="error";br.disabled=false;}});
-</script>
-</body></html>
-"""
+    return _ui('\n<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Резервная копия</title><style></style></head><body>\n<section class="panel backup-panel"><h2>Резервная копия</h2>\n<p>Сохраняются полные настройки Mihomo: активная и стартовая конфигурации, шаблон, настройки DNS, маршрутов и прокси, базы доменов и правил, ручные изменения и фильтры загрузки.</p>\n<p class="backup-note"><strong>Важно:</strong> файл содержит адреса серверов и данные доступа к прокси. Храните его в безопасном месте.</p>\n<div class="backup-actions"><a class="backup-download" href="/?download=backup">Скачать резервную копию</a></div>\n<hr><h3>Восстановить из файла</h3>\n<p>Выберите ранее сохранённый JSON-файл. Текущие настройки Mihomo, базы доменов и правил будут заменены данными из файла.</p>\n<div class="backup-actions"><input id="backup-file" type="file" accept=".json,application/json">\n<button id="backup-restore" type="button" disabled>Восстановить из файла</button></div>\n<div id="backup-result" role="status" aria-live="polite"></div></section>\n<style>\n.backup-panel{width:100%;max-width:none;box-sizing:border-box;padding:24px;margin:0 0 18px}.backup-panel p{line-height:1.55}\nbody .backup-panel .backup-note{padding:12px 14px;border-left:4px solid #315ee8;background:#eef3ff;color:#182033;border-radius:7px}body .backup-panel .backup-note strong{color:inherit}\n.backup-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:14px 0}\nbody .backup-panel .backup-download,body .backup-panel #backup-restore{display:inline-flex;align-items:center;justify-content:center;min-height:40px;margin:0;padding:8px 14px;box-sizing:border-box;border:1px solid #315ee8;border-radius:7px;background:#315ee8;color:#fff;text-decoration:none;font:inherit;font-weight:700;line-height:1.4;cursor:pointer}body .backup-panel #backup-restore:disabled{opacity:.5;cursor:not-allowed}body .backup-panel .backup-download:hover,body .backup-panel #backup-restore:not(:disabled):hover{background:#244dcc;border-color:#244dcc}@media(prefers-color-scheme:dark){body .backup-panel .backup-note{background:#202a3b;color:#edf1fa;border-left-color:#8aa9ff}}\n.backup-panel hr{border:0;border-top:1px solid #d8deea;margin:22px 0}\n#backup-result{margin-top:12px;white-space:pre-wrap}#backup-result.error{color:#b42318}#backup-result.success{color:#087443}\n</style>\n<script>\nconst bf=document.getElementById("backup-file"),br=document.getElementById("backup-restore"),out=document.getElementById("backup-result");\nbf.addEventListener("change",()=>{br.disabled=!bf.files.length;out.textContent="";out.className="";});\nbr.addEventListener("click",async()=>{const file=bf.files[0];if(!file)return;\n if(file.size>32*1024*1024){out.textContent="Файл превышает допустимый размер 32 МБ.";out.className="error";return;}\n if(!confirm("Настройки Mihomo и базы доменов и правил будут заменены. Продолжить восстановление?"))return;\n br.disabled=true;out.textContent="Проверка и восстановление…";out.className="";\n try{const r=await fetch("/api/backup/restore",{method:"POST",headers:{"Content-Type":"application/json"},body:file});\n const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.message||"Не удалось восстановить данные");\n out.textContent=j.message;out.className="success";setTimeout(()=>location.href="/?tab=backup&msg="+encodeURIComponent(j.message),700);\n }catch(e){out.textContent="Ошибка восстановления: "+e.message;out.className="error";br.disabled=false;}});\n</script>\n</body></html>\n')
 
 
 def _atomic_write(path, content):
@@ -472,11 +441,42 @@ def get_domain_counts(data=None, expected_signature=None, service_domains=None):
         return counts
 
 
+_DOMAIN_REFRESH_LOCK = threading.Lock()
+_DOMAIN_REFRESH_RUNNING = False
+_DOMAIN_REFRESH_SIGNATURE = None
+
+
+def refresh_domain_counts(signature):
+    global _DOMAIN_REFRESH_RUNNING
+    try:
+        get_domain_counts()
+    except Exception as error:
+        print(f"Domain counts unavailable: {error}", flush=True)
+    finally:
+        with _DOMAIN_REFRESH_LOCK:
+            _DOMAIN_REFRESH_RUNNING = False
+
+
+def cached_domain_counts():
+    global _DOMAIN_REFRESH_RUNNING, _DOMAIN_REFRESH_SIGNATURE
+    signature = domain_counts_signature()
+    with _DOMAIN_REFRESH_LOCK:
+        cached = _DOMAIN_COUNTS_CACHE
+        if cached is not None and cached[0] == signature:
+            return cached[1]
+        if not _DOMAIN_REFRESH_RUNNING and _DOMAIN_REFRESH_SIGNATURE != signature:
+            _DOMAIN_REFRESH_SIGNATURE = signature
+            _DOMAIN_REFRESH_RUNNING = True
+            threading.Thread(target=refresh_domain_counts, args=(signature,),
+                             name="domain-counts", daemon=True).start()
+        return cached[1] if cached is not None else ("—", "—")
+
+
 def decorate_page(page, active_tab, targets=None, domain_counts=None):
-    """Добавляет общую оболочку к существующей странице."""
+    _ui('Добавляет общую оболочку к существующей странице.')
     missing_providers = []
     try:
-        domain_count, enabled_domains = domain_counts if domain_counts is not None else get_domain_counts()
+        domain_count, enabled_domains = domain_counts if domain_counts is not None else cached_domain_counts()
     except Exception:
         domain_count = enabled_domains = 0
     try:
@@ -514,9 +514,9 @@ def decorate_page(page, active_tab, targets=None, domain_counts=None):
             api_ok = response.status == 200
     except Exception:
         api_ok = False
-    api_label = "API Mihomo доступен" if api_ok else "API Mihomo недоступен"
+    api_label = _ui('API Mihomo доступен') if api_ok else _ui('API Mihomo недоступен')
     if api_ok and missing_providers:
-        api_label += " · конфигурация неполная"
+        api_label += _ui(' · конфигурация неполная')
     api_dot = "#35c58a" if api_ok else "#e0a33e"
 
     proxy_buttons = "".join(
@@ -607,252 +607,10 @@ setInterval(refreshProxyHealth, 120000);
 </script>
 """
 
-    shell = f"""
-<header class="unified-topbar">
-  <div class="unified-brand">
-    <div class="unified-logo" aria-hidden="true">UvpnC</div>
-    <div>
-      <div class="unified-brand-title">Universal VPN Core</div>
-    </div>
-  </div>
-  <div class="unified-status">
-    <div class="unified-health-group">{proxy_buttons}</div>
-  </div>
-</header>
-{health_script}
-<main class="unified-main">
-  <section class="unified-metrics">
-    <div class="unified-metric"><div>VPN</div><strong>{proxy_active_count}/{proxy_count}</strong><small>Активные / всего в конфигурации</small></div>
-    <div class="unified-metric"><div>Правила</div><strong>{service_count}</strong><small>В пользовательском списке</small></div>
-    <div class="unified-metric"><div>Домены</div><strong>{domain_count}</strong><small>В текущем списке</small></div>
-    <div class="unified-metric"><div>Маршруты</div><strong>{ip_route_count}</strong><small>IP-маршруты через контейнер</small></div>
-  </section>
-  <!--CONFIG_QUEUE_SLOT-->
-  {render_routing_panel()}
-  <nav class="unified-tabs" aria-label="Разделы">
-    <a class="{'active' if active_tab == 'proxies' else ''}" href="/?tab=vpn">VPN</a>
-    <a class="{'active' if active_tab == 'services' else ''}" href="/?tab=services">Правила</a>
-    <a class="{'active' if active_tab == 'geodata' else ''}" href="/?tab=geodata">GeoDAT</a>
-    <a class="{'active' if active_tab == 'domains' else ''}" href="/">DNS</a>
-    <a class="{'active' if active_tab == 'routes' else ''}" href="/?tab=routes">Маршруты</a>
-    <a class="{'active' if active_tab == 'clients' else ''}" href="/?tab=clients">Клиенты</a>
-    <a class="{'active' if active_tab == 'components' else ''}" href="/?tab=components">Компоненты</a>
-    <a class="{'active' if active_tab == 'logs' else ''}" href="/?tab=logs">Логи</a>
-    <a class="{'active' if active_tab == 'backup' else ''}" href="/?tab=backup">Резервная копия</a>
-  </nav>
-"""
-    shell = shell.replace("<!--CONFIG_QUEUE_SLOT-->", Path(os.path.join(BASE,"action_queue_ui.html")).read_text(encoding="utf-8"), 1)
+    shell = ''.join(('\n<header class="unified-topbar">\n  <div class="unified-brand">\n    <div class="unified-logo" aria-hidden="true">UvpnC</div>\n    <div>\n      <div class="unified-brand-title">Universal VPN Core</div>\n    </div>\n  </div>\n  <div class="unified-status">\n    <div class="unified-health-group">', f'{proxy_buttons}', '</div>\n  </div>\n</header>\n', f'{health_script}', '\n<main class="unified-main">\n  <section class="unified-metrics">\n    <div class="unified-metric"><div>VPN</div><strong>', f'{proxy_active_count}', '/', f'{proxy_count}', _ui('</strong><small>Активные / всего в конфигурации</small></div>\n    <div class="unified-metric"><div>Правила</div><strong>'), f'{service_count}', _ui('</strong><small>В пользовательском списке</small></div>\n    <div class="unified-metric"><div>Домены</div><strong>'), f'{domain_count}', _ui('</strong><small>В текущем списке</small></div>\n    <div class="unified-metric"><div>Маршруты</div><strong>'), f'{ip_route_count}', _ui('</strong><small>IP-маршруты через контейнер</small></div>\n  </section>\n  <!--CONFIG_QUEUE_SLOT-->\n  '), f'{render_routing_panel()}', _ui('\n  <nav class="unified-tabs" aria-label="Разделы">\n    <a class="'), f"{('active' if active_tab == 'proxies' else '')}", '" href="/?tab=vpn">VPN</a>\n    <a class="', f"{('active' if active_tab == 'services' else '')}", _ui('" href="/?tab=services">Правила</a>\n    <a class="'), f"{('active' if active_tab == 'geodata' else '')}", '" href="/?tab=geodata">GeoDAT</a>\n    <a class="', f"{('active' if active_tab == 'domains' else '')}", '" href="/">DNS</a>\n    <a class="', f"{('active' if active_tab == 'routes' else '')}", _ui('" href="/?tab=routes">Маршруты</a>\n    <a class="'), f"{('active' if active_tab == 'clients' else '')}", _ui('" href="/?tab=clients">Клиенты</a>\n    <a class="'), f"{('active' if active_tab == 'components' else '')}", _ui('" href="/?tab=components">Компоненты</a>\n    <a class="'), f"{('active' if active_tab == 'logs' else '')}", _ui('" href="/?tab=logs">Логи</a>\n    <a class="'), f"{('active' if active_tab == 'backup' else '')}", _ui('" href="/?tab=backup">Резервная копия</a>\n  </nav>\n')))
+    shell = shell.replace("<!--CONFIG_QUEUE_SLOT-->", _ui(Path(os.path.join(BASE,"action_queue_ui.html")).read_text(encoding="utf-8")), 1)
     # Общие стили макета поверх прежних стилей страниц.
-    css = """
-.unified-topbar{width:calc(100% - 32px);max-width:1100px;box-sizing:border-box;margin:0 auto;
-background:#17243d;color:#f7f9ff;padding:18px clamp(16px,4vw,48px);
-display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-.unified-brand{display:flex;align-items:center;gap:12px}
-.unified-logo{height:40px;padding:0 9px;border-radius:13px;display:grid;place-items:center;
-background:#315ee8;color:white;font-weight:800;font-size:13px}
-.unified-brand-title{font-size:18px;font-weight:800;letter-spacing:-.4px}
-.unified-brand-sub{font-size:12px;color:#b9c5dd;margin-top:3px}
-.unified-api{display:flex;align-items:center;gap:8px;font-size:12px;color:#dce5f8;
-border:1px solid #3c4a64;border-radius:999px;padding:8px 12px}
-.unified-api span{width:7px;height:7px;border-radius:50%;display:inline-block}
-.unified-main{width:calc(100% - 32px);max-width:1100px;box-sizing:border-box;margin:0 auto;padding:0 clamp(14px,3vw,32px) 44px}
-.unified-heading{margin-bottom:20px}
-.unified-eyebrow{font-size:11px;font-weight:800;letter-spacing:1.3px;color:#315ee8}
-.unified-title{font-size:28px;letter-spacing:-.8px;margin:7px 0}
-.unified-lead{font-size:14px;line-height:1.5;color:#69758a;margin:0}
-.unified-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}
-.unified-metric{background:var(--surface,#fff);border:1px solid var(--border,#e0e5ef);
-border-radius:14px;padding:15px;box-shadow:0 8px 28px #18203312;min-width:0}
-.unified-metric div{font-size:12px;color:#69758a}
-.unified-metric strong{display:block;font-size:25px;letter-spacing:-.8px;margin-top:6px}
-.unified-metric small{display:block;font-size:11px;color:#69758a;margin-top:4px}
-.routing-panel{
-  color:#182033;background:#fff;border:1px solid #d5dbe5;
-  border-radius:14px;padding:16px;margin:16px 0;
-  box-shadow:0 8px 28px #1820330b;box-sizing:border-box;
-}
-.routing-panel .routing-heading{
-  font-size:16px;font-weight:700;line-height:24px;margin:0 0 12px;
-}
-.routing-panel .routing-grid{
-  display:grid;
-  grid-template-columns:max-content max-content max-content;
-  column-gap:20px;
-  row-gap:12px;
-  align-items:start;
-  justify-content:start;
-}
-.routing-panel .routing-heading{
-  font-size:16px;font-weight:400;line-height:24px;
-  margin:0;color:inherit;white-space:nowrap;
-}
-.routing-panel form.routing-controls{
-  display:contents;
-}
-.routing-panel select option.current-route{color:#16803c;font-weight:700}
-.routing-panel select{
-  display:block;width:220px;max-width:100%;height:40px;
-  margin:0;padding:0 10px;box-sizing:border-box;line-height:20px;
-}
-.routing-panel button{
-  display:block;background:#315ee8;color:#fff;border:1px solid #315ee8;
-  border-radius:8px;padding:0 15px;height:40px;min-height:40px;
-  margin:0;box-sizing:border-box;line-height:20px;white-space:nowrap;
-}
-.routing-panel button.service-toggle{
-  min-width:130px;height:40px;padding:0 16px;
-  color:#fff;border:0;border-radius:8px;font-weight:400;
-}
-.routing-panel button.service-on{background:#16803c;border-color:#16803c}
-.routing-panel button.service-off{background:#c62828;border-color:#c62828}
-@media(max-width:600px){
-  .routing-panel .routing-grid{grid-template-columns:1fr;row-gap:10px}
-  .routing-panel .routing-heading:nth-child(1){grid-column:1;grid-row:1}
-  .routing-panel .routing-heading:nth-child(2){grid-column:1;grid-row:3}
-  .routing-panel .routing-heading:nth-child(3){display:none}
-  .routing-panel select{grid-column:1}
-  .routing-panel button.service-toggle{grid-column:1}
-  .routing-panel form.routing-controls > button[type="submit"]:last-child{grid-column:1}
-}
-.routing-panel .routing-error{color:#b42318}
-
-.routing-panel button.service-toggle{
-  min-width:130px;height:40px;padding:0 16px;
-  color:#fff;border:0;border-radius:8px;font-weight:700;
-}
-.routing-panel button.service-on{background:#16803c;border-color:#16803c}
-.routing-panel button.service-off{background:#c62828;border-color:#c62828}
-
-@media(prefers-color-scheme:dark){
-  .routing-panel{color:#edf1fa;background:#171d29;border-color:#343d4c}
-  .routing-panel .routing-check{color:#edf1fa}
-  .routing-panel button{color:#fff;background:#315ee8;border-color:#315ee8}
-}
-.unified-tabs{display:flex;gap:5px;border-bottom:1px solid #e0e5ef;margin:0 0 18px}
-.unified-tabs a{padding:12px 17px;border-bottom:3px solid transparent;margin-bottom:-1px;
-color:#69758a;text-decoration:none;font-weight:750}
-.unified-tabs a.active{color:#315ee8;border-bottom-color:#315ee8}
-body{width:100%;max-width:none;box-sizing:border-box;margin:0;padding:0;background:#f3f5fa;color:#182033;font-family:Inter,ui-sans-serif,system-ui,sans-serif}
-body>h1,body>p,body>div.panel,body>form{margin-left:auto;margin-right:auto;max-width:1200px}
-button,input,select,textarea{font:inherit}
-input:not([type="hidden"]),select,textarea{
-  color:#182033;background-color:#fff;border:1px solid #b8c2d3;
-  border-radius:7px;padding:9px 10px;box-sizing:border-box;
-}
-input:not([type="hidden"])::placeholder,textarea::placeholder{
-  color:#69758a;opacity:1;
-}
-input:not([type="hidden"]):focus,select:focus,textarea:focus{
-  outline:2px solid #8aa9ff;outline-offset:1px;border-color:#315ee8;
-}
-input:disabled,select:disabled,textarea:disabled{
-  color:#69758a;background-color:#edf0f5;opacity:1;
-}
-button{cursor:pointer;border-radius:8px}
-.panel{background:var(--surface,#fff);border-color:var(--border,#e0e5ef);border-radius:14px;
-box-shadow:0 8px 28px #1820330b}
-table{border-collapse:collapse}
-th{background:#f7f8fc}
-a{color:#315ee8}
-
-/* Контраст старой и новой разметки */
-body{color:#182033}
-body h1,body h2,body h3,body p,body b,body strong,
-body label,body td,body th,body .panel,body .msg{
-  color:#182033;
-}
-body .panel{
-  color:#182033;background-color:#fff;border-color:#d5dbe5;
-}
-body .msg{
-  color:#182033;background-color:#eef3ff;
-}
-body table{background-color:#fff}
-body th{color:#182033;background-color:#e9eef6}
-body td{color:#182033}
-body .unified-lead,body .unified-metric div,
-body .unified-metric small{
-  color:#475569;
-}
-body .unified-tabs a{color:#475569}
-body .unified-tabs a.active{color:#244dcc}
-body button{
-  color:#182033;background-color:#eef1f6;border-color:#aab4c4;
-}
-body button.danger{color:#8b1e1e;background-color:#fee2e2;border-color:#efb4b4}
-body .on{color:#176b35}
-body .off{color:#8a4b00}
-
-@media(max-width:760px){
-.unified-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
-.unified-title{font-size:24px}
-.unified-main{padding-top:18px}
-}
-@media(prefers-color-scheme:dark){
-body{background:#10141d;color:#edf1fa}
-.unified-title{color:#edf1fa}
-.unified-lead,.unified-metric div,.unified-metric small{color:#a0abc0}
-.unified-metric{background:#171b24;border-color:#343d4c}
-.unified-tabs{border-color:#343d4c}
-th{background:#202633}
-input:not([type="hidden"]),select,textarea{
-  color:#edf1fa;background-color:#1b2230;border-color:#465168;
-}
-input:not([type="hidden"])::placeholder,textarea::placeholder{
-  color:#a0abc0;
-}
-input:disabled,select:disabled,textarea:disabled{
-  color:#a0abc0;background-color:#252d3b;
-}
-body{color:#edf1fa}
-body h1,body h2,body h3,body p,body b,body strong,
-body label,body td,body th,body .panel,body .msg{
-  color:#edf1fa;
-}
-body .panel{
-  color:#edf1fa;background-color:#171d29;border-color:#343d4c;
-}
-body .msg{color:#edf1fa;background-color:#202a3b}
-body table{background-color:#171d29}
-body th{color:#edf1fa;background-color:#202633}
-body td{color:#edf1fa}
-body .unified-lead,body .unified-metric div,
-body .unified-metric small{color:#b3bfd3}
-body .unified-tabs a{color:#b3bfd3}
-body .unified-tabs a.active{color:#9bb4ff}
-body button{
-  color:#edf1fa;background-color:#252d3b;border-color:#465168;
-}
-body button.danger{
-  color:#ffd1d1;background-color:#48272b;border-color:#754047;
-}
-body .on{color:#78d99b}
-body .off{color:#ffc66d}
-
-.unified-status{display:flex;align-items:center;justify-content:flex-end;
-gap:10px;flex-wrap:wrap;margin-left:auto}
-.unified-health-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-body button.proxy-health-btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:9px;
-  min-height:36px;padding:8px 12px;border:1px solid #465168;border-radius:999px;
-  color:#edf1fa;background:#252d3b;font-size:12px;font-weight:700;
-  cursor:pointer;white-space:nowrap
-}
-body button.proxy-health-btn .proxy-health-result{
-  display:inline-block;min-width:42px;text-align:center;font-variant-numeric:tabular-nums;
-  color:#b3bfd3;font-weight:800
-}
-body button.proxy-health-btn.health-ok{border-color:#35c58a;color:#a6f0c9}
-body button.proxy-health-btn.health-ok .proxy-health-result{color:#35c58a}
-body button.proxy-health-btn.health-error{border-color:#ef626c;color:#ff858d}
-body button.proxy-health-btn.health-error .proxy-health-result{color:#ff858d}
-body button.proxy-health-btn.health-checking{opacity:.75;cursor:wait}
-@media(max-width:620px){
-  .unified-status{width:100%;justify-content:flex-start}
-  .unified-health-group{width:100%}
-}
-}
-"""
+    css = _ui('\n.unified-topbar{width:calc(100% - 32px);max-width:1100px;box-sizing:border-box;margin:0 auto;\nbackground:#17243d;color:#f7f9ff;padding:18px clamp(16px,4vw,48px);\ndisplay:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}\n.unified-brand{display:flex;align-items:center;gap:12px}\n.unified-logo{height:40px;padding:0 9px;border-radius:13px;display:grid;place-items:center;\nbackground:#315ee8;color:white;font-weight:800;font-size:13px}\n.unified-brand-title{font-size:18px;font-weight:800;letter-spacing:-.4px}\n.unified-brand-sub{font-size:12px;color:#b9c5dd;margin-top:3px}\n.unified-api{display:flex;align-items:center;gap:8px;font-size:12px;color:#dce5f8;\nborder:1px solid #3c4a64;border-radius:999px;padding:8px 12px}\n.unified-api span{width:7px;height:7px;border-radius:50%;display:inline-block}\n.unified-main{width:calc(100% - 32px);max-width:1100px;box-sizing:border-box;margin:0 auto;padding:0 clamp(14px,3vw,32px) 44px}\n.unified-heading{margin-bottom:20px}\n.unified-eyebrow{font-size:11px;font-weight:800;letter-spacing:1.3px;color:#315ee8}\n.unified-title{font-size:28px;letter-spacing:-.8px;margin:7px 0}\n.unified-lead{font-size:14px;line-height:1.5;color:#69758a;margin:0}\n.unified-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:20px 0}\n.unified-metric{background:var(--surface,#fff);border:1px solid var(--border,#e0e5ef);\nborder-radius:14px;padding:15px;box-shadow:0 8px 28px #18203312;min-width:0}\n.unified-metric div{font-size:12px;color:#69758a}\n.unified-metric strong{display:block;font-size:25px;letter-spacing:-.8px;margin-top:6px}\n.unified-metric small{display:block;font-size:11px;color:#69758a;margin-top:4px}\n.routing-panel{\n  color:#182033;background:#fff;border:1px solid #d5dbe5;\n  border-radius:14px;padding:16px;margin:16px 0;\n  box-shadow:0 8px 28px #1820330b;box-sizing:border-box;\n}\n.routing-panel .routing-heading{\n  font-size:16px;font-weight:700;line-height:24px;margin:0 0 12px;\n}\n.routing-panel .routing-grid{\n  display:grid;\n  grid-template-columns:max-content max-content max-content;\n  column-gap:20px;\n  row-gap:12px;\n  align-items:start;\n  justify-content:start;\n}\n.routing-panel .routing-heading{\n  font-size:16px;font-weight:400;line-height:24px;\n  margin:0;color:inherit;white-space:nowrap;\n}\n.routing-panel form.routing-controls{\n  display:contents;\n}\n.routing-panel select option.current-route{color:#16803c;font-weight:700}\n.routing-panel select{\n  display:block;width:220px;max-width:100%;height:40px;\n  margin:0;padding:0 10px;box-sizing:border-box;line-height:20px;\n}\n.routing-panel button{\n  display:block;background:#315ee8;color:#fff;border:1px solid #315ee8;\n  border-radius:8px;padding:0 15px;height:40px;min-height:40px;\n  margin:0;box-sizing:border-box;line-height:20px;white-space:nowrap;\n}\n.routing-panel button.service-toggle{\n  min-width:130px;height:40px;padding:0 16px;\n  color:#fff;border:0;border-radius:8px;font-weight:400;\n}\n.routing-panel button.service-on{background:#16803c;border-color:#16803c}\n.routing-panel button.service-off{background:#c62828;border-color:#c62828}\n@media(max-width:600px){\n  .routing-panel .routing-grid{grid-template-columns:1fr;row-gap:10px}\n  .routing-panel .routing-heading:nth-child(1){grid-column:1;grid-row:1}\n  .routing-panel .routing-heading:nth-child(2){grid-column:1;grid-row:3}\n  .routing-panel .routing-heading:nth-child(3){display:none}\n  .routing-panel select{grid-column:1}\n  .routing-panel button.service-toggle{grid-column:1}\n  .routing-panel form.routing-controls > button[type="submit"]:last-child{grid-column:1}\n}\n.routing-panel .routing-error{color:#b42318}\n\n.routing-panel button.service-toggle{\n  min-width:130px;height:40px;padding:0 16px;\n  color:#fff;border:0;border-radius:8px;font-weight:700;\n}\n.routing-panel button.service-on{background:#16803c;border-color:#16803c}\n.routing-panel button.service-off{background:#c62828;border-color:#c62828}\n\n@media(prefers-color-scheme:dark){\n  .routing-panel{color:#edf1fa;background:#171d29;border-color:#343d4c}\n  .routing-panel .routing-check{color:#edf1fa}\n  .routing-panel button{color:#fff;background:#315ee8;border-color:#315ee8}\n}\n.unified-tabs{display:flex;gap:5px;border-bottom:1px solid #e0e5ef;margin:0 0 18px}\n.unified-tabs a{padding:12px 17px;border-bottom:3px solid transparent;margin-bottom:-1px;\ncolor:#69758a;text-decoration:none;font-weight:750}\n.unified-tabs a.active{color:#315ee8;border-bottom-color:#315ee8}\nbody{width:100%;max-width:none;box-sizing:border-box;margin:0;padding:0;background:#f3f5fa;color:#182033;font-family:Inter,ui-sans-serif,system-ui,sans-serif}\nbody>h1,body>p,body>div.panel,body>form{margin-left:auto;margin-right:auto;max-width:1200px}\nbutton,input,select,textarea{font:inherit}\ninput:not([type="hidden"]),select,textarea{\n  color:#182033;background-color:#fff;border:1px solid #b8c2d3;\n  border-radius:7px;padding:9px 10px;box-sizing:border-box;\n}\ninput:not([type="hidden"])::placeholder,textarea::placeholder{\n  color:#69758a;opacity:1;\n}\ninput:not([type="hidden"]):focus,select:focus,textarea:focus{\n  outline:2px solid #8aa9ff;outline-offset:1px;border-color:#315ee8;\n}\ninput:disabled,select:disabled,textarea:disabled{\n  color:#69758a;background-color:#edf0f5;opacity:1;\n}\nbutton{cursor:pointer;border-radius:8px}\n.panel{background:var(--surface,#fff);border-color:var(--border,#e0e5ef);border-radius:14px;\nbox-shadow:0 8px 28px #1820330b}\ntable{border-collapse:collapse}\nth{background:#f7f8fc}\na{color:#315ee8}\n\n/* Контраст старой и новой разметки */\nbody{color:#182033}\nbody h1,body h2,body h3,body p,body b,body strong,\nbody label,body td,body th,body .panel,body .msg{\n  color:#182033;\n}\nbody .panel{\n  color:#182033;background-color:#fff;border-color:#d5dbe5;\n}\nbody .msg{\n  color:#182033;background-color:#eef3ff;\n}\nbody table{background-color:#fff}\nbody th{color:#182033;background-color:#e9eef6}\nbody td{color:#182033}\nbody .unified-lead,body .unified-metric div,\nbody .unified-metric small{\n  color:#475569;\n}\nbody .unified-tabs a{color:#475569}\nbody .unified-tabs a.active{color:#244dcc}\nbody button{\n  color:#182033;background-color:#eef1f6;border-color:#aab4c4;\n}\nbody button.danger{color:#8b1e1e;background-color:#fee2e2;border-color:#efb4b4}\nbody .on{color:#176b35}\nbody .off{color:#8a4b00}\n\n@media(max-width:760px){\n.unified-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}\n.unified-title{font-size:24px}\n.unified-main{padding-top:18px}\n}\n@media(prefers-color-scheme:dark){\nbody{background:#10141d;color:#edf1fa}\n.unified-title{color:#edf1fa}\n.unified-lead,.unified-metric div,.unified-metric small{color:#a0abc0}\n.unified-metric{background:#171b24;border-color:#343d4c}\n.unified-tabs{border-color:#343d4c}\nth{background:#202633}\ninput:not([type="hidden"]),select,textarea{\n  color:#edf1fa;background-color:#1b2230;border-color:#465168;\n}\ninput:not([type="hidden"])::placeholder,textarea::placeholder{\n  color:#a0abc0;\n}\ninput:disabled,select:disabled,textarea:disabled{\n  color:#a0abc0;background-color:#252d3b;\n}\nbody{color:#edf1fa}\nbody h1,body h2,body h3,body p,body b,body strong,\nbody label,body td,body th,body .panel,body .msg{\n  color:#edf1fa;\n}\nbody .panel{\n  color:#edf1fa;background-color:#171d29;border-color:#343d4c;\n}\nbody .msg{color:#edf1fa;background-color:#202a3b}\nbody table{background-color:#171d29}\nbody th{color:#edf1fa;background-color:#202633}\nbody td{color:#edf1fa}\nbody .unified-lead,body .unified-metric div,\nbody .unified-metric small{color:#b3bfd3}\nbody .unified-tabs a{color:#b3bfd3}\nbody .unified-tabs a.active{color:#9bb4ff}\nbody button{\n  color:#edf1fa;background-color:#252d3b;border-color:#465168;\n}\nbody button.danger{\n  color:#ffd1d1;background-color:#48272b;border-color:#754047;\n}\nbody .on{color:#78d99b}\nbody .off{color:#ffc66d}\n\n.unified-status{display:flex;align-items:center;justify-content:flex-end;\ngap:10px;flex-wrap:wrap;margin-left:auto}\n.unified-health-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap}\nbody button.proxy-health-btn{\n  display:inline-flex;align-items:center;justify-content:center;gap:9px;\n  min-height:36px;padding:8px 12px;border:1px solid #465168;border-radius:999px;\n  color:#edf1fa;background:#252d3b;font-size:12px;font-weight:700;\n  cursor:pointer;white-space:nowrap\n}\nbody button.proxy-health-btn .proxy-health-result{\n  display:inline-block;min-width:42px;text-align:center;font-variant-numeric:tabular-nums;\n  color:#b3bfd3;font-weight:800\n}\nbody button.proxy-health-btn.health-ok{border-color:#35c58a;color:#a6f0c9}\nbody button.proxy-health-btn.health-ok .proxy-health-result{color:#35c58a}\nbody button.proxy-health-btn.health-error{border-color:#ef626c;color:#ff858d}\nbody button.proxy-health-btn.health-error .proxy-health-result{color:#ff858d}\nbody button.proxy-health-btn.health-checking{opacity:.75;cursor:wait}\n@media(max-width:620px){\n  .unified-status{width:100%;justify-content:flex-start}\n  .unified-health-group{width:100%}\n}\n}\n')
     if "</style>" in page:
         page = page.replace("</style>", css + "\n</style>", 1)
 
@@ -931,9 +689,14 @@ class Handler(BaseHTTPRequestHandler):
         print("%s - %s" % (self.client_address[0], fmt % args))
 
     def send_html(self, body, status=200):
+        from ui_i18n import bootstrap, LANGUAGE, localize_page_scripts
+        body = localize_page_scripts(body)
+        body = body.replace('lang="ru"', 'lang="' + LANGUAGE.get() + '"', 1)
+        init = bootstrap()
+        body = body.replace('<head>', '<head>' + init, 1) if '<head>' in body else init + body
         from configuration_draft import status as draft_status
         seed=json.dumps(draft_status()).replace("<","\\u003c")
-        script="<script id=configuration-state type=application/json>"+seed+"</script><script>"+Path(BASE,"configuration_draft_ui.js").read_text(encoding="utf-8")+"</script>"
+        script="<script id=configuration-state type=application/json>"+seed+"</script><script>"+_ui(Path(BASE,"configuration_draft_ui.js").read_text(encoding="utf-8"))+"</script>"
         body=body.replace("</head>",script+"</head>",1) if "</head>" in body else script+body
         data = body.encode("utf-8")
         self.send_response(status)
@@ -966,6 +729,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
+        from ui_i18n import select_language
+        select_language('ui_language=ru' if self.path.startswith('/api/') or 'download=backup' in self.path else self.headers.get('Cookie', ''))
         from configuration_draft import preview, status
         path = self.path.split("?",1)[0]
         if path == "/api/configuration/status":
@@ -1007,7 +772,7 @@ class Handler(BaseHTTPRequestHandler):
             return
         if params.get("tab") == ["geodata"]:
             import geodata_panel
-            self.send_html(decorate_page(geodata_panel.render(params.get("msg", [""])[0]), "geodata"))
+            self.send_html(decorate_page(geodata_panel.render(_ui_message(params.get("msg", [""])[0])), "geodata"))
             return
         if self.path.split('?',1)[0]=='/api/components/versions':
             try:
@@ -1032,16 +797,16 @@ class Handler(BaseHTTPRequestHandler):
                 import vpn_components
                 self.send_html(decorate_page(vpn_components.render(),'components'))
             except Exception as error:
-                self.send_html('<h1>Компоненты</h1><pre>'+esc(error)+'</pre>',503)
+                self.send_html(_ui('<h1>Компоненты</h1><pre>')+esc(_ui_message(error))+'</pre>',503)
             return
         if self.path.split('?',1)[0] == '/api/logs':
             try:
                 import log_panel
                 self.send_json(log_panel.snapshot(max(0,int(params.get('after',['0'])[0]))))
             except (ValueError, TypeError):
-                self.send_json({'message':'Некорректный курсор'},400)
+                self.send_json({'message':_ui('Некорректный курсор')},400)
             except Exception:
-                self.send_json({'message':'Ядро временно недоступно'},503)
+                self.send_json({'message':_ui('Ядро временно недоступно')},503)
             return
         if params.get('tab',[''])[0] == 'logs':
             import log_panel
@@ -1049,7 +814,7 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if params.get("download", [""])[0]=="backup" and (QUEUE.status()["queued"]+QUEUE.status()["running"]):
-            self.redirect_message("Дождитесь завершения очереди перед созданием резервной копии.",tab="backup")
+            self.redirect_message(_ui('Дождитесь завершения очереди перед созданием резервной копии.'),tab="backup")
             return
         if params.get("download", [""])[0] == "backup":
             try:
@@ -1060,10 +825,10 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Cache-Control","no-store")
                 self.send_header("Content-Length",str(len(payload)))
                 self.end_headers(); self.wfile.write(payload)
-            except Exception as e: self.send_html("<h1>Ошибка создания резервной копии</h1><pre>"+esc(e)+"</pre>",500)
+            except Exception as e: self.send_html(_ui('<h1>Ошибка создания резервной копии</h1><pre>')+esc(_ui_message(e))+"</pre>",500)
             return
         if params.get("tab", [""])[0] == "backup":
-            message=params.get("msg", [""])[0]; page=render_backup_page()
+            message=_ui_message(params.get("msg", [""])[0]); page=render_backup_page()
             if message: page='<div class="msg">'+esc(message)+'</div>'+page
             self.send_html(decorate_page(page,"backup")); return
 
@@ -1072,7 +837,7 @@ class Handler(BaseHTTPRequestHandler):
                 before=max(0,int(params.get("before",["0"])[0]))
                 self.send_json(QUEUE.history(before=before))
             except (ValueError,TypeError):
-                self.send_json({"message":"Некорректный номер действия"},400)
+                self.send_json({"message":_ui('Некорректный номер действия')},400)
             return
         if self.path.split("?",1)[0]=="/api/actions/status":
             self.send_json(QUEUE.status())
@@ -1093,12 +858,12 @@ class Handler(BaseHTTPRequestHandler):
                 fragment = (vpn_subscriptions.render() if params.get("view") == ["subscriptions"]
                             else render_proxy_manager(vpn_subscriptions.navigation(False)))
                 page = '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VPN</title><style></style></head><body>' + fragment + '</body></html>'
-                message = params.get("msg", [""])[0]
+                message = _ui_message(params.get("msg", [""])[0])
                 if message:
                     page = page.replace("<body>", "<body><p role=\"status\">" + esc(message) + "</p>", 1)
                 self.send_html(decorate_page(page, "proxies"))
             except Exception as e:
-                self.send_html("<h1>Ошибка раздела прокси</h1><pre>" + esc(e) + "</pre>", 500)
+                self.send_html(_ui('<h1>Ошибка раздела прокси</h1><pre>') + esc(_ui_message(e)) + "</pre>", 500)
             return
 
         if params.get("tab", [""])[0] == "services":
@@ -1107,7 +872,7 @@ class Handler(BaseHTTPRequestHandler):
                 page = render_services(params, targets=targets)
                 self.send_html(decorate_page(page, "services", targets=targets))
             except Exception as e:
-                self.send_html("<h1>Ошибка раздела правил</h1><pre>" + esc(e) + "</pre>", 500)
+                self.send_html(_ui('<h1>Ошибка раздела правил</h1><pre>') + esc(_ui_message(e)) + "</pre>", 500)
             return
         params = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
         query = params.get("q", [""])[0].strip().lower()
@@ -1121,7 +886,7 @@ class Handler(BaseHTTPRequestHandler):
             page = max(1, int(params.get("page", ["1"])[0]))
         except ValueError:
             page = 1
-        message = params.get("msg", [""])[0]
+        message = _ui_message(params.get("msg", [""])[0])
 
         load_domains = params.get("load") == ["1"] or any(key in params for key in ("q", "source", "status", "page"))
         source = adds = removes = deleted = effective = set()
@@ -1165,7 +930,7 @@ class Handler(BaseHTTPRequestHandler):
                 page = min(page, pages)
                 shown = matches[(page - 1) * PAGE_SIZE:page * PAGE_SIZE]
             except Exception as e:
-                self.send_html("<h1>Ошибка чтения данных</h1><pre>" + esc(e) + "</pre>", 500)
+                self.send_html(_ui('<h1>Ошибка чтения данных</h1><pre>') + esc(_ui_message(e)) + "</pre>", 500)
                 return
 
         settings_path = state_path(Path(BASE) / "routing-settings.json")
@@ -1199,30 +964,22 @@ class Handler(BaseHTTPRequestHandler):
             if owner is not None:
                 origin = '<a href="' + esc(service_edit_url(owner)) + '">' + esc(owner["name"]) + '</a>'
                 disabled = False
-                actions = '<span>Управляется правилом</span>'
+                actions = _ui('<span>Управляется правилом</span>')
                 status_control = f'<span class="{status_class}">{dns_label}</span>'
             elif domain in service_domains:
-                origin = "Основной маршрут"
+                origin = _ui('Основной маршрут')
                 status_control = f'<span class="{status_class}">{dns_label}</span>'
                 actions = ""
             else:
-                origin = esc(SOURCE_NAME if domain in source else "Локальный")
+                origin = esc(SOURCE_NAME if domain in source else _ui('Локальный'))
                 disabled = domain in removes
                 selected_mode = local_dns.get(domain, dns_label)
                 dns_options = "".join(
                     f'<option value="{mode}"{" selected" if mode == selected_mode else ""}>{mode}</option>'
                     for mode in ("FakeIP", "RealIP", "NODOMAIN")
                 )
-                status_control = f"""<form method="post" action="/action" class="inline domain-toggle">
-<input type="hidden" name="action" value="domain_dns">
-<input type="hidden" name="old" value="{esc(domain)}">
-<select name="dns_mode" aria-label="DNS домена {esc(domain)}" onchange="this.form.requestSubmit()">{dns_options}</select>
-</form>"""
-                actions = """<form method="post" action="/action" class="inline" onsubmit="return confirm('Удалить {domain} из панели?')">
-<input type="hidden" name="action" value="delete">
-<input type="hidden" name="old" value="{domain}">
-<button class="danger" type="submit">Удалить</button>
-</form>""".format(
+                status_control = ''.join(('<form method="post" action="/action" class="inline domain-toggle">\n<input type="hidden" name="action" value="domain_dns">\n<input type="hidden" name="old" value="', f'{esc(domain)}', _ui('">\n<select name="dns_mode" aria-label="DNS домена '), f'{esc(domain)}', '" onchange="this.form.requestSubmit()">', f'{dns_options}', '</select>\n</form>'))
+                actions = _ui('<form method="post" action="/action" class="inline" onsubmit="return confirm(\'Удалить {domain} из панели?\')">\n<input type="hidden" name="action" value="delete">\n<input type="hidden" name="old" value="{domain}">\n<button class="danger" type="submit">Удалить</button>\n</form>').format(
                     domain=esc(domain)
                 )
             rows.append("""
@@ -1247,14 +1004,14 @@ class Handler(BaseHTTPRequestHandler):
 
         nav = ""
         if page > 1:
-            nav += page_link(page - 1, "← Назад") + " "
-        nav += "Страница %d из %d" % (page, pages)
+            nav += page_link(page - 1, _ui('← Назад')) + " "
+        nav += _ui('Страница %d из %d') % (page, pages)
         if page < pages:
-            nav += " " + page_link(page + 1, "Вперёд →")
+            nav += " " + page_link(page + 1, _ui('Вперёд →'))
 
         service_names = sorted({item["name"] for item in read_services() if item.get("name")}, key=str.casefold)
         service_filter_options = [
-            '<option value="service" %s>S:Все правила</option>' % (
+            _ui('<option value="service" %s>S:Все правила</option>') % (
                 "selected" if source_filter == "service" else ""
             )
         ]
@@ -1267,97 +1024,7 @@ class Handler(BaseHTTPRequestHandler):
                 )
             )
 
-        body = """<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Universal VPN Core — DNS</title>
-<style>
-body{{font:16px system-ui,sans-serif;max-width:1250px;margin:24px auto;padding:0 14px;color:#222}}
-input,button{{font:inherit;padding:8px}}input{{max-width:100%;box-sizing:border-box}}
-button{{cursor:pointer;border:1px solid #999;border-radius:5px;background:#eee}}
-button:disabled{{opacity:.4;cursor:default}}
-.danger{{background:#fee}}
-.panel{{border:1px solid #ccc;border-radius:8px;padding:14px;margin:14px 0}}
-.panel-spoiler>summary{{cursor:pointer;font-size:1.25em;font-weight:700;list-style:none;display:flex;align-items:center;gap:9px}}
-.panel-spoiler>summary::-webkit-details-marker{{display:none}}
-.panel-spoiler>summary::before{{content:"";width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;flex:none}}
-.panel-spoiler[open]>summary{{margin-bottom:14px}}
-.panel-spoiler[open]>summary::before{{transform:rotate(90deg)}}
-table{{width:100%;border-collapse:collapse}}
-th,td{{text-align:left;border-bottom:1px solid #ddd;padding:8px;overflow-wrap:anywhere}}
-th{{background:#f4f4f4}}
-.inline{{display:inline-block;margin:2px}}
-.actions{{min-width:260px}}
-.domain{{font-weight:500}}
-.on{{color:#176b35;font-weight:600}}
-.off{{color:#a45b00;font-weight:600}}
-.msg{{white-space:pre-wrap;background:#f3f6ff;padding:12px;overflow-wrap:anywhere}}
-nav{{margin:18px 0}}form.search{{display:flex;gap:8px;flex-wrap:wrap}}
-.domain-filter-form{{width:100%;margin:0}}
-.domain-filter-box{{width:100%;box-sizing:border-box;border:1px solid #b8c2d3;border-radius:8px;overflow:hidden}}
-.domain-filter-box textarea{{display:block;width:100%;height:10em;min-height:10em;max-height:10em;box-sizing:border-box;resize:none;overflow:auto;white-space:pre;border:0!important;border-radius:0!important}}
-.domain-filter-footer{{display:flex;justify-content:flex-end;padding:8px 10px;border-top:1px solid #b8c2d3}}
-.domain-refresh-row{{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px}}
-.domain-refresh-row p{{margin:0}}
-.domain-refresh-row form{{flex:0 0 auto;margin:0}}
-@media(max-width:760px){{.domain-refresh-row{{align-items:stretch;flex-direction:column}}.domain-refresh-row form button{{width:100%}}}}
-@media(max-width:760px){{
- table{{font-size:14px}}
- th,td{{padding:5px}}
- .actions{{min-width:190px}}
-}}
-</style>
-</head>
-<body>
-{message}
-<div class="panel">
-<details class="panel-spoiler"><summary>Добавить локальные домены</summary>
-<form method="post" action="/action" class="domain-filter-form">
-<input type="hidden" name="action" value="add">
-<div class="domain-filter-box">
-<textarea name="new" rows="8" wrap="off" placeholder="example.com; example.org&#10;example.net" required></textarea>
-<div class="domain-filter-footer"><button type="submit">Добавить и включить домены</button></div>
-</div>
-</form>
-<p>Перечислите домены через точку с запятой или каждый с новой строки. Для каждого домена сразу создаётся правило <code>DOMAIN-SUFFIX</code>, поэтому оно распространяется и на все его поддомены. Домены получают источник «Локальный».</p>
-</details>
-</div>
-<div class="panel">
-<details class="panel-spoiler" id="domain-list"{list_open}><summary>Список доменов</summary>
-<div id="domain-list-content">
-<form id="clear-auto-domains-form" method="post" action="/action"
-onsubmit="return confirm('Очистить все автоматически загруженные домены? Локальные домены останутся.')">
-<input type="hidden" name="action" value="clear_auto_domains">
-</form>
-<form class="search" method="get" action="/">
-<input type="hidden" name="load" value="1">
-<input name="q" value="{query}" placeholder="Поиск по домену">
-<select name="source">
-<option value="all" {source_all}>Все источники</option>
-<option value="rkn" {source_rkn}>{source_name}</option>
-<option value="local" {source_local}>Локальный</option>
-{service_filter_options}
-</select>
-<select name="status">
-<option value="all" {status_all}>Все статусы</option>
-<option value="enabled" {status_enabled}>Включено</option>
-<option value="disabled" {status_disabled}>Отключено</option>
-</select>
-<button type="submit">Найти</button>
-<button type="button" onclick="window.location.href='/?load=1'">Сбросить поиск</button>
-<button type="submit" form="clear-auto-domains-form" class="danger" style="font-weight:700">Очистить список доменов</button>
-</form>
-<p>Найдено: {match_count}</p>
-<table>
-<thead><tr><th>Домен</th><th>Источник</th><th>Статус</th><th>Действия</th></tr></thead>
-<tbody>{rows}</tbody>
-</table>
-<nav>{nav}</nav>
-</div></details></div>
-</body>
-</html>""".format(
+        body = _ui('<!doctype html>\n<html lang="ru">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1">\n<title>Universal VPN Core — DNS</title>\n<style>\nbody{{font:16px system-ui,sans-serif;max-width:1250px;margin:24px auto;padding:0 14px;color:#222}}\ninput,button{{font:inherit;padding:8px}}input{{max-width:100%;box-sizing:border-box}}\nbutton{{cursor:pointer;border:1px solid #999;border-radius:5px;background:#eee}}\nbutton:disabled{{opacity:.4;cursor:default}}\n.danger{{background:#fee}}\n.panel{{border:1px solid #ccc;border-radius:8px;padding:14px;margin:14px 0}}\n.panel-spoiler>summary{{cursor:pointer;font-size:1.25em;font-weight:700;list-style:none;display:flex;align-items:center;gap:9px}}\n.panel-spoiler>summary::-webkit-details-marker{{display:none}}\n.panel-spoiler>summary::before{{content:"";width:0;height:0;border-top:5px solid transparent;border-bottom:5px solid transparent;border-left:7px solid currentColor;flex:none}}\n.panel-spoiler[open]>summary{{margin-bottom:14px}}\n.panel-spoiler[open]>summary::before{{transform:rotate(90deg)}}\ntable{{width:100%;border-collapse:collapse}}\nth,td{{text-align:left;border-bottom:1px solid #ddd;padding:8px;overflow-wrap:anywhere}}\nth{{background:#f4f4f4}}\n.inline{{display:inline-block;margin:2px}}\n.actions{{min-width:260px}}\n.domain{{font-weight:500}}\n.on{{color:#176b35;font-weight:600}}\n.off{{color:#a45b00;font-weight:600}}\n.msg{{white-space:pre-wrap;background:#f3f6ff;padding:12px;overflow-wrap:anywhere}}\nnav{{margin:18px 0}}form.search{{display:flex;gap:8px;flex-wrap:wrap}}\n.domain-filter-form{{width:100%;margin:0}}\n.domain-filter-box{{width:100%;box-sizing:border-box;border:1px solid #b8c2d3;border-radius:8px;overflow:hidden}}\n.domain-filter-box textarea{{display:block;width:100%;height:10em;min-height:10em;max-height:10em;box-sizing:border-box;resize:none;overflow:auto;white-space:pre;border:0!important;border-radius:0!important}}\n.domain-filter-footer{{display:flex;justify-content:flex-end;padding:8px 10px;border-top:1px solid #b8c2d3}}\n.domain-refresh-row{{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:12px}}\n.domain-refresh-row p{{margin:0}}\n.domain-refresh-row form{{flex:0 0 auto;margin:0}}\n@media(max-width:760px){{.domain-refresh-row{{align-items:stretch;flex-direction:column}}.domain-refresh-row form button{{width:100%}}}}\n@media(max-width:760px){{\n table{{font-size:14px}}\n th,td{{padding:5px}}\n .actions{{min-width:190px}}\n}}\n</style>\n</head>\n<body>\n{message}\n<div class="panel">\n<details class="panel-spoiler"><summary>Добавить локальные домены</summary>\n<form method="post" action="/action" class="domain-filter-form">\n<input type="hidden" name="action" value="add">\n<div class="domain-filter-box">\n<textarea name="new" rows="8" wrap="off" placeholder="example.com; example.org&#10;example.net" required></textarea>\n<div class="domain-filter-footer"><button type="submit">Добавить и включить домены</button></div>\n</div>\n</form>\n<p>Перечислите домены через точку с запятой или каждый с новой строки. Для каждого домена сразу создаётся правило <code>DOMAIN-SUFFIX</code>, поэтому оно распространяется и на все его поддомены. Домены получают источник «Локальный».</p>\n</details>\n</div>\n<div class="panel">\n<details class="panel-spoiler" id="domain-list"{list_open}><summary>Список доменов</summary>\n<div id="domain-list-content">\n<form id="clear-auto-domains-form" method="post" action="/action"\nonsubmit="return confirm(\'Очистить все автоматически загруженные домены? Локальные домены останутся.\')">\n<input type="hidden" name="action" value="clear_auto_domains">\n</form>\n<form class="search" method="get" action="/">\n<input type="hidden" name="load" value="1">\n<input name="q" value="{query}" placeholder="Поиск по домену">\n<select name="source">\n<option value="all" {source_all}>Все источники</option>\n<option value="rkn" {source_rkn}>{source_name}</option>\n<option value="local" {source_local}>Локальный</option>\n{service_filter_options}\n</select>\n<select name="status">\n<option value="all" {status_all}>Все статусы</option>\n<option value="enabled" {status_enabled}>Включено</option>\n<option value="disabled" {status_disabled}>Отключено</option>\n</select>\n<button type="submit">Найти</button>\n<button type="button" onclick="window.location.href=\'/?load=1\'">Сбросить поиск</button>\n<button type="submit" form="clear-auto-domains-form" class="danger" style="font-weight:700">Очистить список доменов</button>\n</form>\n<p>Найдено: {match_count}</p>\n<table>\n<thead><tr><th>Домен</th><th>Источник</th><th>Статус</th><th>Действия</th></tr></thead>\n<tbody>{rows}</tbody>\n</table>\n<nav>{nav}</nav>\n</div></details></div>\n</body>\n</html>').format(
             source_count=len(source),
             add_count=len(adds - source),
             remove_count=len(removes & effective),
@@ -1374,7 +1041,7 @@ onsubmit="return confirm('Очистить все автоматически з�
             status_enabled="selected" if status_filter == "enabled" else "",
             status_disabled="selected" if status_filter == "disabled" else "",
             match_count=len(matches),
-            rows="".join(rows) or '<tr><td colspan="4">Нет доменов по заданному запросу</td></tr>',
+            rows="".join(rows) or _ui('<tr><td colspan="4">Нет доменов по заданному запросу</td></tr>'),
             nav=nav
             ,list_open=" open" if load_domains else ""
         )
@@ -1385,34 +1052,16 @@ onsubmit="return confirm('Очистить все автоматически з�
         if not load_domains:
             start = body.index('<div id="domain-list-content">') + len('<div id="domain-list-content">')
             end = body.index('</div></details></div>', start)
-            body = body[:start] + '<p role="status">Раскройте список для загрузки.</p>' + body[end:]
-        body = body.replace('</body>', """<script>
-(()=> {
- const details=document.getElementById("domain-list"),content=document.getElementById("domain-list-content");
- let loaded=details.open,busy=false;
- async function load() {
-  if(loaded||busy)return;
-  busy=true;content.textContent="Загрузка доменов…";
-  try {
-   const url=new URL(location.href);url.searchParams.set("load","1");url.searchParams.set("fragment","domains");
-   const response=await fetch(url,{cache:"no-store"});
-   if(!response.ok)throw new Error("Не удалось загрузить список доменов.");
-   content.innerHTML=await response.text();loaded=true;
-  } catch(error) {
-   content.replaceChildren(document.createTextNode(error.message+" "));
-   const retry=document.createElement("button");retry.type="button";retry.textContent="Повторить";
-   retry.addEventListener("click",load);content.append(retry);
-  } finally {busy=false;}
- }
- details.addEventListener("toggle",()=>{if(details.open)load();});
-})();
-</script></body>""")
+            body = body[:start] + _ui('<p role="status">Раскройте список для загрузки.</p>') + body[end:]
+        body = body.replace('</body>', _ui('<script>\n(()=> {\n const details=document.getElementById("domain-list"),content=document.getElementById("domain-list-content");\n let loaded=details.open,busy=false;\n async function load() {\n  if(loaded||busy)return;\n  busy=true;content.textContent="Загрузка доменов…";\n  try {\n   const url=new URL(location.href);url.searchParams.set("load","1");url.searchParams.set("fragment","domains");\n   const response=await fetch(url,{cache:"no-store"});\n   if(!response.ok)throw new Error("Не удалось загрузить список доменов.");\n   content.innerHTML=await response.text();loaded=true;\n  } catch(error) {\n   content.replaceChildren(document.createTextNode(error.message+" "));\n   const retry=document.createElement("button");retry.type="button";retry.textContent="Повторить";\n   retry.addEventListener("click",load);content.append(retry);\n  } finally {busy=false;}\n }\n details.addEventListener("toggle",()=>{if(details.open)load();});\n})();\n</script></body>'))
         from dns_panel import render as render_dns
-        marker = '<div class="panel">\n<details class="panel-spoiler"><summary>Добавить локальные домены'
+        marker = _ui('<div class="panel">\n<details class="panel-spoiler"><summary>Добавить локальные домены')
         body = body.replace(marker, render_dns() + marker, 1)
         self.send_html(decorate_page(body, "domains", domain_counts=domain_counts))
 
     def do_POST(self):
+        from ui_i18n import select_language
+        select_language('ui_language=ru')
         if self.path.split("?",1)[0] in ("/api/configuration/stage", "/api/configuration/discard"):
             from configuration_draft import stage, discard
             try:
@@ -1681,6 +1330,7 @@ if __name__ == "__main__":
     print("RU-BLOCKED panel listening on 0.0.0.0:%d" % PORT, flush=True)
     httpd = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)
     panel_updater.complete_start()
+    cached_domain_counts()
     httpd.serve_forever()
 
 

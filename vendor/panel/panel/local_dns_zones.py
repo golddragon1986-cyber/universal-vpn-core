@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui, message as _ui_message
 """RouterOS local DNS authority, queried directly even for pinned VPN clients."""
 import ipaddress
 import json
@@ -83,15 +84,15 @@ def configure(text):
 def render():
     e=lambda value:html.escape(str(value),quote=True)
     try:rows=read();error=''
-    except (OSError,ValueError):rows=[];error='Не удалось прочитать список локальных DNS-записей.'
+    except (OSError,ValueError):rows=[];error=_ui('Не удалось прочитать список локальных DNS-записей.')
     sections=[]
-    for forwarded,title in ((True,'Перенаправленные зоны'),(False,'Статические записи')):
+    for forwarded,title in ((True,_ui('Перенаправленные зоны')),(False,_ui('Статические записи'))):
         entries=[]
         for row in sorted(rows,key=lambda item:item['name']):
             if (row.get('type')=='FWD')!=forwarded:continue
             value=e(row.get('value','—'))
             if forwarded and row.get('upstreams'):value+='<br><small>'+e(', '.join(row['upstreams']))+'</small>'
-            entries.append('<tr><td>'+e(row['name'])+'</td><td>'+e(row.get('type','—'))+'</td><td>'+value+'</td><td>'+('Да' if row['subdomains'] else 'Нет')+'</td><td>'+('Включено' if row.get('enabled',True) else 'Отключено')+'</td></tr>')
-        sections.append('<h3>'+title+'</h3><div style="overflow:auto"><table class="routeros-dns-table"><thead><tr><th>Имя / зона</th><th>Тип</th><th>'+('DNS / перенаправление' if forwarded else 'Значение')+'</th><th>Поддомены</th><th>Состояние</th></tr></thead><tbody>'+(''.join(entries) or '<tr><td colspan="5">Записей нет</td></tr>')+'</tbody></table></div>')
-    updated=datetime.fromtimestamp(FILE.stat().st_mtime,timezone.utc).strftime('%d.%m.%Y %H:%M UTC') if FILE.exists() else 'ожидается чтение RouterOS'
-    return '<div class="panel"><details class="panel-spoiler"><summary>Локальные DNS-записи RouterOS ('+str(len(rows))+')</summary><p role="status">'+e(error or 'Последнее чтение: '+updated)+'</p>'+''.join(sections)+'</details></div><style>body .unified-main .routeros-dns-table{width:100%;min-width:600px}body .unified-main .routeros-dns-table td{overflow-wrap:anywhere}body .unified-main .routeros-dns-table small{color:var(--ui-muted)}</style>'
+            entries.append('<tr><td>'+e(row['name'])+'</td><td>'+e(row.get('type','—'))+'</td><td>'+value+'</td><td>'+(_ui('Да') if row['subdomains'] else _ui('Нет'))+'</td><td>'+(_ui('Включено') if row.get('enabled',True) else _ui('Отключено'))+'</td></tr>')
+        sections.append('<h3>'+title+_ui('</h3><div style="overflow:auto"><table class="routeros-dns-table"><thead><tr><th>Имя / зона</th><th>Тип</th><th>')+(_ui('DNS / перенаправление') if forwarded else _ui('Значение'))+_ui('</th><th>Поддомены</th><th>Состояние</th></tr></thead><tbody>')+(''.join(entries) or _ui('<tr><td colspan="5">Записей нет</td></tr>'))+'</tbody></table></div>')
+    updated=datetime.fromtimestamp(FILE.stat().st_mtime,timezone.utc).strftime('%d.%m.%Y %H:%M UTC') if FILE.exists() else _ui('ожидается чтение RouterOS')
+    return _ui('<div class="panel"><details class="panel-spoiler"><summary>Локальные DNS-записи RouterOS (')+str(len(rows))+')</summary><p role="status">'+e(_ui_message(error) if error else _ui('Последнее чтение: ')+updated)+'</p>'+''.join(sections)+'</details></div><style>body .unified-main .routeros-dns-table{width:100%;min-width:600px}body .unified-main .routeros-dns-table td{overflow-wrap:anywhere}body .unified-main .routeros-dns-table small{color:var(--ui-muted)}</style>'

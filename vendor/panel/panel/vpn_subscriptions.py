@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui
 """Persistent VPN subscriptions and scoped node checks."""
 import base64
 import copy
@@ -348,8 +349,8 @@ def handle(action, data):
 
 def navigation(subscriptions):
     return ('<nav class="unified-tabs vpn-subnav" aria-label="VPN">'
-            f'<a href="/?tab=vpn" {"class=active aria-current=page" if not subscriptions else ""}>Соединения</a>'
-            f'<a href="/?tab=vpn&amp;view=subscriptions" {"class=active aria-current=page" if subscriptions else ""}>Подписки</a>'
+            f'<a href="/?tab=vpn" {"class=active aria-current=page" if not subscriptions else ""}>{_ui("Соединения")}</a>'
+            f'<a href="/?tab=vpn&amp;view=subscriptions" {"class=active aria-current=page" if subscriptions else ""}>{_ui("Подписки")}</a>'
             '</nav><style>body .unified-main .unified-tabs.vpn-subnav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}'
             '.vpn-subnav a{text-align:center}'
             '</style>')
@@ -360,38 +361,18 @@ def render():
     db = manager.read()
     options = "".join(f'<option value="{key}" {"selected" if key == "xray" else ""}>{label}</option>' for key, label in clients.NAMES.items()
                       if clients.binary(key))
-    profiles = "".join(f'<option value="{key}">{label}</option>' for key, label in PROFILES.items())
+    profiles = "".join(f'<option value="{key}">{_ui(label)}</option>' for key, label in PROFILES.items())
     parts = [
-             '<details class="vpn-subscription-add"><summary>Добавить подписку</summary>'
-             '<form class="vpn-subscription-form" method="post" action="/action">'
-             '<input type="hidden" name="action" value="subscription_add">'
-             '<label>Имя<input name="name" maxlength="80" required></label>'
-             '<label>HTTPS-адрес<input name="url" type="password" autocomplete="off" required></label>'
-             f'<label>Движок<select name="client">{options}</select></label>'
-             f'<label>Профиль запроса<select name="profile">{profiles}</select></label>'
-             '<button type="submit">Добавить подписку</button></form></details>']
+             ''.join((_ui('<details class="vpn-subscription-add"><summary>Добавить подписку</summary><form class="vpn-subscription-form" method="post" action="/action"><input type="hidden" name="action" value="subscription_add"><label>Имя<input name="name" maxlength="80" required></label><label>HTTPS-адрес<input name="url" type="password" autocomplete="off" required></label><label>Движок<select name="client">'), f'{options}', _ui('</select></label><label>Профиль запроса<select name="profile">'), f'{profiles}', _ui('</select></label><button type="submit">Добавить подписку</button></form></details>')))]
     groups = {}
     for sid, sub in db.get("subscriptions", {}).items():
         auto = sub.get("automation", {})
         controls = (
-            f'<details class="vpn-auto" data-vpn-auto="{escape(sid)}"><summary>Автобалансировка</summary>'
-            '<form class="vpn-subscription-form" method="post" action="/action">'
-            '<input type="hidden" name="action" value="subscription_automation">'
-            f'<input type="hidden" name="subscription" value="{escape(sid)}">'
-            f'<label><input type="checkbox" name="enabled" value="1" {"checked" if auto.get("enabled") else ""}> Включить</label>'
-            f'<label>Обновлять каждые, мин<input type="number" name="refresh" min="5" max="10080" value="{escape(str(auto.get("refresh", 60)))}" required></label>'
-            f'<label>Серверов в балансе<input type="number" name="target" min="1" max="32" value="{escape(str(auto.get("target", 3)))}" required></label>'
-            f'<label>Исключать через, мин<input type="number" name="grace" min="1" max="1440" value="{escape(str(auto.get("grace", 5)))}" required></label>'
-            '<button type="submit">Сохранить</button></form></details>'
+            ''.join(('<details class="vpn-auto" data-vpn-auto="', f'{escape(sid)}', _ui('"><summary>Автобалансировка</summary><form class="vpn-subscription-form" method="post" action="/action"><input type="hidden" name="action" value="subscription_automation"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', '"><label><input type="checkbox" name="enabled" value="1" ', f"{('checked' if auto.get('enabled') else '')}", _ui('> Включить</label><label>Обновлять каждые, мин<input type="number" name="refresh" min="5" max="10080" value="'), f"{escape(str(auto.get('refresh', 60)))}", _ui('" required></label><label>Серверов в балансе<input type="number" name="target" min="1" max="32" value="'), f"{escape(str(auto.get('target', 3)))}", _ui('" required></label><label>Исключать через, мин<input type="number" name="grace" min="1" max="1440" value="'), f"{escape(str(auto.get('grace', 5)))}", _ui('" required></label><button type="submit">Сохранить</button></form></details>')))
         )
         groups[sid] = (sub["name"],
-                     f'<small class="vpn-group-meta">{escape(clients.NAMES[sub["engine"]])} · {escape(PROFILES[sub["profile"]])}'
+                     f'<small class="vpn-group-meta">{escape(clients.NAMES[sub["engine"]])} · {escape(_ui(PROFILES[sub["profile"]]))}'
                      f' · {escape(sub["updated"])}</small>',
-                     '<form method="post" action="/action"><input type="hidden" name="action" value="subscription_refresh">'
-                     f'<input type="hidden" name="subscription" value="{escape(sid)}">'
-                     '<button type="submit">Обновить подписку</button></form>',
-                     '<form class="vpn-group-delete" method="post" action="/action" onsubmit="return confirm(\'Удалить подписку и все её соединения?\')">'
-                     '<input type="hidden" name="action" value="subscription_delete">'
-                     f'<input type="hidden" name="subscription" value="{escape(sid)}">'
-                     '<button type="submit">Удалить</button></form>', controls)
+                     ''.join(('<form method="post" action="/action"><input type="hidden" name="action" value="subscription_refresh"><input type="hidden" name="subscription" value="', f'{escape(sid)}', _ui('"><button type="submit">Обновить подписку</button></form>'))),
+                     ''.join((_ui('<form class="vpn-group-delete" method="post" action="/action" onsubmit="return confirm(\'Удалить подписку и все её соединения?\')"><input type="hidden" name="action" value="subscription_delete"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', _ui('"><button type="submit">Удалить</button></form>'))), controls)
     return manager.render(navigation(True), subscription_controls="".join(parts), subscription_groups=groups)

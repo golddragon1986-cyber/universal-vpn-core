@@ -1,3 +1,4 @@
+from ui_i18n import text as _ui
 """Bounded, volatile Mihomo log feed; no extra daemon or disk log files."""
 import collections
 import http.client
@@ -142,7 +143,5 @@ def snapshot(after=0):
 
 
 def render():
-    fragment = Path(__file__).with_name('logs_ui.html').read_text(encoding='utf-8')
-    return ('<!doctype html><html lang="ru"><head><meta charset="utf-8">'
-            '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            '<title>Логи</title><style></style></head><body>' + fragment + '</body></html>')
+    fragment = _ui(Path(__file__).with_name('logs_ui.html').read_text(encoding='utf-8'))
+    return (_ui('<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Логи</title><style></style></head><body>') + fragment + '</body></html>')

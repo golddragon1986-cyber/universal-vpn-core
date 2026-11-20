@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Universal VPN · USB-комплект · ARM64</title>
+<style>
+:root { color-scheme: light; --ink: #17263c; --muted: #50627b; --line: #d5dfea; --paper: #fff; --page: #eef3f8; --accent: #1556ae; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.62 system-ui, sans-serif; }
+main { max-width: 920px; margin: 32px auto; padding: clamp(20px, 5vw, 56px); background: var(--paper); border: 1px solid var(--line); border-radius: 18px; }
+h1, h2, h3 { line-height: 1.2; }
+h1 { margin: .3em 0 .65em; font-size: clamp(28px, 5vw, 42px); }
+h2 { margin-top: 1.75em; border-top: 1px solid var(--line); padding-top: .8em; }
+.eyebrow { color: var(--accent); font-size: .82rem; font-weight: 750; letter-spacing: .08em; }
+a { color: var(--accent); }
+p { overflow-wrap: anywhere; }
+p code { padding: .12em .32em; border-radius: 4px; background: var(--page); }
+blockquote { margin: 1rem 0 1.35rem clamp(12px, 3vw, 30px); }
+.command { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: #f5f8fc; }
+.command-bar { display: flex; align-items: center; justify-content: space-between; gap: .65rem; padding: .45rem .8rem; background: #e7eef7; color: var(--muted); font-size: .84rem; font-weight: 650; }
+.command button { border: 1px solid #9db4cf; border-radius: 6px; padding: .38rem .65rem; background: #fff; color: var(--ink); font: inherit; cursor: pointer; }
+.command button:hover { background: #d8e8ff; }
+.command button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+pre { overflow-x: auto; margin: 0; padding: .8rem; font: 14px/1.55 ui-monospace, Consolas, monospace; }
+@media (max-width: 600px) { main { margin: 0; border-radius: 0; } }
+@media print { main { margin: 0; padding: 0; border: 0; } .command button { display: none; } pre { white-space: pre-wrap; } }
+</style>
+</head>
+<body>
+<main>
+<div class="eyebrow">USB-КОМПЛЕКТ · ARM64</div>
+<h1>Установка Universal VPN с USB</h1>
+<p>Комплект рассчитан на MikroTik ARM64 с USB, например RB5009 (RouterOS 7+). Носитель остаётся в роутере. На нём лежат архив образа, распакованный контейнер <code>rootfs</code> и его рабочие данные <code>data</code>. Для первой установки нужен пустой каталог <code>universal-vpn</code> на разделе ext4 с запасом от 512 МиБ. Если Windows не открывает ext4, скопируйте файлы через WinBox → Files после подключения носителя к роутеру.</p>
+<p>Образ ARM64 0.2b содержит Mihomo, веб-панель, домены и сервис Telegram с девятью IPv4-сетями из выгрузки hAP ax³. VPN-профили добавляются после установки. Начальный режим панели — DIRECT. Маршрут Fake-IP на роутере и перехват DNS создаются отдельным скриптом.</p>
+<h2>1. Подготовка</h2>
+<p>Сохраните резервную копию RouterOS. Выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/system resource print
+/system package print
+/system device-mode print
+/disk print
+/interface list member print
+</code></pre></div>
+</blockquote>
+<p>Если на RouterOS отсутствует пакет <code>container</code>, загрузите пакет <code>container</code> в корень <strong>внутреннего хранилища</strong> через WinBox → Files и перезагрузите роутер.</p>
+<p>Если указано <code>container: no</code>, выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/system device-mode update container=yes
+</code></pre></div>
+</blockquote>
+<p>Подтвердите изменение физически по подсказке RouterOS.</p>
+<p>Скопируйте содержимое этой папки в каталог <code>universal-vpn</code> на флешке. В <code>01-install.rsc</code> задайте имя раздела, если оно отличается от <code>usb1-part1</code>. Если список доверенных интерфейсов называется иначе, задайте одинаковый <code>lan</code> в <code>01-install.rsc</code> и <code>02-enable-routing.rsc</code>. К панели, прокси и DNS допускаются клиенты из <code>10.0.0.0/8</code>, <code>172.16.0.0/12</code> и <code>192.168.0.0/16</code>, если трафик приходит через интерфейс из списка <code>LAN</code>.
+Проверьте, что список <code>WAN</code> включает выходы в интернет и не пересекается с выбранным LAN. Подсети <code>172.31.41.0/24</code> и <code>198.18.0.0/16</code> должны быть свободны. Для роутера с существующим контейнером или policy routing сначала проверьте пересечения с его маршрутами, правилами mangle и RAW. Скрипты рассчитаны на маршрутизацию клиентов через таблицу <code>main</code>.</p>
+<h2>2. Установка и проверка</h2>
+<p>В командах замените <code>usb1-part1</code> на имя раздела из Files.</p>
+<p>Проверьте скрипт в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/import file-name=usb1-part1/universal-vpn/01-install.rsc verbose=yes dry-run
+</code></pre></div>
+</blockquote>
+<p>Если проверка прошла без ошибок, выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/import file-name=usb1-part1/universal-vpn/01-install.rsc
+/container print detail where name=&quot;universal-vpn-core&quot;
+</code></pre></div>
+</blockquote>
+<p>Дождитесь, пока флаг <code>E</code> сменится на <code>S</code>, и запустите контейнер.</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/container start [find where name=&quot;universal-vpn-core&quot; and interface=&quot;uvpn-usb-veth&quot;]
+/log print where message~&quot;STARTUP READY&quot;
+</code></pre></div>
+</blockquote>
+<p>С клиента из разрешённой сети проверьте доступность панели по адресу <code>http://172.31.41.2:9091/</code>. Для проверки DNS выполните на клиентском ПК:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>PowerShell · Windows</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>nslookup example.com 172.31.41.2
+</code></pre></div>
+</blockquote>
+<p>Если включён Fake-IP, ответ может быть из диапазона <code>198.18.0.0/16</code>. Если нужен VPN, импортируйте свой профиль в панели и выберите его для нужного трафика. Пока панель в DIRECT, можно проверить установку и DNS.</p>
+<h2>3. Подключение клиентов</h2>
+<p>Проверьте состояние контейнера в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/container print detail where name=&quot;universal-vpn-core&quot;
+</code></pre></div>
+</blockquote>
+<p>Переходите к импорту, когда контейнер отмечен флагом <code>R</code>, а проверка DNS с клиента прошла.</p>
+<p>Проверьте скрипт в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/import file-name=usb1-part1/universal-vpn/02-enable-routing.rsc verbose=yes dry-run
+</code></pre></div>
+</blockquote>
+<p>Если проверка прошла без ошибок, выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/import file-name=usb1-part1/universal-vpn/02-enable-routing.rsc
+/ip route print detail where comment=&quot;uvpn-usb: routing&quot;
+/ip firewall nat print stats where comment=&quot;uvpn-usb: routing&quot;
+</code></pre></div>
+</blockquote>
+<p>Скрипт включает автозапуск контейнера, маршрут Fake-IP через него и перенаправление DNS TCP/UDP 53 для клиентов из разрешённых сетей через LAN. Настройки DHCP и DNS самого роутера остаются прежними. Клиентские запросы к локальным зонам роутера тоже попадут в Mihomo. Для проверки используйте клиент с обычным DNS IPv4 без DoH, DoT или IPv6 DNS.</p>
+<h2>4. Откат переключения</h2>
+<p>Выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/import file-name=usb1-part1/universal-vpn/03-disable-routing.rsc
+</code></pre></div>
+</blockquote>
+<p>Скрипт удаляет свои DNS-правила и маршрут Fake-IP. Обновите DNS-кэш и соединения клиентов. Панель, данные и автозапуск остаются доступны. При сбое распаковки до переключения клиентов проверьте лог и запись контейнера. Перед повторным чистым импортом удалите только созданные установщиком записи с меткой <code>uvpn-usb: base</code>, bridge <code>uvpn-usb-br</code>, veth <code>uvpn-usb-veth</code>, списки mount/env <code>uvpn-usb</code> и перенесите частично созданные <code>rootfs</code> и <code>data</code> из каталога релиза.</p>
+<h2>5. Полное удаление установки</h2>
+<p><code>04-uninstall.rsc</code> отключает маршрутизацию через контейнер, удаляет контейнер, его сетевые настройки и рабочие каталоги <code>rootfs</code> и <code>data</code>. VPN-профили и другие данные в <code>data</code> будут удалены. Установочные файлы на флешке сохраняются.</p>
+<p>Проверьте скрипт в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/import file-name=usb1-part1/universal-vpn/04-uninstall.rsc verbose=yes dry-run
+</code></pre></div>
+</blockquote>
+<p>Если проверка прошла без ошибок, выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/import file-name=usb1-part1/universal-vpn/04-uninstall.rsc
+</code></pre></div>
+</blockquote>
+<p>При успешном удалении скрипт выводит <code>Universal VPN removed. USB release files retained.</code></p>
+<h3>Проверка после удаления</h3>
+<p>Выполните в терминале MikroTik:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>RouterOS · терминал MikroTik</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>/container print where name=&quot;universal-vpn-core&quot;
+/interface print where name~&quot;^uvpn-usb-&quot;
+/ip address print where comment=&quot;uvpn-usb: base&quot;
+/ip route print where comment=&quot;uvpn-usb: routing&quot;
+/ip route print where dst-address=&quot;172.31.41.0/24&quot;
+/ip route print where dst-address=&quot;198.18.0.0/16&quot;
+/ip firewall nat print where comment~&quot;^uvpn-usb:&quot;
+/ip firewall filter print where comment~&quot;^uvpn-usb:&quot;
+/container mounts print where list=&quot;uvpn-usb&quot;
+/container envs print where list=&quot;uvpn-usb&quot;
+/ip firewall address-list print where list=&quot;uvpn-usb-lan&quot;
+/file print where name=&quot;usb1-part1/universal-vpn/rootfs&quot;
+/file print where name=&quot;usb1-part1/universal-vpn/data&quot;
+/file print where name=&quot;usb1-part1/universal-vpn/universal-vpn-core-arm64.tar&quot;
+</code></pre></div>
+</blockquote>
+<p>Проверки контейнера, его настроек и рабочих каталогов должны показать пустой список или только заголовки. Если есть маршрут с тем же префиксом от другой установки, проверьте его шлюз и назначение отдельно. Последняя команда должна показать архив образа.</p>
+<p>Правила перенаправления DNS удалены, если проверка NAT не показывает записей с меткой <code>uvpn-usb:</code>. Настройки <code>/ip dns</code> и DHCP установщик не меняет. Выполните на клиентском ПК:</p>
+<blockquote>
+<div class="command"><div class="command-bar"><span>PowerShell · Windows</span><button type="button" aria-live="polite">Копировать</button></div><pre><code>nslookup example.com
+</code></pre></div>
+</blockquote>
+<p>Запрос должен вернуть адрес через обычный DNS клиента. Если в выводе указан <code>172.31.41.2</code>, проверьте настройки DNS самого клиента и DHCP.</p>
+
+</main>
+<script>
+document.querySelectorAll('.command button').forEach((button) => {
+  let reset;
+  button.addEventListener('click', async () => {
+    const code = button.closest('.command').querySelector('code');
+    const command = code.textContent.replace(/\r?\n$/, '');
+    clearTimeout(reset);
+    try {
+      if (!navigator.clipboard) throw new Error();
+      await navigator.clipboard.writeText(command);
+    } catch {
+      const temporary = document.createElement('textarea');
+      temporary.value = command;
+      temporary.style.cssText = 'position:fixed;left:-9999px;top:0';
+      document.body.append(temporary);
+      temporary.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch {}
+      temporary.remove();
+      button.focus();
+      if (!copied) {
+        const range = document.createRange();
+        range.selectNodeContents(code);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        button.textContent = 'Нажмите Ctrl+C';
+        return;
+      }
+    }
+    button.textContent = 'Скопировано';
+    reset = setTimeout(() => { button.textContent = 'Копировать'; }, 2000);
+  });
+});
+</script>
+</body>
+</html>
