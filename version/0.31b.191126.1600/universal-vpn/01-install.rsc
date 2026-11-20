@@ -233,4 +233,9 @@
     :delay 2s
 }
 :put "Container is ready to start (S - stopped)."
+:put "Next: /container start [find where name=\"universal-vpn-core\" and interface=\"uvpn-main-veth\"]"
+:put "Wait for STARTUP READY in /log print follow where topics~\"container\""
+:put "Panel: http://172.31.41.2:9091/"
+:put "Check DNS from a LAN computer: nslookup example.com 172.31.41.2"
+:put ("After the container and DNS work, enable client DNS and Fake-IP routing: /import file-name=\"" . $sourceBase . "/02-enable-routing.rsc\"")
 }
