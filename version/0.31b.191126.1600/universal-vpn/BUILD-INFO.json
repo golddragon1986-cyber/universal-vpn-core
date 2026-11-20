@@ -70,12 +70,12 @@
   "private_runtime_state_included": false,
   "architectures": {
     "arm64": {
-      "regular_file_bytes": 115034780,
-      "layer_diff_id": "sha256:efa76e9a800f1f1b2e78a8699b07874ef1020a978d0c16fb86d2058fa88ff36d",
-      "files": 2633,
+      "regular_file_bytes": 115037117,
+      "layer_diff_id": "sha256:41cb20b2acf933127e979ee2f1f1b480d9bf02f40b7a5f7b089e0c4f632caa9d",
+      "files": 2634,
       "base_sha256": "c23a769d86e53efe6f679f0b91e8365af33bcd5e92e4074d372c20f2b2f6f8d2",
-      "sha256": "72d38fcc8e563ba222f93ea4c770c9d92aab295ca4895ec272bdc3c3f075d0df",
-      "archive_bytes": 41342464,
+      "sha256": "daf21f9ca51628a0d4dbd8d2e58654e3053180ebcc94d3357fc5f7a9cb49af53",
+      "archive_bytes": 41343488,
       "core_version": "Mihomo 1.19.33 (from 0.3b ARM64 base)"
     },
     "armv7": {
