@@ -1260,6 +1260,8 @@ window.uiCatalog = {
   "Локальные DNS-записи RouterOS": "Local RouterOS DNS records",
   "Источники GeoDAT": "GeoDAT sources",
   "Источник GeoDAT": "GeoDAT source",
+  "Скачивание источника GeoDAT": "Downloading GeoDAT source",
+  "Загружено": "Downloaded",
   "Данные RouterOS": "RouterOS data",
   "HTTPS-адрес": "HTTPS URL",
   "JSON-файл": "JSON file",

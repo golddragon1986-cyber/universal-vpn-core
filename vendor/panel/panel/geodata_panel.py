@@ -205,7 +205,7 @@ def upload_dat(items, sid, name, source):
     return 'Локальная база GeoDAT добавлена.'
 
 
-def handle(form):
+def handle(form, progress=None):
     if not secrets.compare_digest(form.get("token", ""), TOKEN):
         raise ValueError("Обновите вкладку GeoDAT и повторите действие.")
     operation = form.get("operation")
@@ -243,7 +243,10 @@ def handle(form):
                 return "Локальный файл удалён. Ссылка сохранена."
             from geodata_search import save_database
             filename = sid + "-" + secrets.token_hex(8) + ".dat"
-            kind, size = save_database(old["url"], ROOT / filename)
+            def report_download(received):
+                if progress is not None:
+                    progress("Загружено " + format(received / 1048576, ".1f") + " МиБ")
+            kind, size = save_database(old["url"], ROOT / filename, progress=report_download)
             old.update(file=filename, size=size, behavior=kind, updated=timestamp())
             try:
                 save_entries(items)
@@ -321,7 +324,10 @@ def render(message=""):
         kind = "GeoDAT" + suffix if geodat else BEHAVIORS[behavior] + suffix
         size = ''.join((f"{item['size'] / 1024:.1f}", _ui(' КиБ'))) if item.get("file") else "—"
         def button(operation, label, attrs=""):
-            return (f'<form method="post" action="/api/geodata" {attrs}>{token}'
+            queued = operation == "refresh" and geodat
+            action = "/action" if queued else "/api/geodata"
+            queue_field = '<input type="hidden" name="action" value="geodata_source_download">' if queued else ""
+            return (f'<form method="post" action="{action}" {attrs}>{token}{queue_field}'
                     f'<input type="hidden" name="id" value="{escape(sid)}">'
                     f'<input type="hidden" name="operation" value="{operation}">'
                     f'<button type="submit">{label}</button></form>')

@@ -192,7 +192,7 @@ document.addEventListener("submit",async event=>{
   if(["service_geodata_import","service_refresh_geodata","service_set_target","service_move","service_reorder","service_toggle","service_delete","service_save"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
   if(form.classList.contains("domain-toggle"))viewRefreshJobs.add(result.job_id);
   if(["dns_flush","core_restart"].includes(data.get("action"))){maintenanceJobs.set(result.job_id,form);form.dataset.inlineBusy="1";maintenanceLock(form,true);}
-  if(["dns_save","configuration_apply"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
+  if(["dns_save","configuration_apply","geodata_source_download"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
   if(["route_add","route_target","route_delete","route_toggle","route_metric","route_apply"].includes(data.get("action"))&&window.refreshRouteRows){inlineRouteJobs.set(result.job_id,{form,baseline,action:data.get("action")});form.dataset.inlineBusy="1";form.inert=true;}
   if(["proxy_balance","proxy_enable_selected","proxy_delete","proxy_delete_selected"].includes(data.get("action")))vpnHeaderJobs.add(result.job_id);
   if(component)submittedComponents.add(component);

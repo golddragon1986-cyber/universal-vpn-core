@@ -652,6 +652,8 @@ setInterval(refreshProxyHealth, 120000);
 QUEUE = None
 
 def execute_queued_action(payload):
+    if parse_qs(payload.get("body","")).get("action",[""])[0]=="geodata_source_download":
+        return _execute_queued_action(payload)
     from configuration_draft import LOCK
     with LOCK:return _execute_queued_action(payload)
 
@@ -1163,6 +1165,12 @@ class Handler(BaseHTTPRequestHandler):
             raw = self.rfile.read(length).decode("utf-8", "replace")
             data = parse_qs(raw)
             action = data.get("action", [""])[0]
+            if action == "geodata_source_download":
+                import geodata_panel
+                form={key:values[0] for key,values in data.items()}
+                message=geodata_panel.handle(form,getattr(self,"action_progress",lambda _stage:None))
+                self.redirect_message(message,tab="geodata")
+                return
             if action in ("dns_flush","core_restart"):
                 from runtime_actions import execute
                 self.redirect_message(execute(action,getattr(self,"action_progress",lambda _:None)));return

@@ -30,6 +30,7 @@ LABELS = {
  "service_geodata_import":"Создание правила из GeoDAT",
  "service_refresh_geodata":"Обновление правила GeoDAT",
  "service_update_source":"Обновление правила", "filter_save":"Фильтры загрузки доменов",
+ "geodata_source_download":"Скачивание источника GeoDAT",
  "clear_auto_domains":"Очистка списка доменов", "refresh":"Обновление доменов",
  "add":"Добавление доменов", "enable":"Включение домена",
  "domain_dns":"DNS локального домена",
@@ -55,7 +56,7 @@ class ActionQueue:
    now=time.time()
    db.execute("UPDATE jobs SET status='failed',payload=NULL,message=?,updated=?,finished=?,duration=CASE WHEN started IS NOT NULL THEN ?-started ELSE NULL END WHERE status='running'",
     ("Выполнение прервано перезапуском панели. Проверьте состояние и повторите действие при необходимости.",now,now,now))
-  self.worker=None
+  self.worker=None;self.live_lock=threading.Lock();self.live_messages={}
   if start:self.start()
  @contextmanager
  def db(self):
@@ -92,7 +93,12 @@ class ActionQueue:
    if before:rows=db.execute("SELECT "+fields+" FROM jobs WHERE id<? ORDER BY id DESC LIMIT ?",(int(before),limit)).fetchall()
    else:rows=db.execute("SELECT "+fields+" FROM jobs ORDER BY id DESC LIMIT ?",(limit,)).fetchall()
    total=db.execute("SELECT count(*) FROM jobs").fetchone()[0]
-  return {"jobs":[dict(r) for r in rows],"total":total}
+  jobs=[dict(r) for r in rows]
+  with self.live_lock:
+   for job in jobs:
+    live=self.live_messages.get(job["id"])
+    if live:job["message"],job["updated"]=live
+  return {"jobs":jobs,"total":total}
  def status(self):
   with self.db() as db:
    counts={r["status"]:r["n"] for r in db.execute("SELECT status,count(*) n FROM jobs GROUP BY status")}
@@ -111,15 +117,16 @@ class ActionQueue:
    transactional=True
    try:
     payload=json.loads(row["payload"])
-    transactional=parse_qs(payload.get("body","")).get("action",[""])[0] not in RUNTIME_ACTIONS
+    action=parse_qs(payload.get("body","")).get("action",[""])[0]
+    transactional=action not in RUNTIME_ACTIONS and action!="geodata_source_download"
     if self.recovery and transactional:self.recovery.begin(row["id"],payload)
     if self.describe:
      try:subject,change=self.describe(payload)
      except Exception:subject=row["label"];change="Применение настроек"
     with self.db() as db:db.execute("UPDATE jobs SET subject=?,change_text=? WHERE id=?",(subject,change,row["id"]))
     def report(stage):
-     with self.db() as db:db.execute("UPDATE jobs SET message=?,updated=? WHERE id=?",(stage,time.time(),row["id"]))
-    if parse_qs(payload.get("body","")).get("action",[""])[0] in {"service_refresh_geodata","route_apply","configuration_apply","panel_update_install",*RUNTIME_ACTIONS}:
+     with self.live_lock:self.live_messages[row["id"]]=(str(stage),time.time())
+    if parse_qs(payload.get("body","")).get("action",[""])[0] in {"service_refresh_geodata","geodata_source_download","route_apply","configuration_apply","panel_update_install",*RUNTIME_ACTIONS}:
      payload["_job_id"]=row["id"]
      payload["_progress"]=report
      payload["_after_commit"]=after_commit.append
@@ -134,6 +141,7 @@ class ActionQueue:
    duration=time.monotonic()-clock;finished=time.time()
    with self.db() as db:
     db.execute("UPDATE jobs SET status=?,message=?,payload=NULL,updated=?,finished=?,duration=? WHERE id=?",(state,message,finished,finished,duration,row["id"]))
+   with self.live_lock:self.live_messages.pop(row["id"],None)
    if self.recovery and transactional:
     try:self.recovery.finish(row["id"],state)
     except Exception as journal_error:

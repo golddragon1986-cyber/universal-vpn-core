@@ -52,9 +52,9 @@ class PinnedHTTPS(http.client.HTTPSConnection):
             self.sock = self._context.wrap_socket(raw, server_hostname=self.host)
 
 
-def read_url(url, reader, *, storage=None):
+def read_url(url, reader, *, storage=None, timeout=180):
     context = ssl.create_default_context()
-    deadline = time.monotonic() + 180
+    deadline = time.monotonic() + timeout
     for _ in range(6):
         try:
             target, port, addresses = subscription_target(url)
@@ -313,25 +313,45 @@ def read_source(source, reader):
     return read_url(source["url"], reader)
 
 
-def save_database(url, destination):
+def save_database(url, destination, progress=None):
     """Stream a GeoDAT copy and validate its category framing before replacing it."""
     from durable_io import sync_dir
     from storage_space import require
     destination = Path(destination)
-    require(destination.parent,65536,'Скачивание GeoDAT')
+    require(destination.parent, 65536, 'Скачивание GeoDAT')
     fd, temporary = tempfile.mkstemp(prefix=".geodat-", dir=destination.parent)
     try:
         with os.fdopen(fd, "wb") as out:
             def download(stream):
-                while data := stream.read(64 * 1024):
-                    require(destination.parent,len(data),'Скачивание GeoDAT')
-                    out.write(data)
-            read_url(url, download,storage=destination.parent)
+                class Tee:
+                    def __init__(self):
+                        self.pending=bytearray();self.received=0;self.reported=0;self.last_report=time.monotonic()
+                    @property
+                    def remaining(self):return stream.remaining
+                    @property
+                    def deadline(self):return stream.deadline
+                    def read(self,size):
+                        data=stream.read(size)
+                        if data:
+                            self.pending.extend(data)
+                            if len(self.pending)>=64*1024:self.flush_chunk()
+                        elif self.pending:self.flush_chunk()
+                        return data
+                    def flush_chunk(self):
+                        if not self.pending:return
+                        chunk=bytes(self.pending);self.pending.clear()
+                        require(destination.parent,len(chunk),'Скачивание GeoDAT')
+                        out.write(chunk);self.received+=len(chunk)
+                        now=time.monotonic()
+                        if progress is not None and (self.received-self.reported>=1024*1024 or now-self.last_report>=2):
+                            progress(self.received);self.reported=self.received;self.last_report=now
+                tee=Tee()
+                kind=detect_database(tee)
+                if tee.pending:tee.flush_chunk()
+                if progress is not None:progress(tee.received)
+                return kind,tee.received
+            kind,size=read_url(url, download, storage=destination.parent, timeout=9900)
             out.flush();os.fsync(out.fileno())
-        with open(temporary, "rb") as handle:
-            probe = LimitedStream(handle, MAX_SOURCE, time.monotonic() + 180)
-            kind = detect_database(probe)
-        size = os.path.getsize(temporary)
         os.replace(temporary, destination);sync_dir(destination.parent)
         return kind, size
     finally:
