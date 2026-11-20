@@ -63,6 +63,18 @@
 :if ([:len [/container find where name="universal-vpn-core"]] > 0 || [:len [/interface find where name="uvpn-main-veth"]] > 0 || [:len [/interface find where name="uvpn-main-br"]] > 0 || [:len [/container mounts find where list="uvpn-main"]] > 0 || [:len [/container envs find where list="uvpn-main"]] > 0 || [:len [/file find where name=$root]] > 0 || [:len [/file find where name=$data]] > 0 || [:len [/ip route find where dst-address="172.31.41.0/24"]] > 0) do={ :error "Existing install, files or subnet conflict" }
 :if ([:len [/ip firewall filter find where comment=$tag]] > 0 || [:len [/ip firewall nat find where comment=$tag]] > 0 || [:len [/ip address find where comment=$tag]] > 0) do={ :error "Existing installer rules or address" }
 :if ([:len [/ip firewall address-list find where list=$clients]] > 0) do={ :error "Existing client address list" }
+:local panelAddresses ""
+:foreach addressId in=[/ip address find where disabled=no] do={
+    :local iface [/ip address get $addressId interface]
+    :if ([:len [/interface list member find where list=$lan and interface=$iface]] > 0) do={
+        :local cidr [:tostr [/ip address get $addressId address]]
+        :local localIp [:pick $cidr 0 [:find $cidr "/"]]
+        :set panelAddresses ($panelAddresses . $localIp . ",")
+    }
+}
+:if ([:len $panelAddresses] = 0) do={ :error "No IPv4 address on an interface in the LAN list; panel forwarding cannot be configured" }
+:set panelAddresses [:pick $panelAddresses 0 ([:len $panelAddresses] - 1)]
+:if ([:len [/ip firewall nat find where chain=dstnat and protocol=tcp and dst-port=19091]] > 0 || [:len [/ip service find where disabled=no and port=19091]] > 0) do={ :error "TCP port 19091 is already in use" }
 # Read independent upstream DNS before creating the container.
 :local blockedDns ",0.0.0.0,172.31.41.1,172.31.41.2,"
 :foreach id in=[/ip address find] do={
@@ -144,6 +156,9 @@
     /ip firewall filter add chain=uvpn-main-in in-interface-list=$lan src-address-list=$clients protocol=udp dst-port=53 action=accept comment=$tag
     /ip firewall filter add chain=uvpn-main-in in-interface-list=$lan src-address-list=$clients protocol=tcp dst-port=53 action=accept comment=$tag
     /ip firewall filter add chain=uvpn-main-in action=drop comment=$tag
+    :foreach localIp in=[:toarray $panelAddresses] do={
+        /ip firewall nat add chain=dstnat in-interface-list=$lan src-address-list=$clients dst-address=$localIp protocol=tcp dst-port=19091 action=dst-nat to-addresses=172.31.41.2 to-ports=9091 comment=$tag
+    }
     /ip firewall nat add chain=srcnat src-address=172.31.41.2 out-interface-list=WAN ipsec-policy=out,none action=masquerade comment=$tag
     :if ([:typeof $firstNat] = "id") do={ /ip firewall nat move [find where comment=$tag] destination=$firstNat }
     /container envs add list=uvpn-main key=UVPNC_PRIMARY_DNS value=$routerDnsPrimary
@@ -237,7 +252,7 @@
 :put "Container is ready to start (S - stopped)."
 :put "Next: /container start [find where name=\"universal-vpn-core\" and interface=\"uvpn-main-veth\"]"
 :put "Wait for STARTUP READY in /log print follow where topics~\"container\""
-:put "Panel: http://172.31.41.2:9091/"
+:foreach localIp in=[:toarray $panelAddresses] do={ :put ("Panel from LAN: http://" . $localIp . ":19091/") }
 :put "Check DNS from a LAN computer: nslookup example.com 172.31.41.2"
 :put ("After the container and DNS work, enable client DNS and Fake-IP routing: /import file-name=\"" . $sourceBase . "/02-enable-routing.rsc\"")
 }

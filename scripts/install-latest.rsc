@@ -108,6 +108,8 @@
 :put "Container DNS: example.com resolved"
 :put "Client DNS: TCP/UDP port 53 forwarded to 172.31.41.2"
 :put "Fake-IP route: 198.18.0.0/16 via 172.31.41.2"
-:put "Panel: http://172.31.41.2:9091/"
+:foreach rule in=[/ip firewall nat find where comment="uvpn-main: base" and chain=dstnat and protocol=tcp and dst-port=19091] do={
+    :put ("Panel from LAN: http://" . [/ip firewall nat get $rule dst-address] . ":19091/")
+}
 :put "Add your VPN profiles and subscriptions in the panel, then apply its configuration."
 }
