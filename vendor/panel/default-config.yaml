@@ -1,0 +1,92 @@
+mixed-port: 1080
+allow-lan: true
+bind-address: '*'
+mode: rule
+unified-delay: true
+log-level: warning
+ipv6: false
+external-controller: 0.0.0.0:9090
+find-process-mode: off
+profile:
+  store-selected: true
+  store-fake-ip: true
+tun:
+  enable: false
+  stack: system
+  auto-route: true
+  auto-redirect: true
+  auto-detect-interface: true
+  inet4-address:
+    - 198.19.0.1/30
+dns:
+  enable: true
+  listen: 0.0.0.0:53
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.0/16
+  fake-ip-filter-mode: rule
+  fake-ip-filter:
+    - RULE-SET,RU-BLOCKED,fake-ip
+    # BEGIN SERVICE-FAKE-IP
+    # END SERVICE-FAKE-IP
+    - DOMAIN-SUFFIX,lan,real-ip
+    - DOMAIN-SUFFIX,local,real-ip
+    - MATCH,real-ip
+  default-nameserver:
+    - 8.8.8.8
+  proxy-server-nameserver:
+    - 8.8.8.8
+  nameserver:
+    - 8.8.8.8
+  nameserver-policy:
+    'rule-set:RU-BLOCKED':
+      - 'https://cloudflare-dns.com/dns-query#SELECTOR'
+rule-providers:
+  RU-BLOCKED:
+    type: file
+    behavior: domain
+    format: text
+    path: /etc/mihomo/rules/ru-blocked-domain.txt
+  TELEGRAM-IP:
+    type: file
+    behavior: classical
+    format: yaml
+    path: /etc/mihomo/rules/telegram-ip.yaml
+proxy-providers:
+  SRV:
+    type: file
+    path: /etc/mihomo/srv.yaml
+    health-check:
+      enable: false
+  USER-MANAGED:
+    type: file
+    path: /etc/mihomo/rules/user-proxies.yaml
+    health-check:
+      enable: false
+proxy-groups:
+  - name: SELECTOR
+    type: select
+    proxies:
+      - DIRECT
+      - LOADBALANCE
+      # BEGIN SELECTOR-CHANNELS
+      # END SELECTOR-CHANNELS
+  - name: LOADBALANCE
+    type: load-balance
+    strategy: round-robin
+    url: https://www.gstatic.com/generate_204
+    interval: 120
+    timeout: 5000
+    lazy: false
+    expected-status: 204
+    proxies:
+      # BEGIN BALANCE-CHANNELS
+      - DIRECT
+      # END BALANCE-CHANNELS
+  # BEGIN SERVICE-CHANNEL-GROUPS
+  # END SERVICE-CHANNEL-GROUPS
+rules:
+  # BEGIN SERVICE-ROUTES
+  # END SERVICE-ROUTES
+  - RULE-SET,RU-BLOCKED,SELECTOR
+  - RULE-SET,TELEGRAM-IP,SELECTOR
+  - MATCH,DIRECT
