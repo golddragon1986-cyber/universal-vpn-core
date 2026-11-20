@@ -178,6 +178,8 @@
     }
     :local restDrop [:pick [/ip firewall filter find where chain=input and comment=$tag and action=drop] 0]
     /ip firewall filter add chain=input in-interface=uvpn-main-br src-address=172.31.41.2 dst-address=172.31.41.1 protocol=tcp dst-port=8443 action=accept comment=$tag place-before=$restDrop
+    /ip firewall filter add chain=input in-interface=uvpn-main-br src-address=172.31.41.2 dst-address=172.31.41.1 protocol=udp dst-port=53 action=accept comment=$tag place-before=$restDrop
+    /ip firewall filter add chain=input in-interface=uvpn-main-br src-address=172.31.41.2 dst-address=172.31.41.1 protocol=tcp dst-port=53 action=accept comment=$tag place-before=$restDrop
     /ip service set $restService disabled=no port=8443 certificate=uvpn-main-rest
     /container add name=universal-vpn-core file=$image interface=uvpn-main-veth root-dir=$root mountlists=uvpn-main envlist=uvpn-main dns=$routerDnsPrimary memory-high=160M memory-max=200M logging=yes start-on-boot=no
 } do={
