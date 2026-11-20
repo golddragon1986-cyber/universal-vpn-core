@@ -67,6 +67,47 @@
 }
 
 :put ("Downloaded Universal VPN Core " . $tag . " to " . $target)
-:put ("Review the installer, then run: /import file-name=\"" . $target . "/01-install.rsc\" verbose=yes dry-run")
-:put ("To install: /import file-name=\"" . $target . "/01-install.rsc\"")
+:put "Installing and extracting the container..."
+/import file-name=($target . "/01-install.rsc")
+
+:local instance [/container find where name="universal-vpn-core" and interface="uvpn-main-veth"]
+:if ([:len $instance] != 1) do={ :error "Container installation did not create the expected instance" }
+/container start $instance
+:put "Waiting for the panel to become available..."
+:local panelReady false
+:local deadline ([/system resource get uptime] + 5m)
+:while (!$panelReady && [/system resource get uptime] < $deadline) do={
+    :delay 2s
+    :do {
+        :local probe [/tool fetch url="http://172.31.41.2:9091/" output=none as-value idle-timeout=5s]
+        :if (($probe->"code") = 200) do={ :set panelReady true }
+    } on-error={}
+}
+:if (!$panelReady) do={ :error "Container was installed and started, but the panel did not become ready; check /container print detail and /log print where topics~container before enabling client routing" }
+
+:put "Checking container DNS..."
+:local dnsReady false
+:local dnsDeadline ([/system resource get uptime] + 1m)
+:while (!$dnsReady && [/system resource get uptime] < $dnsDeadline) do={
+    :do {
+        :local answer [:resolve domain-name="example.com" server=172.31.41.2 type=ipv4]
+        :if ([:typeof $answer] = "ip") do={ :set dnsReady true }
+    } on-error={}
+    :if (!$dnsReady) do={ :delay 2s }
+}
+:if (!$dnsReady) do={ :error "Container DNS did not answer; client DNS and routing were not enabled" }
+
+:put "Enabling client DNS and Fake-IP routing..."
+/import file-name=($target . "/02-enable-routing.rsc")
+:if ([:len [/ip route find where dst-address="198.18.0.0/16" and gateway="172.31.41.2"]] != 1) do={ :error "Routing script finished but the Fake-IP route is missing" }
+:if ([:len [/ip firewall nat find where comment="uvpn-main: routing" and protocol=udp and dst-port=53]] != 1 || [:len [/ip firewall nat find where comment="uvpn-main: routing" and protocol=tcp and dst-port=53]] != 1) do={ :error "Routing script finished but client DNS rules are missing" }
+
+:put ("Universal VPN Core " . $tag . " installation complete")
+:put ("Files: " . $target)
+:put "Container: running, start on boot enabled"
+:put "Container DNS: example.com resolved"
+:put "Client DNS: TCP/UDP port 53 forwarded to 172.31.41.2"
+:put "Fake-IP route: 198.18.0.0/16 via 172.31.41.2"
+:put "Panel: http://172.31.41.2:9091/"
+:put "Add your VPN profiles and subscriptions in the panel, then apply its configuration."
 }
