@@ -10,7 +10,9 @@ import ssl
 import tempfile
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from collections import deque
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+from multiprocessing import get_context
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -23,7 +25,11 @@ SEARCH_LOCK = threading.Lock()
 MAX_SOURCE = 160 * 1024 * 1024
 MAX_ENTRY = 256 * 1024
 RANGE_CHUNK = 10 * 1024 * 1024
-RANGE_WORKERS = 3
+RANGE_WORKERS = 2
+SCAN_WORKERS = 2
+SCAN_BATCH_RECORDS = 256
+SCAN_BATCH_BYTES = 1024 * 1024
+SCAN_MAX_PENDING = SCAN_WORKERS * 2
 
 
 class LimitedStream:
@@ -243,6 +249,28 @@ def record_matches(record, needles, network):
     return "domain", second.decode("utf-8") if match else None
 
 
+def _scan_record_batch(records, needles, network_text, file_kind):
+    """Parse and match one bounded record batch outside the web worker process."""
+    network = ipaddress.ip_network(network_text) if network_text else None
+    example = None
+    for raw in records:
+        if file_kind == "ipcidr" and raw[:2] in (b"\x0a\x04", b"\x0a\x10"):
+            end = raw[1] + 2
+            tail = raw[end:]
+            record = ({1: raw[2:end], 2: tail[1]}
+                      if len(tail) == 2 and tail[0] == 16 and tail[1] < 128 else dict(fields(raw)))
+        else:
+            record = dict(fields(raw))
+        kind, matched = record_matches(record, needles, network)
+        if kind != file_kind:
+            raise ValueError("В одном файле смешаны разные типы GeoDAT.")
+        if example is None:
+            example = matched
+        if example is not None:
+            break
+    return example
+
+
 def category_records(category, hints=None, *, allow_reverse=True, count=None):
     """Walk records in blocks, filtering potential domain matches before decoding."""
     chunk_size = 64 * 1024
@@ -304,47 +332,69 @@ def scan(stream, query):
         for pos, char in enumerate(needle):
             if char == ord(".") and pos + 1 < len(needle):
                 hints.add(needle[pos + 1:])
-    result = []
+    categories = []
+    pending = deque()
     file_kind = None
-    while True:
-        tag, _ = read_varint(stream, allow_eof=True)
-        if tag is None:
-            if file_kind is None:
-                raise ValueError("В источнике нет категорий GeoDAT.")
-            return result
-        size, _ = read_varint(stream)
-        if tag != 10 or not 0 < size <= stream.remaining:
-            raise ValueError("Неверный формат GeoDAT.")
-        category = LimitedStream(stream, size, stream.deadline)
-        # RunetFreedom and v2fly write the category name first.
-        name_tag, _ = read_varint(category)
-        length, _ = read_varint(category)
-        if name_tag != 10 or not 0 < length <= 256:
-            raise ValueError("В блоке GeoDAT отсутствует название категории.")
-        name = read_bytes(category, length).decode("utf-8")
-        name_match = folded in name.casefold()
-        example = None
-        count = [0]
-        if file_kind == "ipcidr" and network is None and not name_match:
-            category.skip(category.remaining)
-        for raw in category_records(category, hints if file_kind == "domain" else None, count=count):
-            if example is not None or (file_kind == "ipcidr" and network is None):
+    network_text = str(network) if network is not None else None
+
+    with ProcessPoolExecutor(max_workers=SCAN_WORKERS, mp_context=get_context("spawn")) as pool:
+        def collect_one():
+            future, state = pending.popleft()
+            example = future.result()
+            if state["example"] is None:
+                state["example"] = example
+
+        while True:
+            tag, _ = read_varint(stream, allow_eof=True)
+            if tag is None:
+                if file_kind is None:
+                    raise ValueError("В источнике нет категорий GeoDAT.")
+                break
+            size, _ = read_varint(stream)
+            if tag != 10 or not 0 < size <= stream.remaining:
+                raise ValueError("Неверный формат GeoDAT.")
+            category = LimitedStream(stream, size, stream.deadline)
+            # RunetFreedom and v2fly write the category name first.
+            name_tag, _ = read_varint(category)
+            length, _ = read_varint(category)
+            if name_tag != 10 or not 0 < length <= 256:
+                raise ValueError("В блоке GeoDAT отсутствует название категории.")
+            name = read_bytes(category, length).decode("utf-8")
+            state = {"name": name.lower(), "name_match": folded in name.casefold(),
+                     "example": None, "count": 0}
+            categories.append(state)
+            if file_kind == "ipcidr" and network is None and not state["name_match"]:
+                category.skip(category.remaining)
                 continue
-            if file_kind == "ipcidr" and raw[:2] in (b"\x0a\x04", b"\x0a\x10"):
-                end = raw[1] + 2
-                tail = raw[end:]
-                record = ({1: raw[2:end], 2: tail[1]}
-                          if len(tail) == 2 and tail[0] == 16 and tail[1] < 128 else dict(fields(raw)))
-            else:
-                record = dict(fields(raw))
-            kind, example = record_matches(record, needles, network)
-            if file_kind is None:
-                file_kind = kind
-            elif file_kind != kind:
-                raise ValueError("В одном файле смешаны разные типы GeoDAT.")
-        if name_match or example is not None:
-            result.append({"name": name.lower(), "kind": file_kind, "name_match": name_match,
-                           "example": example, "count": count[0]})
+            count = [0]
+            batch = []
+            batch_bytes = 0
+            for raw in category_records(category, hints if file_kind == "domain" else None, count=count):
+                if file_kind == "ipcidr" and network is None:
+                    continue
+                if file_kind is None:
+                    first = dict(fields(raw)).get(1)
+                    file_kind = "ipcidr" if isinstance(first, bytes) else "domain"
+                batch.append(raw)
+                batch_bytes += len(raw)
+                if len(batch) >= SCAN_BATCH_RECORDS or batch_bytes >= SCAN_BATCH_BYTES:
+                    pending.append((pool.submit(_scan_record_batch, batch, needles, network_text, file_kind), state))
+                    batch, batch_bytes = [], 0
+                    if len(pending) >= SCAN_MAX_PENDING:
+                        collect_one()
+            if batch:
+                pending.append((pool.submit(_scan_record_batch, batch, needles, network_text, file_kind), state))
+            state["count"] = count[0]
+        while pending:
+            collect_one()
+
+    result = []
+    for state in categories:
+        if state["name_match"] or state["example"] is not None:
+            result.append({"name": state["name"], "kind": file_kind,
+                           "name_match": state["name_match"], "example": state["example"],
+                           "count": state["count"]})
+    return result
 
 
 def search(query):
