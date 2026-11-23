@@ -1,0 +1,239 @@
+{
+  "format": "universal-vpn-portable-settings",
+  "rules": [
+    {
+      "name": "ru-blocked",
+      "target": "SELECTOR",
+      "enabled": true,
+      "geo_source": {
+        "id": "d9e3cf81325b8f3e4e5ed4b007bd3560",
+        "category": "ru-blocked"
+      },
+      "id": "4f15e8ae96b241a28e2fe9bf853e0537",
+      "domains": [],
+      "exact_domains": [],
+      "keyword_domains": [],
+      "regex_domains": [],
+      "networks": [],
+      "geo_sets": [
+        "GEO-fc3f11b27adf42e098627e8cb868d165-domain"
+      ],
+      "geo_count": 73607
+    },
+    {
+      "name": "telegram",
+      "target": "SELECTOR",
+      "enabled": true,
+      "geo_source": {
+        "id": "d9e3cf81325b8f3e4e5ed4b007bd3560",
+        "category": "telegram"
+      },
+      "domains": [
+        "cdn-telegram.org",
+        "comments.app",
+        "contest.com",
+        "fragment.com",
+        "graph.org",
+        "quiz.directory",
+        "t.me",
+        "tdesktop.com",
+        "telega.one",
+        "telegra.ph",
+        "telegram-cdn.org",
+        "telegram.dog",
+        "telegram.me",
+        "telegram.org",
+        "telegram.space",
+        "telesco.pe",
+        "tg.dev",
+        "ton.org",
+        "toncenter.com",
+        "tx.me",
+        "usercontent.dev"
+      ],
+      "geo_inline": {
+        "domains": [
+          "cdn-telegram.org",
+          "comments.app",
+          "contest.com",
+          "fragment.com",
+          "graph.org",
+          "quiz.directory",
+          "t.me",
+          "tdesktop.com",
+          "telega.one",
+          "telegra.ph",
+          "telegram-cdn.org",
+          "telegram.dog",
+          "telegram.me",
+          "telegram.org",
+          "telegram.space",
+          "telesco.pe",
+          "tg.dev",
+          "ton.org",
+          "toncenter.com",
+          "tx.me",
+          "usercontent.dev"
+        ],
+        "exact_domains": [],
+        "keyword_domains": [],
+        "regex_domains": [],
+        "networks": [
+          "149.154.160.0/20",
+          "185.76.151.0/24",
+          "91.105.192.0/23",
+          "91.108.16.0/21",
+          "91.108.4.0/22",
+          "91.108.56.0/22",
+          "91.108.8.0/21",
+          "95.161.64.0/20"
+        ]
+      },
+      "id": "916416efb1dd4837a4b1bc40fd015115",
+      "exact_domains": [],
+      "keyword_domains": [],
+      "regex_domains": [],
+      "networks": [
+        "149.154.160.0/20",
+        "185.76.151.0/24",
+        "91.105.192.0/23",
+        "91.108.16.0/21",
+        "91.108.4.0/22",
+        "91.108.56.0/22",
+        "91.108.8.0/21",
+        "95.161.64.0/20"
+      ],
+      "geo_sources": [
+        {
+          "id": "d9e3cf81325b8f3e4e5ed4b007bd3560",
+          "category": "telegram",
+          "file_based": false
+        },
+        {
+          "id": "941ffd479d04b5c18b062796dffb5d33",
+          "category": "telegram",
+          "file_based": false
+        }
+      ]
+    },
+    {
+      "name": "rutracker",
+      "target": "SELECTOR",
+      "enabled": true,
+      "domains": [
+        "maintracker.org",
+        "rutracker.cc",
+        "rutracker.cr",
+        "rutracker.me",
+        "rutracker.net",
+        "rutracker.nl",
+        "rutracker.org",
+        "rutracker.wiki",
+        "rutrk.org"
+      ],
+      "exact_domains": [],
+      "keyword_domains": [],
+      "regex_domains": [],
+      "networks": [],
+      "geo_inline": {
+        "domains": [
+          "maintracker.org",
+          "rutracker.cc",
+          "rutracker.cr",
+          "rutracker.me",
+          "rutracker.net",
+          "rutracker.nl",
+          "rutracker.org",
+          "rutracker.wiki",
+          "rutrk.org"
+        ],
+        "exact_domains": [],
+        "keyword_domains": [],
+        "regex_domains": [],
+        "networks": []
+      },
+      "geo_sources": [
+        {
+          "id": "d9e3cf81325b8f3e4e5ed4b007bd3560",
+          "category": "rutracker",
+          "file_based": false
+        }
+      ],
+      "id": "1f30815628a143b7994a8f076e44d71b"
+    },
+    {
+      "name": "nnmstatic",
+      "target": "SELECTOR",
+      "domains": [
+        "nnmstatic.win"
+      ],
+      "exact_domains": [],
+      "keyword_domains": [],
+      "regex_domains": [],
+      "networks": [],
+      "enabled": true,
+      "id": "98c53a7be0d54718908416da4ad43525"
+    },
+    {
+      "name": "category-ads-all",
+      "target": "REJECT",
+      "enabled": true,
+      "domains": [],
+      "exact_domains": [],
+      "keyword_domains": [],
+      "regex_domains": [],
+      "networks": [],
+      "geo_inline": {
+        "domains": [],
+        "exact_domains": [],
+        "keyword_domains": [],
+        "regex_domains": [],
+        "networks": []
+      },
+      "geo_sources": [
+        {
+          "id": "d9e3cf81325b8f3e4e5ed4b007bd3560",
+          "category": "category-ads-all",
+          "file_based": true
+        }
+      ],
+      "geo_sets": [
+        "GEO-b47aca68987e4399aa240fa37b830153-domain"
+      ],
+      "geo_count": 183751,
+      "id": "a3ac3d8605ed42899828069989c3cde3"
+    }
+  ],
+  "manual_routes": [
+    {
+      "net": "1.1.1.11/32",
+      "label": "тест",
+      "target": "LOADBALANCE",
+      "metric": 100,
+      "enabled": true,
+      "override": false
+    }
+  ],
+  "dns": {
+    "version": 2,
+    "fake_ip": true,
+    "servers": [
+      {
+        "id": "routed-nameserver0",
+        "name": "DNS 2",
+        "address": "8.8.8.8",
+        "route": "LOADBALANCE",
+        "enabled": true
+      },
+      {
+        "id": "nameserver0",
+        "name": "DNS 1",
+        "address": "8.8.8.8",
+        "route": "DIRECT",
+        "enabled": true
+      }
+    ]
+  },
+  "vpn_profiles": [],
+  "subscriptions": []
+}

@@ -1,0 +1,137 @@
+{
+  "rules": [
+    {
+      "target": "SELECTOR",
+      "name": "ru-blocked"
+    },
+    {
+      "target": "SELECTOR",
+      "name": "telegram"
+    },
+    {
+      "target": "SELECTOR",
+      "name": "rutracker"
+    },
+    {
+      "target": "SELECTOR",
+      "name": "nnmstatic"
+    },
+    {
+      "target": "REJECT",
+      "name": "category-ads-all"
+    }
+  ],
+  "defaults_sha256": "b4ebd9214d49c309d3964263d82fc0d3252b7e6518e4fcf80ce25579e0aba4cd",
+  "created": "2026-11-23T10:45:00.2474916+03:00",
+  "architectures": {
+    "armv7": {
+      "layer_diff_id": "sha256:c8d3eddc22a148ad6fdfe4e7862a4abe1fcd982f26217be350abfc643a319d4e",
+      "sha256": "8a625c188e0f56803c65b50ab2204e718b731bc320cc1c54f0696f6578bdce44",
+      "archive_bytes": 39693312,
+      "regular_file_bytes": 94814105,
+      "core_version": "Mihomo 1.19.34",
+      "base_sha256": "569d9ec9a99ef6bef1634ccffadc40eac4cc11fd927e62e94b8e3346d13c817e",
+      "files": 2479
+    },
+    "arm64": {
+      "layer_diff_id": "sha256:2243780356707b47b495b9c5418bd17601ff4d678f8636248fda5e3588fde2fb",
+      "sha256": "2615ec889dd31b5ca5ca775f94bab0da2c848e77596257a6f843234d982a2608",
+      "archive_bytes": 41374720,
+      "regular_file_bytes": 115152156,
+      "core_version": "Mihomo 1.19.33 (from 0.31b ARM64 base)",
+      "base_sha256": "daf21f9ca51628a0d4dbd8d2e58654e3053180ebcc94d3357fc5f7a9cb49af53",
+      "files": 2638
+    }
+  },
+  "release": "0.32b",
+  "vpn_profiles": 0,
+  "subscriptions": 0,
+  "validation": {
+    "vpn_profiles": 0,
+    "arm64_hardware_boot_tested": false,
+    "subscriptions": 0,
+    "oci_and_elf": {
+      "armv7": {
+        "oci": "generated",
+        "seed_rules": 5,
+        "panel_modules": 65,
+        "architecture": "armv7"
+      },
+      "arm64": {
+        "oci": "generated",
+        "seed_rules": 5,
+        "panel_modules": 65,
+        "architecture": "arm64"
+      }
+    }
+  },
+  "private_runtime_state_included": false,
+  "version": "0.32b.231126.1044",
+  "panel_sha256": {
+    "proxy_manager.py": "e52f7bdce4d29c6576cd8e4475ef8660b5bc939fd114c55b6c2443f5c7d4a408",
+    "client_panel.js": "545146943dbeaff50dbe95583a4da0a2e21d99ae7781c6b6da1eadc9b9ff606e",
+    "client_batch.py": "b86b1c48ec4ad1dd38f5c831a37bca3a9132ba15a7ec8dac8eb3ddddec7ce039",
+    "config_backup.py": "b2a5a3a7d7e7448bf61284ca87e4cfca89c4294ba44dc40f3e467062eedf5829",
+    "management-firewall.sh": "4c2492a176b9915bdf47e97184a74e51d3412d11f71ba0c6b035728203e79bae",
+    "dns_table_ui.py": "7b30443b4efdd7a213610a33ff01e145414903838948452688cb3b95f05a92a5",
+    "geodata_domains.py": "1b172f471d4ef446a3cccc2f96caf56b76ce9cdb4e34a3a9acd891326b0fa7e3",
+    "subscription_automation.py": "60831208d95a61ebe5a595fdddcf1fc62fb5b397645ec052cdd4198ddf37b489",
+    "routes_table_ui.py": "d9eac650b47ba22b5512f7f5fb3f5af1a6a7ef0895ff099dcf127774ccc54758",
+    "sing_box_update.py": "68a96aab1df2140626eed95e11cb0939f95cc94989f110ee582422c9bb4be04d",
+    "sing_box_supervisor.py": "3ab74a17727ec4d967b85def661e3932d885dbca57131885b3c6dfa4e0a2aa76",
+    "boot_config.py": "02ca63cb342b5f741f0013380602e4c2bc22fca17ac62ed9f1b60ced1fec884e",
+    "components_ui.html": "e2ed7161b7af94ab3ed5d85a269af5d6629f6f1bcbd7c79c81197528ee50dd75",
+    "log_panel.py": "31be1d483abe72ab803ad0ee1c4e2efb232ed4c38a2cc9d0e9e82d32577f6884",
+    "geodata_service_files.py": "a616a3d56544e09a83626b032d9ec57f46399e01d3a5f0ba5e7282da5e8b3f9f",
+    "action_queue.py": "80fdb7ac0dc3e5369ed4916ea82585819f0f14bb37a8907561c80c7c522ad3de",
+    "storage_space.py": "055b461ff2237e469059d2172133af9f333abe8cceebaaaab880585e339c0dd0",
+    "domain_filter.py": "a9783beb22be33098e298594b789fe344f5dddb58deb3071669bce6674db6158",
+    "component_binary.py": "de3b68c9b9a8c718df0a6322244cf206dedae2a6f4fb93e23172691c7d8eec9d",
+    "router_routes.py": "2444a96dde92f339750512d064a4de5fda6e75f172fe685585f8359a20f63022",
+    "vpn_clients.py": "6e4cb47b82c135a1568e735e1fee33bc032f27768cfd34018f6e9bcd933bfdeb",
+    "apply-service-routes.py": "b2bd5f5d3d93782d444aeb06a2bfbdbc5c3e74f267fbba1f15981fc440083fb2",
+    "control_shared.css": "bc7f8f31c52007f76f9c12ab527d4eb7f9fe9a77da86a061ac315f14cf6f247b",
+    "vpn_traffic.py": "fe8d000c19e02286ad07869929d658be6bfd8fd5f00ec4e10ab810152e540d12",
+    "interaction_ui.py": "f6f01991f6e9ad01f8198e08d97a26883d0744116d704ac8551b40782b931e21",
+    "panel_updater.py": "6df6a4a5ee035f51319e644de5450fc5c0fe5116f78ddd8ee700ac152b5f876e",
+    "client_panel.py": "3f0537ae3a292e19a7c592a5e75aab70b2cc3761f464ae8576bae32911d23355",
+    "vpn_subscriptions.py": "2a91e905426b43fabacd845eaf9e4a002b78cb08ae7d70c42691258f866c7a80",
+    "vpn_import.py": "47ce44576a01e2bd60655b17e27d9a5b6112e69d209acf3cb4daf5184d7557e3",
+    "ui_i18n.js": "a1ae05984444c1253ee09701ecb3902523e9e2662691e6b6d88c198ecc51c448",
+    "ui_catalog.js": "a7e7f44a2a83314dadcd5af1d7c1f7a528e6ea61d1e9fec50a81c7514cd6970e",
+    "domain_provider.py": "814780b6a3486000489e8a1bbd5edbcf93c3c137d89143b91ae8a3cfd69d9a9c",
+    "service_routes_panel.py": "592c30f4dce402562eeaa3918abd656f8e99c1c42d61945ce193e92a3d9a8193",
+    "download-ru-blocked.sh": "419d8335f4a3d5589d1ffff894f911d1e94382cf49faf62b7f84f03301e02823",
+    "configuration_draft_ui.js": "d934328bd89282237e9d688ce5362c60ddc65a0143cf73ae74d04807cc4e5d52",
+    "action_queue_ui.html": "124544440b54fe8cdcd0bcf1cffb297e23f76c45e485dc3ebbc5e994497a5a76",
+    "durable_io.py": "d68a7c2f1bbae1344f968ea216999cead7fa09892f48e12d5cb7c4f51c489731",
+    "logs_ui.html": "4b0e9fdbebcbe3053b4c6f10d166cc3c0bc3515bb0a5a8f32aee72d594de7dd8",
+    "action_recovery.py": "915da6e8fee05a9053f88d4bdb980f0cf585140ccf35eac826eb44ebbf1efdeb",
+    "tls_profile_capture.py": "c6de29c5fdb334a065300c90e28d624a4a1c9eb8b72183629ab1b2d088f1df69",
+    "runtime_actions.py": "96e64cbccec3f894717903d753b5214d0d61f1184485cf7c7c30dcf47066e62f",
+    "geodata_search.py": "20e8b5d8005ac1a2a7781b1613e579876b088590a776ebff6c93eb0334f9719b",
+    "update-ru-blocked.sh": "85ac039c2bf5f80e983a03cbf3b397dce2a9c6d8be5ab35b8b3be90d1152f1eb",
+    "build-service-routes.py": "28f1059619359a53e11523fbdbe3516bf1172a93539049fc693101c07267ecf6",
+    "refresh-ru-blocked.sh": "60359a3af376e7edb50d87737c8b3cf88890526a2a50a8f5652e669332b0b651",
+    "component_versions.py": "7220549e03770f5bc56691174e93f4375c265b7a633afab32cbae3548afbb190",
+    "routing_panel.py": "76f9cb400e88dd90c7142b45ae64b3ac3fea20591e2235df4e5be9c6ed95f8c7",
+    "geodata_panel.py": "eb3d8d1435c830ca3fd874d4e5aa4aab9bd2f53554d2660b09acdda5f47f2f18",
+    "ui_i18n.py": "dd7c72810a98107d734adaa9925c91c97d921e1f59d1adf987eea6c58c14edf9",
+    "route_draft_ui.py": "553028b0aaddcc901713ee6e491cec28bec2ca764e3b5d77acf29a292c43d29f",
+    "retired_routes.py": "5f834fabfd59472b5ff95b5e9a13372430c42bef1dc24ab766b964d7e4a43b11",
+    "interaction_ui.js": "c6947e2a1bebafa01773b5ce60fe3516d037b8bd7ced5a8a7f4fb1b7056ccd91",
+    "dns_forwarder.py": "f37f1f23c33ac634f39cca70491ab52310b8775f00150e3f10c4960d416eb6cd",
+    "configuration_draft.py": "2b500fd323a454a717f99bc635a1ede21f9107d8853a4fda6d6b7cbf2fc45ba4",
+    "network_priority.py": "c408306abea2ac84e0eee07256501fd044338133a9465601c0ae5c4c55ff7bae",
+    "core-supervisor.sh": "9d27fea57bc1a0019ccfc33d92b75e41dd42dab07631acb7d96a1d8a65fbb957",
+    "transparent_tcp.py": "4151d7ed9ede169042d0714886627581a2d984a7e19ac55470c4653cc03e7aae",
+    "route_batch.py": "b206abe3cf45c96834c26f9904c5154362de544d70618251900dbee32c53bc23",
+    "dns_panel.py": "765593b4b02f72a613134ac0d469913702237d5a023e8445e58021bf6748451d",
+    "manage_ru_blocked.py": "1fc6d6c3927f11feb38f1af22e8996c445a9decf2705396559c6ef0cd3f2d437",
+    "vpn_components.py": "8a4dae295c7cdeeaaa38274e68f8bbb7b5c9ae5a6b55be4da9aef505d67e15a3",
+    "client_policy.py": "5515b12667259e87b64f17c686639d4f94f01c89e1584e769a79e64c88d781f5",
+    "action_log.py": "1ff05ecd7319e21640dcbccd7741dfc565b472e06fae6592c7b4cfde793852e3",
+    "route_draft_ui.js": "1d7e86d4066c66ea1d08cc5b1102c719e99052ee2cba3b08c926c1b5948c83a2",
+    "local_dns_zones.py": "6ea433e22bf36bbbd9268938b8150993f3b85e986b80c4ba3cf6087e83529b30"
+  }
+}
