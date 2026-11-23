@@ -331,7 +331,9 @@ def scan(stream, query):
     for needle in needles:
         for pos, char in enumerate(needle):
             if char == ord(".") and pos + 1 < len(needle):
-                hints.add(needle[pos + 1:])
+                suffix = needle[pos + 1:]
+                if b"." in suffix:
+                    hints.add(suffix)
     categories = []
     pending = deque()
     file_kind = None
