@@ -1,4 +1,3 @@
-Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 #!/usr/bin/env python3
 """Experimental full index builder for V2Ray geosite.dat and geoip.dat."""
 
