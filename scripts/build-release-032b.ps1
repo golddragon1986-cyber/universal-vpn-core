@@ -247,7 +247,7 @@ $defaultFiles = @{}
 foreach ($entry in $defaultsRecords) {
     if ($entry.Name -ne 'mihomo' -and $entry.Name -ne 'portable-settings.json') { $defaultFiles[$entry.Name] = $entry.Data }
 }
-$panelVersion = ([IO.File]::ReadAllText((Join-Path $root 'updates\panel\VERSION'), $utf8)).Trim()
+$panelVersion = ([IO.File]::ReadAllText((Join-Path $root 'version\panel\VERSION'), $utf8)).Trim()
 if ($panelVersion -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid panel version' }
 $defaultFiles['default-state/panel-version.json'] = $utf8.GetBytes((ConvertTo-Json -InputObject @{ version = $panelVersion; tag = "v$Version" } -Compress) + "`n")
 $panelFiles = @{}
@@ -273,7 +273,7 @@ foreach ($architecture in @('armv7','arm64')) { Build-Image $architecture $defau
 
 [IO.File]::WriteAllBytes((Join-Path $release 'PORTABLE-SETTINGS.json'), [byte[]]$defaults['portable-settings.json'])
 @('01-install.rsc','02-enable-routing.rsc','03-disable-routing.rsc','04-uninstall.rsc') | ForEach-Object {
-    Copy-Item -LiteralPath (Join-Path $root (Join-Path 'ready-to-copy\universal\universal-vpn' $_)) -Destination (Join-Path $release $_)
+    Copy-Item -LiteralPath (Join-Path $root (Join-Path 'version\0.32b.231126.1044\universal-vpn' $_)) -Destination (Join-Path $release $_)
 }
 
 $changes = @(

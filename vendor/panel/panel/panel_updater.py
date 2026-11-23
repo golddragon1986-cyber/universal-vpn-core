@@ -18,7 +18,7 @@ from storage_space import require_many
 
 BASE = Path('/etc/mihomo/rules')
 REPOSITORY = 'golddragon1986-cyber/universal-vpn-core'
-MANIFEST_URL = 'https://raw.githubusercontent.com/' + REPOSITORY + '/main/updates/panel/stable.json'
+MANIFEST_URL = 'https://raw.githubusercontent.com/' + REPOSITORY + '/main/version/panel/stable.json'
 MAX_ARCHIVE = 32 * 1024 * 1024
 MAX_UNPACKED = 32 * 1024 * 1024
 MAX_FILES = 256

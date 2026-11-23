@@ -270,7 +270,7 @@ foreach ($architecture in @('armv7','arm64')) { Build-Image $architecture $defau
 
 [IO.File]::WriteAllBytes((Join-Path $release 'PORTABLE-SETTINGS.json'), [byte[]]$defaults['portable-settings.json'])
 @('01-install.rsc','02-enable-routing.rsc','03-disable-routing.rsc','04-uninstall.rsc') | ForEach-Object {
-    Copy-Item -LiteralPath (Join-Path $root (Join-Path 'ready-to-copy\universal\universal-vpn' $_)) -Destination (Join-Path $release $_)
+    Copy-Item -LiteralPath (Join-Path $root (Join-Path 'version\0.31b.191126.1600\universal-vpn' $_)) -Destination (Join-Path $release $_)
 }
 
 $changes = @(

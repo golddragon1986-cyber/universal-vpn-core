@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - "updates/panel/VERSION"
+      - "version/panel/VERSION"
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
       - name: Build verified panel archive
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\r\n' < updates/panel/VERSION)"
+          VERSION="$(tr -d '\r\n' < version/panel/VERSION)"
           mkdir -p dist
           python scripts/build-panel-release.py "$VERSION" dist/panel.tar.gz > dist/release-info.json
           python - <<'PY'
@@ -43,7 +43,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="$(tr -d '\r\n' < updates/panel/VERSION)"
+          VERSION="$(tr -d '\r\n' < version/panel/VERSION)"
           TAG="panel-v${VERSION}"
           gh release view "$TAG" >/dev/null 2>&1 || \
             gh release create "$TAG" --title "Panel ${VERSION}" --notes "Panel-only update."
@@ -61,10 +61,10 @@ jobs:
           PY
           git fetch origin main
           git switch -C main origin/main
-          cp dist/stable.json updates/panel/stable.json
+          cp dist/stable.json version/panel/stable.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add updates/panel/stable.json
+          git add version/panel/stable.json
           if ! git diff --cached --quiet; then
             git commit -m "Publish panel update ${VERSION}"
             git push origin main
