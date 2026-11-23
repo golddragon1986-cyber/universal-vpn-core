@@ -10,6 +10,7 @@ import ssl
 import tempfile
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urljoin
 
@@ -21,6 +22,8 @@ from vpn_subscriptions import subscription_target
 SEARCH_LOCK = threading.Lock()
 MAX_SOURCE = 160 * 1024 * 1024
 MAX_ENTRY = 256 * 1024
+RANGE_CHUNK = 1024 * 1024
+RANGE_WORKERS = 4
 
 
 class LimitedStream:
@@ -85,7 +88,135 @@ def read_url(url, reader, *, storage=None, timeout=180):
 
 
 def search_url(url, query):
+    result = read_url_parallel(url, lambda stream: scan(stream, query))
+    if result is not None:
+        return result
     return read_url(url, lambda stream: scan(stream, query))
+
+
+def _https_request(url, method, headers):
+    """Make one pinned HTTPS request using the same public-host checks as subscriptions."""
+    try:
+        target, port, addresses = subscription_target(url)
+    except ValueError:
+        raise ValueError("Источник должен иметь публичный HTTPS-адрес.") from None
+    conn = PinnedHTTPS(target.hostname, port, addresses[0][4][:2], ssl.create_default_context())
+    path = target.path or "/"
+    if target.query:
+        path += "?" + target.query
+    try:
+        conn.request(method, path, headers=headers)
+        response = conn.getresponse()
+        return conn, response
+    except (OSError, http.client.HTTPException):
+        conn.close()
+        raise
+
+
+def _range_metadata(url):
+    """Return a final URL and size only when HEAD advertises byte-range support."""
+    for _ in range(6):
+        conn, response = _https_request(url, "HEAD", {"User-Agent": "UvpnC/GeoDAT", "Accept-Encoding": "identity"})
+        try:
+            if response.status in (301, 302, 303, 307, 308) and response.getheader("Location"):
+                url = urljoin(url, response.getheader("Location"))
+                continue
+            length = response.getheader("Content-Length", "")
+            if (response.status != 200 or response.getheader("Accept-Ranges", "").lower() != "bytes"
+                    or not length.isdecimal() or not 0 < int(length) <= MAX_SOURCE):
+                return None
+            return url, int(length)
+        finally:
+            conn.close()
+    raise ValueError("Слишком много перенаправлений.")
+
+
+def _fetch_range(url, start, end, total, deadline):
+    if time.monotonic() > deadline:
+        raise ValueError("Истекло время чтения GeoDAT.")
+    conn, response = _https_request(url, "GET", {
+        "User-Agent": "UvpnC/GeoDAT", "Accept-Encoding": "identity",
+        "Range": f"bytes={start}-{end}",
+    })
+    try:
+        content_range = response.getheader("Content-Range", "")
+        expected = end - start + 1
+        if response.status != 206 or content_range != f"bytes {start}-{end}/{total}":
+            raise ValueError("Источник некорректно обработал диапазон GeoDAT.")
+        data = response.read(expected + 1)
+        if len(data) != expected:
+            raise ValueError("Диапазон GeoDAT получен не полностью.")
+        return data
+    finally:
+        conn.close()
+
+
+class RangeStream:
+    """Present parallel HTTP byte ranges as one sequential, bounded-memory stream."""
+    def __init__(self, url, size, deadline):
+        self.url = url
+        self.remaining = size
+        self.deadline = deadline
+        self._size = size
+        self._next = 0
+        self._buffer = b""
+        self._offset = 0
+        self._futures = {}
+        self._executor = ThreadPoolExecutor(max_workers=RANGE_WORKERS)
+        self._schedule()
+
+    def _schedule(self):
+        while len(self._futures) < RANGE_WORKERS and self._next < self._size:
+            start = self._next
+            end = min(start + RANGE_CHUNK, self._size) - 1
+            self._futures[start] = self._executor.submit(
+                _fetch_range, self.url, start, end, self._size, self.deadline)
+            self._next = end + 1
+
+    def _next_chunk(self):
+        start = self._offset
+        future = self._futures.pop(start, None)
+        if future is None:
+            return False
+        timeout = max(0, self.deadline - time.monotonic())
+        self._buffer = future.result(timeout=timeout)
+        self._offset = start + len(self._buffer)
+        self._schedule()
+        return True
+
+    def read(self, size):
+        if size < 0 or time.monotonic() > self.deadline:
+            raise ValueError("Достигнут предел размера или времени чтения GeoDAT.")
+        if self.remaining == 0:
+            return b""
+        if size > self.remaining:
+            raise ValueError("Достигнут предел размера или времени чтения GeoDAT.")
+        result = bytearray()
+        while size:
+            if not self._buffer:
+                if not self._next_chunk():
+                    break
+            take = min(size, len(self._buffer))
+            result.extend(self._buffer[:take])
+            self._buffer = self._buffer[take:]
+            size -= take
+            self.remaining -= take
+        return bytes(result)
+
+    def close(self):
+        self._executor.shutdown(wait=True, cancel_futures=True)
+
+
+def read_url_parallel(url, reader, timeout=180):
+    metadata = _range_metadata(url)
+    if metadata is None:
+        return None
+    final_url, size = metadata
+    stream = RangeStream(final_url, size, time.monotonic() + timeout)
+    try:
+        return reader(stream)
+    finally:
+        stream.close()
 
 
 def record_matches(record, needles, network):
@@ -310,6 +441,9 @@ def read_source(source, reader):
     if source.get("file"):
         with (ROOT / source["file"]).open("rb") as handle:
             return reader(LimitedStream(handle, MAX_SOURCE, time.monotonic() + 180))
+    result = read_url_parallel(source["url"], reader)
+    if result is not None:
+        return result
     return read_url(source["url"], reader)
 
 
