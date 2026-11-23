@@ -22,8 +22,8 @@ from vpn_subscriptions import subscription_target
 SEARCH_LOCK = threading.Lock()
 MAX_SOURCE = 160 * 1024 * 1024
 MAX_ENTRY = 256 * 1024
-RANGE_CHUNK = 4 * 1024 * 1024
-RANGE_WORKERS = 4
+RANGE_CHUNK = 10 * 1024 * 1024
+RANGE_WORKERS = 3
 
 
 class LimitedStream:
