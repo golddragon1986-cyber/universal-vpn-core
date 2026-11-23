@@ -1,0 +1,71 @@
+name: Publish panel-only update
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "updates/panel/VERSION"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: panel-only-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Build verified panel archive
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '\r\n' < updates/panel/VERSION)"
+          mkdir -p dist
+          python scripts/build-panel-release.py "$VERSION" dist/panel.tar.gz > dist/release-info.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('dist/release-info.json').read_text())
+          print(f"Panel {d['version']}: {d['size']} bytes, SHA-256 {d['sha256']}")
+          PY
+      - name: Publish panel archive and stable manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(tr -d '\r\n' < updates/panel/VERSION)"
+          TAG="panel-v${VERSION}"
+          gh release view "$TAG" >/dev/null 2>&1 || \
+            gh release create "$TAG" --title "Panel ${VERSION}" --notes "Panel-only update."
+          gh release upload "$TAG" dist/panel.tar.gz --clobber
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          info=json.loads(Path('dist/release-info.json').read_text())
+          tag='panel-v'+info['version']
+          repo=os.environ['GITHUB_REPOSITORY']
+          data={'version':info['version'],'tag':tag,
+                'url':f"https://github.com/{repo}/releases/download/{tag}/panel.tar.gz",
+                'sha256':info['sha256'],'size':info['size']}
+          Path('dist/stable.json').write_text(json.dumps(data,indent=2)+'\n')
+          PY
+          git fetch origin main
+          git switch -C main origin/main
+          cp dist/stable.json updates/panel/stable.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add updates/panel/stable.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish panel update ${VERSION}"
+            git push origin main
+          fi
