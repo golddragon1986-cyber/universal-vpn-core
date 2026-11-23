@@ -1,0 +1,37 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
+name: Experimental full GeoDAT index
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/build-full-geodat-index.py"
+      - ".github/workflows/geodata-full-index-experiment.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Download current full geosite.dat and geoip.dat
+        run: |
+          mkdir -p input dist
+          curl -fL --retry 3 https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geosite.dat -o input/geosite.dat
+          curl -fL --retry 3 https://github.com/MetaCubeX/meta-rules-dat/releases/download/latest/geoip.dat -o input/geoip.dat
+          sha256sum input/*.dat
+          ls -lh input/*.dat
+      - name: Build and benchmark complete index
+        run: python scripts/build-full-geodat-index.py input/geosite.dat input/geoip.dat dist/geodata-full.sqlite.gz
+      - name: Upload experimental index
+        uses: actions/upload-artifact@v4
+        with:
+          name: geodata-full-index-experiment
+          path: dist/geodata-full.sqlite.gz
+          retention-days: 7
+
