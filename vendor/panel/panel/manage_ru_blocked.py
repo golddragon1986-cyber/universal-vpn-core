@@ -1198,8 +1198,10 @@ class Handler(BaseHTTPRequestHandler):
             if action == 'panel_update_install':
                 import panel_updater
                 message = panel_updater.install(data.get('version',[''])[0])
-                if getattr(self, 'after_commit', None):
-                    self.after_commit.append(panel_updater.schedule_restart)
+                after_commit = getattr(self, 'after_commit', None)
+                if after_commit:
+                    # The action queue passes a callback (list.append), not its callback list.
+                    after_commit(panel_updater.schedule_restart)
                 self.redirect_message(message,tab='components')
                 return
             if action in ('subscription_add', 'subscription_refresh', 'subscription_delete', 'subscription_automation'):
