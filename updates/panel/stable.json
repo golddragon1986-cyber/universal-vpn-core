@@ -1,7 +1,7 @@
 {
-  "version": "0.3.2",
-  "tag": "v0.32b.231126.1044",
-  "url": "https://github.com/golddragon1986-cyber/universal-vpn-core/releases/download/v0.32b.231126.1044/panel.tar.gz",
-  "sha256": "54e0a0aefa26b07e8501e4a887c8ea14ee1a44d1b39f5d1ac2cf149ee658aadc",
-  "size": 234272
+  "version": "0.3.3",
+  "tag": "panel-v0.3.3",
+  "url": "https://github.com/golddragon1986-cyber/universal-vpn-core/releases/download/panel-v0.3.3/panel.tar.gz",
+  "sha256": "ad331f47e58c7be3a9f9773088578e5f84ab85cdad3f55482b795f3dcd4f9653",
+  "size": 239638
 }
