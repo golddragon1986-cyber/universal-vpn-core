@@ -30,7 +30,6 @@ SCAN_WORKERS = 2
 SCAN_BATCH_RECORDS = 256
 SCAN_BATCH_BYTES = 1024 * 1024
 SCAN_MAX_PENDING = SCAN_WORKERS * 2
-SCAN_CATEGORY_LIMIT = 1024 * 1024
 
 
 class LimitedStream:
@@ -250,13 +249,11 @@ def record_matches(record, needles, network):
     return "domain", second.decode("utf-8") if match else None
 
 
-def _scan_raw_records(records, needles, network):
-    """Parse and match records in a child process."""
-    file_kind = None
+def _scan_record_batch(records, needles, network_text, file_kind):
+    """Parse and match one bounded record batch outside the web worker process."""
+    network = ipaddress.ip_network(network_text) if network_text else None
     example = None
     for raw in records:
-        if example is not None:
-            continue
         if file_kind == "ipcidr" and raw[:2] in (b"\x0a\x04", b"\x0a\x10"):
             end = raw[1] + 2
             tail = raw[end:]
@@ -265,28 +262,13 @@ def _scan_raw_records(records, needles, network):
         else:
             record = dict(fields(raw))
         kind, matched = record_matches(record, needles, network)
-        if file_kind is None:
-            file_kind = kind
-        elif file_kind != kind:
+        if kind != file_kind:
             raise ValueError("В одном файле смешаны разные типы GeoDAT.")
-        example = matched
-    return file_kind, example
-
-
-def _scan_record_batch(records, needles, network_text):
-    """Scan a bounded batch when an individual category is too large to queue whole."""
-    network = ipaddress.ip_network(network_text) if network_text else None
-    kind, example = _scan_raw_records(records, needles, network)
-    return kind, example, None
-
-
-def _scan_category_payload(payload, needles, network_text):
-    """Parse a complete small category in a child process, including record framing."""
-    network = ipaddress.ip_network(network_text) if network_text else None
-    category = LimitedStream(io.BytesIO(payload), len(payload), time.monotonic() + 180)
-    count = [0]
-    kind, example = _scan_raw_records(category_records(category, count=count), needles, network)
-    return kind, example, count[0]
+        if example is None:
+            example = matched
+        if example is not None:
+            break
+    return example
 
 
 def category_records(category, hints=None, *, allow_reverse=True, count=None):
@@ -332,7 +314,7 @@ def category_records(category, hints=None, *, allow_reverse=True, count=None):
         pos = end
 
 
-def scan(stream, query, expected_kind=None):
+def scan(stream, query):
     """Return matching categories with one example from the contents of each."""
     folded = query.casefold()
     needles = {folded.encode("utf-8")}
@@ -344,26 +326,31 @@ def scan(stream, query, expected_kind=None):
         network = ipaddress.ip_network(query, strict=False)
     except ValueError:
         network = None
+    # Suffix candidates let us avoid decoding records without a possible match.
+    hints = set(needles)
+    for needle in needles:
+        for pos, char in enumerate(needle):
+            if char == ord(".") and pos + 1 < len(needle):
+                suffix = needle[pos + 1:]
+                if b"." in suffix:
+                    hints.add(suffix)
     categories = []
     pending = deque()
+    file_kind = None
     network_text = str(network) if network is not None else None
 
     with ProcessPoolExecutor(max_workers=SCAN_WORKERS, mp_context=get_context("spawn")) as pool:
         def collect_one():
             future, state = pending.popleft()
-            kind, example, count = future.result()
-            if kind is not None:
-                if state["kind"] is not None and state["kind"] != kind:
-                    raise ValueError("В одном файле смешаны разные типы GeoDAT.")
-                state["kind"] = kind
+            example = future.result()
             if state["example"] is None:
                 state["example"] = example
-            if count is not None:
-                state["count"] = count
 
         while True:
             tag, _ = read_varint(stream, allow_eof=True)
             if tag is None:
+                if file_kind is None:
+                    raise ValueError("В источнике нет категорий GeoDAT.")
                 break
             size, _ = read_varint(stream)
             if tag != 10 or not 0 < size <= stream.remaining:
@@ -376,44 +363,33 @@ def scan(stream, query, expected_kind=None):
                 raise ValueError("В блоке GeoDAT отсутствует название категории.")
             name = read_bytes(category, length).decode("utf-8")
             state = {"name": name.lower(), "name_match": folded in name.casefold(),
-                     "kind": expected_kind, "example": None, "count": 0}
+                     "example": None, "count": 0}
             categories.append(state)
-            # GeoIP records are binary addresses. For text queries, still search
-            # every category name in this source, then skip its non-text records.
-            if expected_kind == "ipcidr" and network is None:
+            if file_kind == "ipcidr" and network is None and not state["name_match"]:
                 category.skip(category.remaining)
-                continue
-            if category.remaining <= SCAN_CATEGORY_LIMIT:
-                payload = read_bytes(category, category.remaining)
-                pending.append((pool.submit(_scan_category_payload, payload, needles, network_text), state))
-                if len(pending) >= SCAN_MAX_PENDING:
-                    collect_one()
                 continue
             count = [0]
             batch = []
             batch_bytes = 0
-            for raw in category_records(category, count=count):
+            for raw in category_records(category, hints if file_kind == "domain" else None, count=count):
+                if file_kind == "ipcidr" and network is None:
+                    continue
+                if file_kind is None:
+                    first = dict(fields(raw)).get(1)
+                    file_kind = "ipcidr" if isinstance(first, bytes) else "domain"
                 batch.append(raw)
                 batch_bytes += len(raw)
                 if len(batch) >= SCAN_BATCH_RECORDS or batch_bytes >= SCAN_BATCH_BYTES:
-                    pending.append((pool.submit(_scan_record_batch, batch, needles, network_text), state))
+                    pending.append((pool.submit(_scan_record_batch, batch, needles, network_text, file_kind), state))
                     batch, batch_bytes = [], 0
                     if len(pending) >= SCAN_MAX_PENDING:
                         collect_one()
             if batch:
-                pending.append((pool.submit(_scan_record_batch, batch, needles, network_text), state))
+                pending.append((pool.submit(_scan_record_batch, batch, needles, network_text, file_kind), state))
             state["count"] = count[0]
         while pending:
             collect_one()
 
-    file_kinds = {state["kind"] for state in categories if state["kind"] is not None}
-    if not file_kinds and expected_kind in ("domain", "ipcidr"):
-        file_kinds.add(expected_kind)
-    if not file_kinds:
-        raise ValueError("В источнике нет категорий GeoDAT.")
-    if len(file_kinds) != 1:
-        raise ValueError("В одном файле смешаны разные типы GeoDAT.")
-    file_kind = next(iter(file_kinds))
     result = []
     for state in categories:
         if state["name_match"] or state["example"] is not None:
@@ -438,7 +414,7 @@ def search(query):
             try:
                 key = ("file", source["file"]) if source.get("file") else ("url", source["url"])
                 if key not in scanned:
-                    scanned[key] = read_source(source, lambda stream: scan(stream, query, source.get("behavior")))
+                    scanned[key] = read_source(source, lambda stream: scan(stream, query))
                 matches = scanned[key]
             except (OSError, http.client.HTTPException):
                 errors.append(f'{source["name"]} — не удалось прочитать источник.')
