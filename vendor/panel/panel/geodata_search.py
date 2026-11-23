@@ -407,19 +407,40 @@ def search(query):
     if not SEARCH_LOCK.acquire(blocking=False):
         raise ValueError("Поиск по GeoDAT уже выполняется.")
     results, errors, scanned = [], [], {}
+    preferred = None
     try:
-        for sid, source in sources:
-            try:
-                key = ("file", source["file"]) if source.get("file") else ("url", source["url"])
-                if key not in scanned:
-                    scanned[key] = read_source(source, lambda stream: scan(stream, query))
-                matches = scanned[key]
-            except (OSError, http.client.HTTPException):
-                errors.append(f'{source["name"]} — не удалось прочитать источник.')
-            except ValueError as error:
-                errors.append(f'{source["name"]} — {error}')
-            else:
-                results.extend(dict(item, source=source["name"], source_id=sid) for item in matches)
+        ipaddress.ip_network(query, strict=False)
+        preferred = "ipcidr"
+    except ValueError:
+        try:
+            normalize_domain(query)
+            if any(char.isalpha() for char in query):
+                preferred = "domain"
+        except (UnicodeError, ValueError):
+            pass
+    if preferred:
+        source_groups = [
+            [item for item in sources if item[1].get("behavior") in (preferred, None)],
+            [item for item in sources if item[1].get("behavior") not in (preferred, None)],
+        ]
+    else:
+        source_groups = [sources]
+    try:
+        for group in source_groups:
+            for sid, source in group:
+                try:
+                    key = ("file", source["file"]) if source.get("file") else ("url", source["url"])
+                    if key not in scanned:
+                        scanned[key] = read_source(source, lambda stream: scan(stream, query))
+                    matches = scanned[key]
+                except (OSError, http.client.HTTPException):
+                    errors.append(f'{source["name"]} — не удалось прочитать источник.')
+                except ValueError as error:
+                    errors.append(f'{source["name"]} — {error}')
+                else:
+                    results.extend(dict(item, source=source["name"], source_id=sid) for item in matches)
+            if results:
+                break
     finally:
         SEARCH_LOCK.release()
     return {"results": sorted(results, key=lambda item: (not item["name_match"], item["name"], item["source"])),
