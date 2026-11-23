@@ -28,6 +28,19 @@ jobs:
           git -C upstream sparse-checkout set geo/geosite geo/geoip
       - name: Build compressed lookup index
         run: python scripts/build-geodata-search-index.py upstream/geo dist/geodata-search.sqlite.gz
+      - name: Commit compact search index
+        run: |
+          mkdir -p data
+          cp dist/geodata-search.sqlite.gz data/geodata-search.sqlite.gz
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/geodata-search.sqlite.gz
+          if git diff --cached --quiet; then
+            echo "Search index is unchanged."
+          else
+            git commit -m "Update compact GeoDAT search index"
+            git push
+          fi
       - name: Publish public index asset
         env:
           GH_TOKEN: ${{ github.token }}
