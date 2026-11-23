@@ -86,8 +86,9 @@ def read_manifest():
     if tag != 'panel-v' + version and not re.fullmatch(r'v\d+\.\d+[a-z]?\.\d{6}\.\d{4}', tag):
         raise ValueError('Некорректный тег выпуска панели или контейнера')
     url = str(data.get('url', ''))
-    expected = 'https://github.com/' + REPOSITORY + '/releases/download/' + tag + '/panel.tar.gz'
-    if url != expected:
+    expected_release = 'https://github.com/' + REPOSITORY + '/releases/download/' + tag + '/panel.tar.gz'
+    expected_file = 'https://raw.githubusercontent.com/' + REPOSITORY + '/main/version/panel/' + version + '/panel.tar.gz'
+    if url not in (expected_release, expected_file):
         raise ValueError('Недопустимая ссылка на архив панели')
     digest = str(data.get('sha256', ''))
     if not re.fullmatch(r'[0-9a-f]{64}', digest):

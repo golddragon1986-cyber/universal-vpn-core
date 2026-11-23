@@ -41,11 +41,3 @@ jobs:
             git commit -m "Update compact GeoDAT search index"
             git push
           fi
-      - name: Publish public index asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if ! gh release view geodata-catalog >/dev/null 2>&1; then
-            gh release create geodata-catalog --title "GeoDAT search catalog" --notes "Automatically rebuilt from MetaCubeX/meta-rules-dat."
-          fi
-          gh release upload geodata-catalog dist/geodata-search.sqlite.gz --clobber

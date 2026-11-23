@@ -19,8 +19,8 @@ from durable_io import replace
 
 ROOT = Path("/etc/mihomo/rules")
 INDEX = ROOT / "geodata-search.sqlite"
-INDEX_URL = ("https://github.com/golddragon1986-cyber/universal-vpn-core/"
-             "releases/download/geodata-catalog/geodata-search.sqlite.gz")
+INDEX_URL = ("https://raw.githubusercontent.com/golddragon1986-cyber/universal-vpn-core/"
+             "main/data/geodata-search.sqlite.gz")
 RAW_BASE = "https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/"
 MAX_INDEX_GZIP = 64 * 1024 * 1024
 MAX_INDEX_SIZE = 256 * 1024 * 1024
