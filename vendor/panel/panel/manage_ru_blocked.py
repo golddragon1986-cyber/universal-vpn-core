@@ -652,7 +652,8 @@ setInterval(refreshProxyHealth, 120000);
 QUEUE = None
 
 def execute_queued_action(payload):
-    if parse_qs(payload.get("body","")).get("action",[""])[0]=="geodata_source_download":
+    action=parse_qs(payload.get("body","")).get("action",[""])[0]
+    if action in {"geodata_source_download", "service_refresh_geodata", "service_update_source"}:
         return _execute_queued_action(payload)
     from configuration_draft import LOCK
     with LOCK:return _execute_queued_action(payload)

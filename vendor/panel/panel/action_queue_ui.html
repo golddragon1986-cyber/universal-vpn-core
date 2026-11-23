@@ -189,7 +189,7 @@ document.addEventListener("submit",async event=>{
   const r=await fetch("/api/actions/queue",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:data});
   const result=await r.json();if(!r.ok||!result.ok)throw new Error(result.message||"Не удалось добавить действие");
   if(["subscription_add","subscription_refresh","subscription_delete","subscription_automation"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
-  if(["service_geodata_import","service_refresh_geodata","service_set_target","service_move","service_reorder","service_toggle","service_delete","service_save"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
+  if(["service_geodata_import","service_refresh_geodata","service_update_source","service_set_target","service_move","service_reorder","service_toggle","service_delete","service_save"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
   if(form.classList.contains("domain-toggle"))viewRefreshJobs.add(result.job_id);
   if(["dns_flush","core_restart"].includes(data.get("action"))){maintenanceJobs.set(result.job_id,form);form.dataset.inlineBusy="1";maintenanceLock(form,true);}
   if(["dns_save","configuration_apply","geodata_source_download"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);

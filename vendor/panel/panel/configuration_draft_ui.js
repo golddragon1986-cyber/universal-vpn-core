@@ -3,7 +3,8 @@ const initial=document.getElementById('configuration-state');
 let state=initial?JSON.parse(initial.textContent):{pending:false,revision:0};
 let chain=Promise.resolve(),timer=null,busy=false,applying=false,error='',orderBefore=null;
 const edits=new Map();
-const isDraft=action=>['routing_save','dns_save','domain_dns','filter_save','clear_auto_domains','add','enable','disable','delete','route_apply','client_apply'].includes(action)||action?.startsWith('service_');
+const isDraft=action=>['routing_save','dns_save','domain_dns','filter_save','clear_auto_domains','add','enable','disable','delete','route_apply','client_apply'].includes(action)||(
+ action?.startsWith('service_')&&!['service_refresh_geodata','service_update_source'].includes(action));
 function controls(){
  const apply=document.getElementById('configuration-apply'),cancel=document.getElementById('configuration-cancel'),message=document.getElementById('configuration-message');
  const pending=state.pending||edits.size>0;

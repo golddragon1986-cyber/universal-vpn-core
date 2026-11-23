@@ -664,10 +664,12 @@ def handle_action(data, report=lambda _stage: None, after_commit=None):
         slug = entry.get("source_service", "")
         if entry.get("source_repo") != SOURCE_REPO or not slug:
             raise ValueError("Правило не связано с каталогом GitHub")
+        report("Проверка обновлений в каталоге GitHub")
         catalog_data = fetch_source_catalog(refresh=True)
         catalog = {item["name"]: item for item in catalog_data["services"]}
         if slug not in catalog:
             raise ValueError("Список удалён из каталога GitHub: " + slug)
+        report("Загрузка правил «" + slug + "»")
         suffix_domains, exact_domains, keyword_domains, regex_domains = fetch_source_domains(slug, catalog)
         if not (suffix_domains or exact_domains or keyword_domains or regex_domains):
             raise ValueError("В списке нет поддерживаемых доменных правил: " + slug)
@@ -725,6 +727,8 @@ def handle_action(data, report=lambda _stage: None, after_commit=None):
     try:
         if action == "service_refresh_geodata":
             report("Применение правил Mihomo")
+        elif action == "service_update_source":
+            report("Сохранение обновлённого правила")
         message = apply_services(items, original, extra_message)
     except Exception as error:
         remove_providers(created_providers)

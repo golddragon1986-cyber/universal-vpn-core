@@ -19,6 +19,8 @@ ACTION_NAMES = {'routing_save', 'dns_save', 'domain_dns', 'filter_save', 'clear_
 
 
 def staged_action(action):
+    if action in {'service_refresh_geodata', 'service_update_source'}:
+        return False
     return action in ACTION_NAMES or action.startswith(('service_', 'route_'))
 
 

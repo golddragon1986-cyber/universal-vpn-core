@@ -126,7 +126,7 @@ class ActionQueue:
     with self.db() as db:db.execute("UPDATE jobs SET subject=?,change_text=? WHERE id=?",(subject,change,row["id"]))
     def report(stage):
      with self.live_lock:self.live_messages[row["id"]]=(str(stage),time.time())
-    if parse_qs(payload.get("body","")).get("action",[""])[0] in {"service_refresh_geodata","geodata_source_download","route_apply","configuration_apply","panel_update_install",*RUNTIME_ACTIONS}:
+    if parse_qs(payload.get("body","")).get("action",[""])[0] in {"service_refresh_geodata","service_update_source","geodata_source_download","route_apply","configuration_apply","panel_update_install",*RUNTIME_ACTIONS}:
      payload["_job_id"]=row["id"]
      payload["_progress"]=report
      payload["_after_commit"]=after_commit.append
