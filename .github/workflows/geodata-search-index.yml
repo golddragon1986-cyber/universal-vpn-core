@@ -1,0 +1,38 @@
+name: Build public GeoDAT search index
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/build-geodata-search-index.py"
+      - ".github/workflows/geodata-search-index.yml"
+  schedule:
+    - cron: "23 4 * * 1"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Check panel Python syntax
+        run: python -m compileall -q vendor/panel/panel
+      - name: Checkout public GeoSite and GeoIP lists
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse --branch meta https://github.com/MetaCubeX/meta-rules-dat.git upstream
+          git -C upstream sparse-checkout set geo/geosite geo/geoip
+      - name: Build compressed lookup index
+        run: python scripts/build-geodata-search-index.py upstream/geo dist/geodata-search.sqlite.gz
+      - name: Publish public index asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view geodata-catalog >/dev/null 2>&1; then
+            gh release create geodata-catalog --title "GeoDAT search catalog" --notes "Automatically rebuilt from MetaCubeX/meta-rules-dat."
+          fi
+          gh release upload geodata-catalog dist/geodata-search.sqlite.gz --clobber

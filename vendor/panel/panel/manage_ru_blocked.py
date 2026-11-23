@@ -770,6 +770,25 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as error:
                 self.send_json({"message": str(error)}, 400)
             return
+        if self.path.split("?", 1)[0] == "/api/geodata/catalog/search":
+            from geodata_catalog import search
+            try:
+                self.send_json(search(params.get("q", [""])[0]))
+            except ValueError as error:
+                self.send_json({"message": str(error)}, 400)
+            except Exception as error:
+                self.send_json({"message": str(error)}, 503)
+            return
+        if self.path.split("?", 1)[0] == "/api/geodata/catalog/category":
+            from geodata_catalog import preview
+            try:
+                self.send_json(preview(params.get("kind", [""])[0], params.get("name", [""])[0],
+                                       int(params.get("offset", ["0"])[0])))
+            except ValueError as error:
+                self.send_json({"message": str(error)}, 400)
+            except Exception as error:
+                self.send_json({"message": str(error)}, 503)
+            return
         if self.path.split("?", 1)[0] == "/api/geodata/category":
             from geodata_search import preview_category
             try:
