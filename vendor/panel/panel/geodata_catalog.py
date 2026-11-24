@@ -209,7 +209,7 @@ def download_provider(kind, name, provider, report=lambda _stage: None):
     if kind not in ("geosite", "geoip") or not SLUG_RE.fullmatch(name):
         raise ValueError("Некорректная категория каталога.")
     path, behavior, _fmt = provider_file(provider)
-    expected = "domain" if kind == "geosite" else "ip"
+    expected = "domain" if kind == "geosite" else "ipcidr"
     if behavior != expected:
         raise ValueError("Тип набора не соответствует категории.")
     db = sqlite3.connect(f"file:{ensure_index().as_posix()}?mode=ro", uri=True)
