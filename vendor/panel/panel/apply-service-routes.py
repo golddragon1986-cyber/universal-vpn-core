@@ -225,10 +225,10 @@ def main():
         new_text = set_dns_mode(new_text, target_dns_mode)
     from router_routes import service_networks, sync_service_routes, with_service_tun_routes
     old_networks = service_networks(old_text)
-    new_networks = service_networks(new_text)
-    new_text = with_service_tun_routes(new_text, template_text)
     from network_priority import apply as apply_network_priority
     new_text = apply_network_priority(new_text)
+    new_networks = service_networks(new_text)
+    new_text = with_service_tun_routes(new_text, template_text)
     routes_synced = False
 
     directory = os.path.dirname(CANDIDATE)

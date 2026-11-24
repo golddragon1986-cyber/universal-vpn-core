@@ -13,6 +13,8 @@ RULE_START='  # BEGIN NETWORK-PRIORITY\n'
 RULE_END='  # END NETWORK-PRIORITY\n'
 PROVIDER_START='  # BEGIN NETWORK-PRIORITY-PROVIDERS\n'
 PROVIDER_END='  # END NETWORK-PRIORITY-PROVIDERS\n'
+EXPORT_START='# BEGIN SERVICE-NETWORK-EXPORT\n'
+EXPORT_END='# END SERVICE-NETWORK-EXPORT\n'
 
 
 def apply(text):
@@ -30,7 +32,7 @@ def apply(text):
             path,behavior,_=provider_file(name)
             if behavior=='ipcidr':files.append((name,path.stat().st_mtime_ns,path.stat().st_size))
         signature.append((item.get('enabled',True),item.get('target'),item.get('networks',[]),files))
-    key=hashlib.sha256(json.dumps(signature,sort_keys=True).encode()).hexdigest()
+    key=hashlib.sha256(json.dumps([2, signature],sort_keys=True).encode()).hexdigest()
     ROOT.mkdir(parents=True,exist_ok=True)
     index=ROOT/'index.json'
     cached=json.loads(index.read_text()) if index.exists() else {}
@@ -46,6 +48,7 @@ def apply(text):
             target=item.get('target') or 'SELECTOR'
             if target not in {'SELECTOR','DIRECT','REJECT','LOADBALANCE'} and not target.startswith('CHANNEL-'):target='CHANNEL-'+target
             for net in service_networks(item):add(net,target,100,position)
+        exported = sorted(map(str, entries))
         for position,(net,item) in enumerate(manual.items()):
             if item.get('enabled',True):add(net,item['target'],item.get('metric',100),len(items)+position)
         groups={}
@@ -67,13 +70,17 @@ def apply(text):
             files.append(path.name)
             providers+='  '+name+':\n    type: file\n    behavior: ipcidr\n    format: '+fmt+'\n    path: '+str(path)+'\n'
             rules+='  - '+json.dumps('RULE-SET,'+name+','+target+',no-resolve')+'\n'
-        cached={'key':key,'files':files,'rules':rules,'providers':providers}
+        cached={'key':key,'files':files,'rules':rules,'providers':providers,'exported':exported}
         write(index,json.dumps(cached).encode())
-    for start,end in [(RULE_START,RULE_END),(PROVIDER_START,PROVIDER_END)]:
+    for start,end in [(RULE_START,RULE_END),(PROVIDER_START,PROVIDER_END),(EXPORT_START,EXPORT_END)]:
         text=re.sub(re.escape(start)+'.*?'+re.escape(end),'',text,flags=re.S)
     # Replace the previous direct/manual block with the unified priority policy.
     text=re.sub(r'(?ms)^  # BEGIN MANUAL-NETWORK-ROUTES\n.*?^  # END MANUAL-NETWORK-ROUTES\n','',text)
     if cached['rules']:
         text=text.replace('rules:\n','rules:\n'+RULE_START+cached['rules']+RULE_END,1)
         text=text.replace('rule-providers:\n','rule-providers:\n'+PROVIDER_START+cached['providers']+PROVIDER_END,1)
+    if cached['exported']:
+        text = text.rstrip('\n') + '\n' + EXPORT_START + ''.join(
+            f'# {network}\n' for network in cached['exported']
+        ) + EXPORT_END
     return text

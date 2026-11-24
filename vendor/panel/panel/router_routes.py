@@ -133,6 +133,8 @@ def container_files():
 def service_networks(text):
     block = text.partition('# BEGIN SERVICE-ROUTES')[2].partition('# END SERVICE-ROUTES')[0]
     nets=set(re.findall(r'^  - IP-CIDR,([^,\n]+),[^,\n]+,no-resolve$', block, re.M))
+    exported = text.partition('# BEGIN SERVICE-NETWORK-EXPORT')[2].partition('# END SERVICE-NETWORK-EXPORT')[0]
+    nets.update(re.findall(r'^# ([0-9.]+/\d+)$', exported, re.M))
     nets.update(net for net,value in read_targets().items() if value.get('override') and value.get('enabled',True))
     return nets
 

@@ -46,9 +46,9 @@ def compose(text,settings):
         import re
         text=re.sub(r'^log-level:.*$', 'log-level: '+level, text, flags=re.M)
     from router_routes import with_service_tun_routes
-    text=with_service_tun_routes(text,template)
     from network_priority import apply as apply_network_priority
     text=apply_network_priority(text)
+    text=with_service_tun_routes(text,template)
     from client_policy import compose as client_compose
     text=client_compose(text)
     return text,mode
