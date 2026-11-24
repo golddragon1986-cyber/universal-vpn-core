@@ -395,6 +395,7 @@ def render(message=""):
             'body .unified-main .geodata-sources-table th:last-child{width:320px}'
             'body .unified-main .geodata-action-grid{display:grid;grid-template-columns:90px 120px 90px;gap:5px;align-items:center}'
             'body .unified-main .geodata-action-grid form{display:block;margin:0;min-width:0}'
+            'body .unified-main .geodata-action-grid :is(.geodata-action-enable,.geodata-action-disable,.geodata-action-remove){grid-column:3}'
             'body .unified-main .geodata-action-grid button{box-sizing:border-box;width:100%;height:40px;margin:0;padding:8px 5px;white-space:nowrap;text-align:center}'
             '@media(max-width:700px){.geodata-form{grid-template-columns:minmax(0,1fr)}}</style>'
             '<script>document.querySelectorAll(".geodata-file").forEach(field=>{'
