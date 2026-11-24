@@ -493,8 +493,42 @@ def group_rule_creation_panels(page):
     index = re.sub(r'<summary>.*?</summary>', '<summary>' + labels[2] + '</summary>', index, count=1, flags=re.S)
     source_file = page[file_start:index_start].replace('<div class="panel">', '<div class="rule-create-option">', 1)
     source_file = re.sub(r'<summary>.*?</summary>', '<summary>' + labels[3] + '</summary>', source_file, count=1, flags=re.S)
-    return (page[:editor_start] + '<div class="panel rule-create-panel"><h2>' + labels[0] + '</h2>\n' +
-            editor + index + source_file + '</div>\n' + page[list_start:])
+    editing = bool(re.search(r'<details id="service-editor"[^>]*\bopen\b', editor))
+    tab_buttons = ''.join(
+        '<button type="button" role="tab" data-rule-tab="' + key + '" aria-controls="rule-create-' + key + '">' + label + '</button>'
+        for key, label in zip(('manual', 'index', 'file'), labels[1:])
+    )
+    sections = ''.join(
+        section.replace('class="rule-create-option"', 'class="rule-create-option" id="rule-create-' + key + '" role="tabpanel"', 1)
+        for key, section in (('manual', editor), ('index', index), ('file', source_file))
+    )
+    tabs_script = '''<script>
+(()=>{
+ const panel=document.querySelector('.rule-create-panel');
+ if(!panel)return;
+ const buttons=[...panel.querySelectorAll('[data-rule-tab]')];
+ const sections=[...panel.querySelectorAll('.rule-create-option')];
+ sections.forEach(section=>{const details=section.querySelector('details');if(details)details.open=true;});
+ panel.classList.add('js-tabs');
+ function select(key){
+  buttons.forEach(button=>{const active=button.dataset.ruleTab===key;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
+  sections.forEach(section=>{const active=section.id==='rule-create-'+key;section.classList.toggle('active',active);section.hidden=!active;});
+ }
+ buttons.forEach((button,index)=>{
+  button.addEventListener('click',()=>select(button.dataset.ruleTab));
+  button.addEventListener('keydown',event=>{
+   if(event.key!=='ArrowRight'&&event.key!=='ArrowLeft')return;
+   event.preventDefault();
+   const step=event.key==='ArrowRight'?1:-1;
+   const next=buttons[(index+step+buttons.length)%buttons.length];next.focus();select(next.dataset.ruleTab);
+  });
+ });
+ select('manual');
+})();
+</script>'''
+    return (page[:editor_start] + '<div class="panel rule-create-panel"><details class="panel-spoiler rule-create-disclosure"' +
+            (' open' if editing else '') + '><summary>' + labels[0] + '</summary><div class="rule-create-tabs" role="tablist" aria-label="' +
+            labels[0] + '">' + tab_buttons + '</div>' + sections + '</details></div>\n' + tabs_script + page[list_start:])
 
 
 def decorate_page(page, active_tab, targets=None, domain_counts=None):
