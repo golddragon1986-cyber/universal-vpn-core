@@ -48,7 +48,31 @@ document.addEventListener('submit',async event=>{
  const data=new URLSearchParams(new FormData(form,event.submitter));
  if(!isDraft(data.get('action')))return;
  event.preventDefault();event.stopImmediatePropagation();
- try{await flush();await stage(data);location.reload();}catch(e){controls();}
+ const geodataImport=data.get('action')==='service_geodata_import';
+ const button=geodataImport?event.submitter:null;
+ let status;
+ if(geodataImport){
+  if(form.dataset.saving==='1')return;
+  form.dataset.saving='1';
+  if(button)button.disabled=true;
+  status=form.querySelector('[data-import-status]');
+  if(!status){
+   status=document.createElement('p');
+   status.dataset.importStatus='';
+   status.setAttribute('role','status');
+   form.append(status);
+  }
+  status.textContent='Сохранение черновика…';
+ }
+ error='';
+ try{await flush();await stage(data);location.reload();}
+ catch(e){
+  if(status)status.textContent=window.uiText?.(e.message)||e.message;
+  controls();
+ }finally{
+  if(geodataImport)delete form.dataset.saving;
+  if(button)button.disabled=false;
+ }
 });
 document.addEventListener('click',async event=>{
  const link=event.target.closest('a[href]');
