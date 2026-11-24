@@ -378,7 +378,7 @@ def render(message=""):
                     f'<td>{kind}</td><td>{size}</td>'
                     f'<td>{escape(item["updated"])}</td><td class="geodata-actions"><div class="geodata-action-grid">{actions}</div></td></tr>')
     status = f'<p class="msg" role="status">{escape(message)}</p>' if message else ""
-    listing = (_ui('<div class="ui-table-scroll"><table class="geodata-sources-table"><thead><tr><th>Название</th><th>Тип</th><th>Размер</th><th>Добавлен / обновлён</th><th>Управление</th></tr></thead><tbody>') + "".join(rows) + '</tbody></table></div>') if rows else _ui('<p>Источники ещё не добавлены.</p>')
+    listing = (_ui('<table class="geodata-sources-table"><thead><tr><th>Название</th><th>Тип</th><th>Размер</th><th>Добавлен / обновлён</th><th>Управление</th></tr></thead><tbody>') + "".join(rows) + '</tbody></table>') if rows else _ui('<p>Источники ещё не добавлены.</p>')
     return ('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>GeoDAT</title></head><body>'
             + status + "".join('<div class="panel">' + form + '</div>' for form in forms)
             + _ui('<div class="panel"><h2>Источники GeoDAT</h2>') + listing + '</div>'
@@ -394,8 +394,12 @@ def render(message=""):
             '.geodata-file:hover .geodata-file-button{background:var(--ui-button-hover)}'
             '.geodata-file:focus-within .geodata-file-button{outline:2px solid var(--ui-primary);outline-offset:2px}'
             '.geodata-file-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ui-muted)}'
-            'body .unified-main .geodata-sources-table{min-width:940px}'
-            'body .unified-main .geodata-sources-table :is(th,td){padding:10px;white-space:nowrap}'
+            'body .unified-main .geodata-sources-table{width:100%;min-width:0;table-layout:fixed}'
+            'body .unified-main .geodata-sources-table :is(th,td){padding:10px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
+            'body .unified-main .geodata-sources-table th:nth-child(1){width:25%}'
+            'body .unified-main .geodata-sources-table th:nth-child(2){width:15%}'
+            'body .unified-main .geodata-sources-table th:nth-child(3){width:8%}'
+            'body .unified-main .geodata-sources-table th:nth-child(4){width:19%}'
             'body .unified-main .geodata-sources-table th:last-child{width:310px}'
             'body .unified-main .geodata-action-grid{display:grid;grid-template-columns:90px 112px 90px;gap:5px;align-items:center}'
             'body .unified-main .geodata-action-grid form{display:block;margin:0;min-width:0}'
