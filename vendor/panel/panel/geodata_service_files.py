@@ -99,14 +99,39 @@ def with_reject_dns(config, providers=None, *, template="", policies=None):
 
 
 def compile_category(source_id, category, report=lambda _stage: None, *, inline_limit=0):
-    from geodata_panel import entries
+    from geodata_panel import ROOT as SOURCE_ROOT, entries
+    from storage_space import require
     from geodata_search import SEARCH_LOCK, decode_rule, read_category_records, read_source
 
     source = entries().get(source_id)
-    if not source or source.get("kind") != "geodat":
+    if not source:
         raise ValueError("Источник GeoDAT больше не найден.")
-    if category == "*" and (source.get("behavior") != "domain" or not source.get("file")):
-        raise ValueError("Источник должен содержать доменную базу GeoSite.")
+    filename = source.get("file") or ""
+    if category == "*" and filename.endswith(".mrs"):
+        import shutil
+        behavior = source["behavior"]
+        key = {"domain": "domain", "ipcidr": "ip"}[behavior]
+        name = f"GEO-{uuid.uuid4().hex}-{key}"
+        destination, _, _ = provider_file(name)
+        ROOT.mkdir(mode=0o700, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=".import-", dir=ROOT) as directory:
+            candidate = Path(directory) / "source.mrs"
+            decoded = Path(directory) / "records.txt"
+            original = SOURCE_ROOT / filename
+            require(ROOT, original.stat().st_size, "Импорт MRS")
+            shutil.copyfile(original, candidate)
+            report("Подключение набора MRS")
+            subprocess.run(
+                mrs_command(131072, behavior, "mrs", str(candidate), str(decoded)),
+                env={**os.environ, "GOGC": "35", "GOMEMLIMIT": "80MiB"},
+                capture_output=True, check=True, timeout=180,
+            )
+            with decoded.open(encoding="utf-8") as records:
+                count = sum(1 for line in records if line.strip())
+            replace(candidate, destination)
+        return [name], count, None
+    if source.get("kind") != "geodat":
+        raise ValueError("Выберите поддерживаемый источник GeoDAT.")
     if not SEARCH_LOCK.acquire(blocking=False):
         raise ValueError("Дождитесь завершения текущего запроса GeoDAT.")
     names = []
@@ -122,8 +147,6 @@ def compile_category(source_id, category, report=lambda _stage: None, *, inline_
                       (stage/"classical").open("w", encoding="utf-8") as classical):
                     for raw in read_category_records(stream, category, allow_reverse=False):
                         key, value = decode_rule(raw)
-                        if category == "*" and key in ("networks", "ipv6"):
-                            raise ValueError("Источник должен содержать доменную базу GeoSite.")
                         if not value or "\r" in value or "\n" in value:
                             raise ValueError("Некорректное правило в категории GeoDAT.")
                         if sum(sizes.values()) < inline_limit:
