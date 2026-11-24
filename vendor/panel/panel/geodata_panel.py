@@ -362,7 +362,10 @@ def render(message=""):
                     f'<input type="hidden" name="operation" value="{operation}">'
                     f'<button type="submit">{label}</button></form>')
         refresh_label = _ui('Скачать') if not item.get("file") else _ui('Обновить')
-        actions = button("refresh", refresh_label) if item["url"] else ""
+        actions = (f'<button class="geodata-refresh-placeholder" type="button" disabled>{_ui("Обновить")}</button>'
+                   if item["url"] and not item.get("file") else "")
+        if item["url"]:
+            actions += button("refresh", refresh_label)
         if item.get("file") and item.get('url'):
             actions += button("delete_file", _ui('Удалить файл'), _ui('onsubmit="return confirm(\'Удалить локальную копию базы?\')" '))
         if sid == "catalog-index":
