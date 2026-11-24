@@ -429,9 +429,13 @@ def search(query):
 
 
 def read_category_records(stream, name, *, allow_reverse):
+    all_categories = name == "*"
+    found = False
     while True:
         tag, _ = read_varint(stream, allow_eof=True)
         if tag is None:
+            if all_categories and found:
+                return
             raise ValueError("Категория больше не найдена в источнике.")
         size, _ = read_varint(stream)
         if tag != 10 or not 0 < size <= stream.remaining:
@@ -442,9 +446,13 @@ def read_category_records(stream, name, *, allow_reverse):
         if tag != 10 or not 0 < size <= 256:
             raise ValueError("В блоке GeoDAT отсутствует название категории.")
         current = read_bytes(category, size).decode("utf-8")
-        if name.casefold() == current.casefold():
+        if all_categories or name.casefold() == current.casefold():
             yield from category_records(category, allow_reverse=allow_reverse)
-            return
+            found = True
+            if not all_categories:
+                return
+            category.skip(category.remaining)
+            continue
         category.skip(category.remaining)
 
 
