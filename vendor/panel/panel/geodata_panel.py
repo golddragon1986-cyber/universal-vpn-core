@@ -357,10 +357,11 @@ def render(message=""):
             action = "/action" if queued else "/api/geodata"
             queue_field = '<input type="hidden" name="action" value="geodata_source_download">' if queued else ""
             slot = "download" if queued and not item.get("file") else operation
+            button_class = ' class="danger"' if operation in ("delete_file", "remove") else ""
             return (f'<form class="geodata-action-{slot}" method="post" action="{action}" {attrs}>{token}{queue_field}'
                     f'<input type="hidden" name="id" value="{escape(sid)}">'
                     f'<input type="hidden" name="operation" value="{operation}">'
-                    f'<button type="submit">{label}</button></form>')
+                    f'<button type="submit"{button_class}>{label}</button></form>')
         refresh_label = _ui('Скачать') if not item.get("file") else _ui('Обновить')
         actions = (f'<button class="geodata-refresh-placeholder" type="button" disabled>{_ui("Обновить")}</button>'
                    if item["url"] and not item.get("file") else "")
@@ -377,7 +378,7 @@ def render(message=""):
                     f'<td>{kind}</td><td>{size}</td>'
                     f'<td>{escape(item["updated"])}</td><td class="geodata-actions"><div class="geodata-action-grid">{actions}</div></td></tr>')
     status = f'<p class="msg" role="status">{escape(message)}</p>' if message else ""
-    listing = (_ui('<div class="geodata-table-scroll"><table class="geodata-sources-table"><thead><tr><th>Название</th><th>Тип</th><th>Размер</th><th>Добавлен / обновлён</th><th>Управление</th></tr></thead><tbody>') + "".join(rows) + '</tbody></table></div>') if rows else _ui('<p>Источники ещё не добавлены.</p>')
+    listing = (_ui('<div class="ui-table-scroll"><table class="geodata-sources-table"><thead><tr><th>Название</th><th>Тип</th><th>Размер</th><th>Добавлен / обновлён</th><th>Управление</th></tr></thead><tbody>') + "".join(rows) + '</tbody></table></div>') if rows else _ui('<p>Источники ещё не добавлены.</p>')
     return ('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>GeoDAT</title></head><body>'
             + status + "".join('<div class="panel">' + form + '</div>' for form in forms)
             + _ui('<div class="panel"><h2>Источники GeoDAT</h2>') + listing + '</div>'
@@ -393,15 +394,16 @@ def render(message=""):
             '.geodata-file:hover .geodata-file-button{background:var(--ui-button-hover)}'
             '.geodata-file:focus-within .geodata-file-button{outline:2px solid var(--ui-primary);outline-offset:2px}'
             '.geodata-file-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ui-muted)}'
-            'body .unified-main .geodata-table-scroll{overflow-x:auto}'
             'body .unified-main .geodata-sources-table{min-width:940px}'
-            'body .unified-main .geodata-sources-table :is(th,td){padding:10px 8px;white-space:nowrap}'
+            'body .unified-main .geodata-sources-table :is(th,td){padding:10px 12px;white-space:nowrap}'
             'body .unified-main .geodata-sources-table th:last-child{width:320px}'
             'body .unified-main .geodata-action-grid{display:grid;grid-template-columns:90px 120px 90px;gap:5px;align-items:center}'
             'body .unified-main .geodata-action-grid form{display:block;margin:0;min-width:0}'
             'body .unified-main .geodata-action-grid :is(.geodata-action-download,.geodata-action-delete_file){grid-column:2}'
             'body .unified-main .geodata-action-grid :is(.geodata-action-enable,.geodata-action-disable,.geodata-action-remove){grid-column:3}'
             'body .unified-main .geodata-action-grid button{box-sizing:border-box;width:100%;height:40px;margin:0;padding:8px 5px;white-space:nowrap;text-align:center}'
+            'body .unified-main .geodata-action-enable button{background:#16803c;border-color:#16803c;color:#fff;font-weight:700}'
+            'body .unified-main .geodata-action-disable button{background:#c62828;border-color:#c62828;color:#fff;font-weight:700}'
             '@media(max-width:700px){.geodata-form{grid-template-columns:minmax(0,1fr)}}</style>'
             '<script>document.querySelectorAll(".geodata-file").forEach(field=>{'
             'const input=field.querySelector("input"),name=field.querySelector(".geodata-file-name");'
