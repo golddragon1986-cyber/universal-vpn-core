@@ -356,7 +356,7 @@ def render(message=""):
             queued = operation == "refresh"
             action = "/action" if queued else "/api/geodata"
             queue_field = '<input type="hidden" name="action" value="geodata_source_download">' if queued else ""
-            return (f'<form method="post" action="{action}" {attrs}>{token}{queue_field}'
+            return (f'<form class="geodata-action-{operation}" method="post" action="{action}" {attrs}>{token}{queue_field}'
                     f'<input type="hidden" name="id" value="{escape(sid)}">'
                     f'<input type="hidden" name="operation" value="{operation}">'
                     f'<button type="submit">{label}</button></form>')
@@ -371,7 +371,7 @@ def render(message=""):
             actions += button("remove", _ui('Удалить'), _ui('onsubmit="return confirm(\'Удалить этот источник?\')" '))
         rows.append(f'<tr><td title="{escape(source)}"><strong>{escape(item["name"])}</strong></td>'
                     f'<td>{kind}</td><td>{size}</td>'
-                    f'<td>{escape(item["updated"])}</td><td class="geodata-actions">{actions}</td></tr>')
+                    f'<td>{escape(item["updated"])}</td><td class="geodata-actions"><div class="geodata-action-grid">{actions}</div></td></tr>')
     status = f'<p class="msg" role="status">{escape(message)}</p>' if message else ""
     listing = (_ui('<div class="geodata-table-scroll"><table class="geodata-sources-table"><thead><tr><th>Название</th><th>Тип</th><th>Размер</th><th>Добавлен / обновлён</th><th>Управление</th></tr></thead><tbody>') + "".join(rows) + '</tbody></table></div>') if rows else _ui('<p>Источники ещё не добавлены.</p>')
     return ('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>GeoDAT</title></head><body>'
@@ -392,11 +392,12 @@ def render(message=""):
             'body .unified-main .geodata-table-scroll{overflow-x:auto}'
             'body .unified-main .geodata-sources-table{min-width:940px}'
             'body .unified-main .geodata-sources-table :is(th,td){padding:10px 8px;white-space:nowrap}'
-            'body .unified-main .geodata-sources-table th:last-child{width:290px}'
-            'body .unified-main .geodata-actions{white-space:nowrap}'
-            'body .unified-main .geodata-actions form{display:inline-flex;margin:0 4px 0 0;vertical-align:middle}'
-            'body .unified-main .geodata-actions form:last-child{margin-right:0}'
-            'body .unified-main .geodata-actions button{white-space:nowrap;padding:9px 10px}'
+            'body .unified-main .geodata-sources-table th:last-child{width:320px}'
+            'body .unified-main .geodata-action-grid{display:grid;grid-template-columns:90px 120px 90px;gap:5px;align-items:center}'
+            'body .unified-main .geodata-action-grid form{display:block;margin:0;min-width:0}'
+            'body .unified-main .geodata-action-delete_file{grid-column:2}'
+            'body .unified-main .geodata-action-grid :is(.geodata-action-enable,.geodata-action-disable,.geodata-action-remove){grid-column:3}'
+            'body .unified-main .geodata-action-grid button{box-sizing:border-box;width:100%;height:40px;margin:0;padding:8px 5px;white-space:nowrap;text-align:center}'
             '@media(max-width:700px){.geodata-form{grid-template-columns:minmax(0,1fr)}}</style>'
             '<script>document.querySelectorAll(".geodata-file").forEach(field=>{'
             'const input=field.querySelector("input"),name=field.querySelector(".geodata-file-name");'
