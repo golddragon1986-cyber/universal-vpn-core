@@ -974,7 +974,7 @@ def render_services(params, targets=None):
         status_label = _ui('Включено') if enabled else _ui('Отключено')
         status_color = "#16803c" if enabled else "#c62828"
         status_button = f'''<form method="post"><input type="hidden" name="action" value="service_toggle"><input type="hidden" name="index" value="{i}"><input type="hidden" name="service_id" value="{esc(item.get('id') or 'name:'+str(item.get('name','')))}"><button type="submit" style="background:{status_color};color:white;font-weight:700;width:130px;min-width:130px;box-sizing:border-box;text-align:center;white-space:nowrap">{status_label}</button></form>'''
-        source_update = ""
+        source_update = _ui('<button type="button" disabled>Обновить</button>')
         if geo_sources(item):
             source_update = ''.join(('<form method="post"><input type="hidden" name="action" value="service_refresh_geodata">\n<input type="hidden" name="index" value="', f'{i}', '"><input type="hidden" name="service_id" value="', f"{esc(item.get('id') or 'name:' + str(item.get('name', '')))}", _ui('">\n<button type="submit">Обновить</button></form>')))
         elif item.get("source_repo") == SOURCE_REPO and item.get("source_service"):

@@ -213,6 +213,9 @@ def handle(form, progress=None, *, expected_behavior=None):
     if not secrets.compare_digest(form.get("token", ""), TOKEN):
         raise ValueError("Обновите вкладку GeoDAT и повторите действие.")
     operation = form.get("operation")
+    if form.get("id") == "catalog-index":
+        from geodata_catalog import manage_index
+        return manage_index(operation)
     with LOCK:
         items = entries()
         sid = form.get("id")
@@ -326,13 +329,28 @@ def render(message=""):
                      f'<form class="geodata-form" method="post" action="/api/geodata"{encoding}>{token}'
                      f'<input type="hidden" name="operation" value="{op}">{fields}{field}'
                      f'<button type="submit">{submit}</button></form></details>')
+    from geodata_catalog import INDEX, INDEX_DISABLED, INDEX_URL
+    try:
+        index_stat = INDEX.stat()
+    except FileNotFoundError:
+        index_stat = None
+    index = {
+        "kind": "catalog",
+        "name": _ui("Поисковый индекс MetaCubeX"),
+        "url": INDEX_URL,
+        "file": INDEX.name if index_stat else "",
+        "size": index_stat.st_size if index_stat else 0,
+        "updated": datetime.fromtimestamp(index_stat.st_mtime, timezone.utc).strftime("%Y-%m-%d %H:%M UTC") if index_stat else "—",
+    }
     rows = []
-    for sid, item in entries().items():
+    for sid, item in [("catalog-index", index), *entries().items()]:
         geodat = item.get("kind") == "geodat" and not is_mrs_url(item["url"])
         source = item["url"] or _ui('Локальный файл')
         behavior = item.get("behavior")
         suffix = {"domain": ":domain", "ipcidr": ":ip"}.get(behavior, "")
         kind = ("GeoDAT" if geodat else "MRS") + suffix
+        if sid == "catalog-index":
+            kind = _ui("Индекс · отключён" if INDEX_DISABLED.exists() else "Индекс · включён")
         size = ''.join((f"{item['size'] / 1024:.1f}", _ui(' КиБ'))) if item.get("file") else "—"
         def button(operation, label, attrs=""):
             queued = operation == "refresh"
@@ -346,7 +364,11 @@ def render(message=""):
         actions = button("refresh", refresh_label) if item["url"] else ""
         if item.get("file") and item.get('url'):
             actions += button("delete_file", _ui('Удалить файл'), _ui('onsubmit="return confirm(\'Удалить локальную копию базы?\')" '))
-        actions += button("remove", _ui('Удалить'), _ui('onsubmit="return confirm(\'Удалить этот источник?\')" '))
+        if sid == "catalog-index":
+            disabled = INDEX_DISABLED.exists()
+            actions += button("enable" if disabled else "disable", _ui("Включить" if disabled else "Отключить"))
+        else:
+            actions += button("remove", _ui('Удалить'), _ui('onsubmit="return confirm(\'Удалить этот источник?\')" '))
         rows.append(f'<tr><td title="{escape(source)}"><strong>{escape(item["name"])}</strong></td>'
                     f'<td>{kind}</td><td>{size}</td>'
                     f'<td>{escape(item["updated"])}</td><td class="geodata-actions">{actions}</td></tr>')

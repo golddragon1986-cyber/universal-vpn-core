@@ -29,6 +29,26 @@ MAX_MRS_SIZE = 64 * 1024 * 1024
 INDEX_TTL = 7 * 86400
 SLUG_RE = re.compile(r"[A-Za-z0-9._!@-]{1,128}")
 INDEX_LOCK = threading.Lock()
+INDEX_DISABLED = ROOT / "geodata-search.disabled"
+
+
+def manage_index(operation):
+    from durable_io import write
+
+    with INDEX_LOCK:
+        if operation == "refresh":
+            _ensure_index(force=True)
+            return "Поисковый индекс GeoDAT обновлён."
+        if operation == "delete_file":
+            INDEX.unlink(missing_ok=True)
+            return "Локальный файл индекса GeoDAT удалён."
+        if operation == "disable":
+            write(INDEX_DISABLED, b"disabled\n")
+            return "Поиск по индексу GeoDAT отключён."
+        if operation == "enable":
+            INDEX_DISABLED.unlink(missing_ok=True)
+            return "Поиск по индексу GeoDAT включён."
+        raise ValueError("Неизвестное действие с индексом GeoDAT.")
 
 
 def _download(url, limit, *, timeout=25):
@@ -84,8 +104,7 @@ def _ensure_index(force=False):
         os.utime(INDEX, None)
         return INDEX
     except (OSError, ValueError, urllib.error.URLError, sqlite3.Error, gzip.BadGzipFile, zlib.error) as error:
-        if INDEX.is_file():
-            os.utime(INDEX, None)
+        if INDEX.is_file() and not force:
             return INDEX
         raise ValueError("Не удалось загрузить поисковый индекс GeoDAT: " + str(error)) from None
     finally:
@@ -113,6 +132,8 @@ def _read_list(kind, name):
 
 
 def search(query):
+    if INDEX_DISABLED.exists():
+        raise ValueError("Поиск по индексу GeoDAT отключён на вкладке GeoDAT.")
     query = query.strip()
     if not 1 <= len(query) <= 253:
         raise ValueError("Введите название сайта или категории.")
