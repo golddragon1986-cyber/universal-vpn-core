@@ -356,7 +356,8 @@ def render(message=""):
             queued = operation == "refresh"
             action = "/action" if queued else "/api/geodata"
             queue_field = '<input type="hidden" name="action" value="geodata_source_download">' if queued else ""
-            return (f'<form class="geodata-action-{operation}" method="post" action="{action}" {attrs}>{token}{queue_field}'
+            slot = "download" if queued and not item.get("file") else operation
+            return (f'<form class="geodata-action-{slot}" method="post" action="{action}" {attrs}>{token}{queue_field}'
                     f'<input type="hidden" name="id" value="{escape(sid)}">'
                     f'<input type="hidden" name="operation" value="{operation}">'
                     f'<button type="submit">{label}</button></form>')
@@ -395,6 +396,7 @@ def render(message=""):
             'body .unified-main .geodata-sources-table th:last-child{width:320px}'
             'body .unified-main .geodata-action-grid{display:grid;grid-template-columns:90px 120px 90px;gap:5px;align-items:center}'
             'body .unified-main .geodata-action-grid form{display:block;margin:0;min-width:0}'
+            'body .unified-main .geodata-action-grid :is(.geodata-action-download,.geodata-action-delete_file){grid-column:2}'
             'body .unified-main .geodata-action-grid :is(.geodata-action-enable,.geodata-action-disable,.geodata-action-remove){grid-column:3}'
             'body .unified-main .geodata-action-grid button{box-sizing:border-box;width:100%;height:40px;margin:0;padding:8px 5px;white-space:nowrap;text-align:center}'
             '@media(max-width:700px){.geodata-form{grid-template-columns:minmax(0,1fr)}}</style>'
