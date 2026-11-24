@@ -773,7 +773,17 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.split("?", 1)[0] == "/api/geodata/catalog/search":
             from geodata_catalog import search
             try:
-                self.send_json(search(params.get("q", [""])[0]))
+                query = params.get("q", [""])[0]
+                source_id = params.get("source", [""])[0]
+                if source_id:
+                    from geodata_search import search as search_source
+                    result = search_source(query, source_id)
+                    for item in result["results"]:
+                        item["local_source"] = True
+                        item["kind"] = {"domain": "geosite", "ipcidr": "geoip"}[item["kind"]]
+                    self.send_json(result)
+                else:
+                    self.send_json(search(query))
             except ValueError as error:
                 self.send_json({"message": str(error)}, 400)
             except Exception as error:

@@ -399,11 +399,11 @@ def scan(stream, query):
     return result
 
 
-def search(query):
+def search(query, source_id=None):
     query = query.strip()
     if not 1 <= len(query) <= 253:
         raise ValueError("Введите название категории, домен, IP или сеть.")
-    sources = [(sid, item) for sid, item in entries().items() if item.get("kind") == "geodat"]
+    sources = [(sid, item) for sid, item in entries().items() if item.get("kind") == "geodat" and (source_id is None or sid == source_id)]
     if not sources:
         raise ValueError("Сначала добавьте источник GeoDAT во вкладке GeoDAT.")
     if not SEARCH_LOCK.acquire(blocking=False):
