@@ -17,9 +17,12 @@ body{width:100%;max-width:none;margin:0;padding:0;box-sizing:border-box;backgrou
 body .unified-main{width:calc(100% - 32px);max-width:1100px;margin:0 auto;padding:0 clamp(14px,3vw,32px) 44px;box-sizing:border-box}
 @media(min-width:761px){body .unified-main,body .unified-topbar{width:1100px;max-width:none}}
 body .unified-main .routing-panel>.config-queue{margin:20px -20px -20px;width:calc(100% + 40px);border-radius:0 0 14px 14px;border-left:0;border-right:0;border-bottom:0}
+body .unified-main .rule-create-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0;border-bottom:1px solid var(--ui-border)}
+body .unified-main .rule-create-tabs button{border:0;border-radius:8px 8px 0 0;background:transparent;color:var(--ui-muted);font-weight:700;padding:10px 14px}
+body .unified-main .rule-create-tabs button.active{color:var(--ui-primary);border-bottom:3px solid var(--ui-primary)}
 body .unified-main .rule-create-panel .rule-create-option{border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-surface-alt);padding:14px 16px;margin-top:12px}
-body .unified-main .rule-create-panel .rule-create-option>details>summary{margin:0}
-body .unified-main .rule-create-panel .rule-create-option>details[open]>summary{margin-bottom:14px}
+body .unified-main .rule-create-panel.js-tabs .rule-create-option:not(.active){display:none}
+body .unified-main .rule-create-panel.js-tabs .rule-create-option>details>summary{display:none}
 body .unified-main>.panel,body .unified-main>.routing-panel{
  width:100%;max-width:none;box-sizing:border-box;padding:20px;margin:16px 0;
  border:1px solid var(--ui-border);border-radius:14px;background:var(--ui-surface);color:var(--ui-text);box-shadow:var(--ui-shadow);
@@ -104,6 +107,17 @@ body .unified-main input[type=file]::file-selector-button{
  margin-right:12px;padding:5px 10px;border:1px solid var(--ui-border);border-radius:6px;background:var(--ui-button);color:var(--ui-text);font:inherit;cursor:pointer;
 }
 body .unified-main .ui-table-scroll{width:100%;overflow-x:auto;box-sizing:border-box}
+body .unified-main .configured-services{width:100%;min-width:0;table-layout:fixed}
+body .unified-main .configured-services :is(th,td){box-sizing:border-box;min-width:0;padding:10px 6px!important;overflow-wrap:anywhere}
+body .unified-main .configured-services th:nth-child(1){width:9%}
+body .unified-main .configured-services th:nth-child(2){width:13%}
+body .unified-main .configured-services th:nth-child(3){width:8%}
+body .unified-main .configured-services th:nth-child(4){width:24%}
+body .unified-main .configured-services th:nth-child(5){width:15%}
+body .unified-main .configured-services th:nth-child(6){width:31%}
+body[data-page=services] .unified-main .panel .configured-services .service-route-form>select{width:100%;min-width:0!important;max-width:100%}
+body .unified-main .configured-services .service-row-actions{gap:4px!important;flex-wrap:nowrap;min-width:0}
+body .unified-main .configured-services .service-row-actions :is(button,.action-button){padding:8px 6px;min-width:0}
 body .unified-main .proxy-table-wrap{margin-top:16px;padding:8px;border:1px solid var(--ui-border);border-radius:10px}
 body .unified-main table{width:100%;min-width:760px;border-collapse:collapse;background:var(--ui-surface);font-size:15px}
 body .unified-main :is(th,td){
