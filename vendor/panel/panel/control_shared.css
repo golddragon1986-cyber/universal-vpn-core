@@ -15,6 +15,11 @@
 }
 body{width:100%;max-width:none;margin:0;padding:0;box-sizing:border-box;background:var(--ui-bg);color:var(--ui-text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 body .unified-main{width:calc(100% - 32px);max-width:1100px;margin:0 auto;padding:0 clamp(14px,3vw,32px) 44px;box-sizing:border-box}
+@media(min-width:761px){body .unified-main,body .unified-topbar{width:1100px;max-width:none}}
+body .unified-main .routing-panel>.config-queue{margin:20px -20px -20px;width:calc(100% + 40px);border-radius:0 0 14px 14px;border-left:0;border-right:0;border-bottom:0}
+body .unified-main .rule-create-panel .rule-create-option{border:1px solid var(--ui-border);border-radius:10px;background:var(--ui-surface-alt);padding:14px 16px;margin-top:12px}
+body .unified-main .rule-create-panel .rule-create-option>details>summary{margin:0}
+body .unified-main .rule-create-panel .rule-create-option>details[open]>summary{margin-bottom:14px}
 body .unified-main>.panel,body .unified-main>.routing-panel{
  width:100%;max-width:none;box-sizing:border-box;padding:20px;margin:16px 0;
  border:1px solid var(--ui-border);border-radius:14px;background:var(--ui-surface);color:var(--ui-text);box-shadow:var(--ui-shadow);
