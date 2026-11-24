@@ -560,10 +560,9 @@ def handle_action(data, report=lambda _stage: None, after_commit=None):
         if category == "*":
             import geodata_panel
             database = geodata_panel.entries().get(source)
-            if (not database or not str(database.get("file") or "").lower().endswith(".dat")
-                    or database.get("kind") != "geodat" or database.get("behavior") != "domain"
+            if (not database or database.get("kind") != "geodat"
                     or data.get("geo_kind", [""])[0] != "geosite"):
-                raise ValueError("Для преобразования выберите локальный доменный GeoSite .dat-файл.")
+                raise ValueError("Выберите источник GeoSite .dat.")
             file_based = True
         elif source not in ("meta:geosite", "meta:geoip"):
             raise ValueError("Локальный GeoDAT преобразуется целиком через отдельную форму.")
@@ -576,6 +575,10 @@ def handle_action(data, report=lambda _stage: None, after_commit=None):
         sources = geo_sources(entry)
         if any(ref["id"] == source and ref["category"].casefold() == category.casefold() for ref in sources):
             raise ValueError("Эта категория уже добавлена в правило. Для повторной загрузки нажмите «Обновить».")
+        if category == "*" and database.get("url") and not database.get("file"):
+            report("Скачивание GeoSite")
+            geodata_panel.handle({"operation": "refresh", "id": source, "token": geodata_panel.TOKEN},
+                                 progress=report, expected_behavior="domain")
         rules, created_providers = geo_service_rules(source, category, file_based=file_based, report=report)
         previous = geo_inline_rules(entry)
         incoming = {key: set(previous.get(key, [])) | set(rules.get(key, [])) for key in GEO_INLINE_FIELDS}
@@ -616,9 +619,10 @@ def handle_action(data, report=lambda _stage: None, after_commit=None):
                     database = geodata_panel.entries().get(sid)
                     if not database or not (database.get("url") or database.get("file")):
                         raise ValueError("Источник GeoDAT больше не найден.")
-                    if database.get("url") and database.get("file") and sid not in refreshed:
+                    if database.get("url") and sid not in refreshed and (database.get("file") or category == "*"):
                         step("Обновление локальной базы GeoDAT")
-                        geodata_panel.handle({"operation": "refresh", "id": sid, "token": geodata_panel.TOKEN})
+                        geodata_panel.handle({"operation": "refresh", "id": sid, "token": geodata_panel.TOKEN},
+                                             progress=step, expected_behavior="domain" if category == "*" else None)
                         refreshed.add(sid)
                 rules, providers = geo_service_rules(sid, category, file_based=source.get("file_based", False), report=step)
                 created_providers.extend(providers)
@@ -897,8 +901,10 @@ def render_services(params, targets=None):
         import geodata_panel
         domain_sources = [
             (sid, source) for sid, source in geodata_panel.entries().items()
-            if source.get("kind") == "geodat" and source.get("behavior") == "domain"
-            and str(source.get("file") or "").lower().endswith(".dat")
+            if source.get("kind") == "geodat" and (
+                source.get("behavior") == "domain" and source.get("file")
+                or source.get("url") and source.get("behavior") in (None, "domain")
+            )
         ]
     except (ImportError, OSError, ValueError):
         domain_sources = []
@@ -913,12 +919,12 @@ def render_services(params, targets=None):
     if domain_sources:
         whole_file_panel = ''.join((
             '<div class="panel"><details class="panel-spoiler"><summary>',
-            _ui('Преобразовать локальный GeoSite .dat в правило'),
+            _ui('Преобразовать GeoSite .dat в правило'),
             '</summary><p class="hint">',
-            _ui('Создаёт одно правило из всех доменных категорий выбранного локального файла. GeoIP-файлы здесь не обрабатываются.'),
+            _ui('Онлайн-база скачивается при первом использовании и заново по кнопке «Обновить» у правила.'),
             '</p><form method="post" action="/action" class="geodata-whole-file-form">',
             '<input type="hidden" name="action" value="service_geodata_import"><input type="hidden" name="geo_category" value="*"><input type="hidden" name="geo_kind" value="geosite">',
-            '<label>', _ui('Локальный файл GeoSite'), '</label><select name="geo_id" required>', domain_source_options, '</select>',
+            '<label>', _ui('Источник GeoSite'), '</label><select name="geo_id" required>', domain_source_options, '</select>',
             '<label>', _ui('Название правила'), '</label><input name="name" maxlength="100" required placeholder="Например, ru-blocked">',
             '<label>', _ui('Маршрут'), '</label><select name="target">', domain_route_options, '</select>',
             '<button type="submit">', _ui('Создать правило из всего файла'), '</button></form></details></div>'
@@ -926,9 +932,9 @@ def render_services(params, targets=None):
     else:
         whole_file_panel = ''.join((
             '<div class="panel"><details class="panel-spoiler"><summary>',
-            _ui('Преобразовать локальный GeoSite .dat в правило'),
+            _ui('Преобразовать GeoSite .dat в правило'),
             '</summary><p class="hint">',
-            _ui('Сначала добавьте локальный доменный файл GeoSite .dat на вкладке GeoDAT. Текущий локальный GeoIP-файл нельзя преобразовать целиком.'),
+            _ui('На вкладке GeoDAT добавьте файл GeoSite .dat или ссылку на него.'),
             '</p></details></div>'
         ))
 

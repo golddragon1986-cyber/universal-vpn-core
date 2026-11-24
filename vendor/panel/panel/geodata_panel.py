@@ -205,7 +205,7 @@ def upload_dat(items, sid, name, source):
     return 'Локальная база GeoDAT добавлена.'
 
 
-def handle(form, progress=None):
+def handle(form, progress=None, *, expected_behavior=None):
     if not secrets.compare_digest(form.get("token", ""), TOKEN):
         raise ValueError("Обновите вкладку GeoDAT и повторите действие.")
     operation = form.get("operation")
@@ -247,6 +247,9 @@ def handle(form, progress=None):
                 if progress is not None:
                     progress("Загружено " + format(received / 1048576, ".1f") + " МиБ")
             kind, size = save_database(old["url"], ROOT / filename, progress=report_download)
+            if expected_behavior is not None and kind != expected_behavior:
+                (ROOT / filename).unlink()
+                raise ValueError("Источник должен содержать доменную базу GeoSite.")
             old.update(file=filename, size=size, behavior=kind, updated=timestamp())
             try:
                 save_entries(items)

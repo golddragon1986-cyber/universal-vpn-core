@@ -105,6 +105,8 @@ def compile_category(source_id, category, report=lambda _stage: None, *, inline_
     source = entries().get(source_id)
     if not source or source.get("kind") != "geodat":
         raise ValueError("Источник GeoDAT больше не найден.")
+    if category == "*" and (source.get("behavior") != "domain" or not source.get("file")):
+        raise ValueError("Источник должен содержать доменную базу GeoSite.")
     if not SEARCH_LOCK.acquire(blocking=False):
         raise ValueError("Дождитесь завершения текущего запроса GeoDAT.")
     names = []
@@ -120,6 +122,8 @@ def compile_category(source_id, category, report=lambda _stage: None, *, inline_
                       (stage/"classical").open("w", encoding="utf-8") as classical):
                     for raw in read_category_records(stream, category, allow_reverse=False):
                         key, value = decode_rule(raw)
+                        if category == "*" and key in ("networks", "ipv6"):
+                            raise ValueError("Источник должен содержать доменную базу GeoSite.")
                         if not value or "\r" in value or "\n" in value:
                             raise ValueError("Некорректное правило в категории GeoDAT.")
                         if sum(sizes.values()) < inline_limit:

@@ -1280,5 +1280,9 @@ window.uiCatalog = {
   "Создаёт одно правило из всех доменных категорий выбранного локального файла. GeoIP-файлы здесь не обрабатываются.": "Creates one rule from all domain categories in the selected local file. GeoIP files are not converted here.",
   "Локальный файл GeoSite": "Local GeoSite file",
   "Создать правило из всего файла": "Create rule from the entire file",
-  "Сначала добавьте локальный доменный файл GeoSite .dat на вкладке GeoDAT. Текущий локальный GeoIP-файл нельзя преобразовать целиком.": "First add a local domain GeoSite .dat file on the GeoDAT tab. The current local GeoIP file cannot be converted as a whole."
+  "Сначала добавьте локальный доменный файл GeoSite .dat на вкладке GeoDAT. Текущий локальный GeoIP-файл нельзя преобразовать целиком.": "First add a local domain GeoSite .dat file on the GeoDAT tab. The current local GeoIP file cannot be converted as a whole.",
+  "Преобразовать GeoSite .dat в правило": "Convert a GeoSite .dat file into a rule",
+  "Источник GeoSite": "GeoSite source",
+  "Онлайн-база скачивается при первом использовании и заново по кнопке «Обновить» у правила.": "The online database is downloaded on first use and again when you click Update on the rule.",
+  "На вкладке GeoDAT добавьте файл GeoSite .dat или ссылку на него.": "Add a GeoSite .dat file or its URL on the GeoDAT tab."
 };
