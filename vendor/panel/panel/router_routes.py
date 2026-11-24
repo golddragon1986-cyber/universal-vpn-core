@@ -63,6 +63,10 @@ def rid(value):
     if not re.fullmatch(r'\*[0-9A-Fa-f]+',str(value)):raise ValueError('Недопустимый идентификатор маршрута')
     return quote(value,safe='*')
 
+class ProtectedServiceDestination(ValueError):
+    pass
+
+
 def validate_destination(value,addresses=(),server_ips=()):
     try:net=ipaddress.ip_network(value.strip(),strict=True)
     except ValueError:raise ValueError('Укажите IPv4-сеть с правильной маской, например 203.0.113.0/24')
@@ -75,9 +79,9 @@ def validate_destination(value,addresses=(),server_ips=()):
         try:protected.append(ipaddress.ip_network(str(x)+'/32'))
         except ValueError:raise ValueError('Не удалось проверить адрес VPN-сервера')
     if net.prefixlen==0 or any(net.overlaps(x) for x in protected):
-        raise ValueError('Маршрут затрагивает локальную или служебную сеть, адрес роутера, VPN-сервера либо DNS. Доступ к панели должен сохраняться.')
+        raise ProtectedServiceDestination('Маршрут затрагивает локальную или служебную сеть, адрес роутера, VPN-сервера либо DNS. Доступ к панели должен сохраняться.')
     if not net.network_address.is_global or not net.broadcast_address.is_global:
-        raise ValueError('Через контейнер можно направлять только публичные IPv4-сети')
+        raise ProtectedServiceDestination('Через контейнер можно направлять только публичные IPv4-сети')
     return str(net)
 
 def server_ips():
@@ -182,12 +186,18 @@ def sync_service_routes(networks):
             if not any(r.get('routing-table') == table and r.get('dst-address') == '0.0.0.0/0' and yes(r.get('active')) for r in routes):
                 raise ValueError('Настройте активный маршрут по умолчанию в таблице обхода RouterOS')
             addresses, servers = router.addresses(), server_ips()
+            eligible = set()
             for net in networks:
-                validate_destination(net, addresses, servers)
+                try:
+                    validate_destination(net, addresses, servers)
+                except ProtectedServiceDestination:
+                    continue
+                eligible.add(net)
                 if any(r.get('dst-address') == net and r.get('routing-table','main') == 'main' and r.get('comment') != SERVICE_ROUTE for r in routes):
                     raise ValueError('В RouterOS уже существует отдельный маршрут '+net)
                 if any(r.get('dst-address') == net and r.get('src-address') == '172.31.41.2/32' and r.get('comment') != SERVICE_RETURN for r in rules):
                     raise ValueError('В RouterOS уже существует отдельное правило для '+net)
+            networks = eligible
         changes = []
 
         def add(path, data):
