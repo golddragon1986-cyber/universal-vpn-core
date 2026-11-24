@@ -76,6 +76,10 @@ def download(url):
     raise ValueError("Слишком много перенаправлений.")
 
 
+def is_mrs_url(url):
+    return urlsplit(url).path.lower().endswith(".mrs")
+
+
 def read_form(content_type, data):
     if content_type.startswith("application/x-www-form-urlencoded"):
         return {name: values[0] for name, values in parse_qs(data.decode("utf-8")).items()}
@@ -227,20 +231,22 @@ def handle(form, progress=None, *, expected_behavior=None):
             if not 1 <= len(name) <= 100:
                 raise ValueError("Укажите название источника.")
             url = source_url(form.get("url", ""))
-            items[secrets.token_hex(16)] = {"name": name, "kind": "geodat", "url": url,
+            items[secrets.token_hex(16)] = {"name": name, "kind": "mrs" if is_mrs_url(url) else "geodat", "url": url,
                                            "updated": timestamp()}
             save_entries(items)
             return "Ссылка на источник GeoDAT сохранена."
-        if old and old.get("kind") == "geodat" and operation in ("refresh", "delete_file"):
+        if old and operation == "delete_file" and old.get("url"):
             previous = old.get("file")
-            if operation == "delete_file":
-                old.pop("file", None)
-                old.pop("size", None)
-                save_entries(items)
-                if previous:
-                    (ROOT / previous).unlink(missing_ok=True)
-                    sync_dir(ROOT)
-                return "Локальный файл удалён. Ссылка сохранена."
+            old.pop("file", None)
+            old.pop("size", None)
+            save_entries(items)
+            if previous:
+                (ROOT / previous).unlink(missing_ok=True)
+                sync_dir(ROOT)
+            return "Локальный файл удалён. Ссылка сохранена."
+        if (old and old.get("kind") == "geodat" and operation == "refresh"
+                and (expected_behavior is not None or not is_mrs_url(old["url"]))):
+            previous = old.get("file")
             from geodata_search import save_database
             filename = sid + "-" + secrets.token_hex(8) + ".dat"
             def report_download(received):
@@ -262,8 +268,10 @@ def handle(form, progress=None, *, expected_behavior=None):
                 sync_dir(ROOT)
             return "Локальная база GeoDAT обновлена." if previous else "Локальная база GeoDAT скачана."
         if operation == "refresh":
-            if not old or not old.get("file") or not old.get("url"):
+            if not old or not old.get("url"):
                 raise ValueError("У источника нет адреса для обновления.")
+            if expected_behavior is not None:
+                raise ValueError("Источник должен содержать доменную базу GeoSite.")
             name, url = old["name"], old["url"]
         elif operation == "upload":
             name = form.get("name", "").strip()
@@ -283,14 +291,14 @@ def handle(form, progress=None, *, expected_behavior=None):
             data=source.read(MAX_FILE+1)
         digest = hashlib.sha256(data).hexdigest()
         filename = f"{sid}-{digest}.mrs"
-        if old and old["file"] == filename and (ROOT / filename).is_file():
+        if old and old.get("file") == filename and (ROOT / filename).is_file():
             return "Источник уже актуален."
         behavior = detect_behavior(data)
-        if old and old["behavior"] != behavior:
+        if old and old.get("behavior") not in (None, behavior):
             raise ValueError("Источник вернул набор другого типа. Добавьте его как новый источник.")
         require(ROOT,len(data),'Сохранение MRS')
         write(ROOT / filename, data)
-        items[sid] = {"name": name, "behavior": behavior, "url": url, "file": filename,
+        items[sid] = {"name": name, "kind": "mrs", "behavior": behavior, "url": url, "file": filename,
                       "size": len(data), "updated": timestamp()}
         try:
             save_entries(items)
@@ -298,7 +306,7 @@ def handle(form, progress=None, *, expected_behavior=None):
             if entries().get(sid, {}).get("file") != filename:
                 (ROOT / filename).unlink(missing_ok=True)
             raise
-        if old and old["file"] != filename:
+        if old and old.get("file") and old["file"] != filename:
             (ROOT / old["file"]).unlink(missing_ok=True)
             sync_dir(ROOT)
         return "Источник обновлён." if old else "Источник добавлен."
@@ -320,23 +328,23 @@ def render(message=""):
                      f'<button type="submit">{submit}</button></form></details>')
     rows = []
     for sid, item in entries().items():
-        geodat = item.get("kind") == "geodat"
+        geodat = item.get("kind") == "geodat" and not is_mrs_url(item["url"])
         source = item["url"] or _ui('Локальный файл')
         behavior = item.get("behavior")
         suffix = {"domain": ":domain", "ipcidr": ":ip"}.get(behavior, "")
-        kind = "GeoDAT" + suffix if geodat else BEHAVIORS[behavior] + suffix
+        kind = ("GeoDAT" if geodat else "MRS") + suffix
         size = ''.join((f"{item['size'] / 1024:.1f}", _ui(' КиБ'))) if item.get("file") else "—"
         def button(operation, label, attrs=""):
-            queued = operation == "refresh" and geodat
+            queued = operation == "refresh"
             action = "/action" if queued else "/api/geodata"
             queue_field = '<input type="hidden" name="action" value="geodata_source_download">' if queued else ""
             return (f'<form method="post" action="{action}" {attrs}>{token}{queue_field}'
                     f'<input type="hidden" name="id" value="{escape(sid)}">'
                     f'<input type="hidden" name="operation" value="{operation}">'
                     f'<button type="submit">{label}</button></form>')
-        refresh_label = _ui('Скачать') if geodat and not item.get("file") else _ui('Обновить')
+        refresh_label = _ui('Скачать') if not item.get("file") else _ui('Обновить')
         actions = button("refresh", refresh_label) if item["url"] else ""
-        if geodat and item.get("file") and item.get('url'):
+        if item.get("file") and item.get('url'):
             actions += button("delete_file", _ui('Удалить файл'), _ui('onsubmit="return confirm(\'Удалить локальную копию базы?\')" '))
         actions += button("remove", _ui('Удалить'), _ui('onsubmit="return confirm(\'Удалить этот источник?\')" '))
         rows.append(f'<tr><td title="{escape(source)}"><strong>{escape(item["name"])}</strong></td>'
