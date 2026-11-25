@@ -1,0 +1,130 @@
+{
+  "panel_sha256": {
+    "action_queue.py": "eae8dc671d4d2fa80a2dc2297b017a7fe7b58cbdcc01861231dce6f02cf176e8",
+    "route_batch.py": "b206abe3cf45c96834c26f9904c5154362de544d70618251900dbee32c53bc23",
+    "vpn_import.py": "47ce44576a01e2bd60655b17e27d9a5b6112e69d209acf3cb4daf5184d7557e3",
+    "geodata_service_files.py": "e126127f5c107a8acae1c2267ad40e9755e479b746cb177527698446bde9ee4c",
+    "vpn_subscriptions.py": "2a91e905426b43fabacd845eaf9e4a002b78cb08ae7d70c42691258f866c7a80",
+    "client_batch.py": "b86b1c48ec4ad1dd38f5c831a37bca3a9132ba15a7ec8dac8eb3ddddec7ce039",
+    "manage_ru_blocked.py": "5ee546f98c664b58f8fca3baec91b64f37c4e92a7319dec3339ea4118fcba14e",
+    "ui_catalog.js": "c9b613c7041e68be80372758acc1a8a00a1f1190d14c5e13b5514a04ab9ef456",
+    "action_recovery.py": "4b0d559deba0d12cd7abde152a40a0fa626204d11de5cd9288b341fc67e0cd0b",
+    "dns_panel.py": "765593b4b02f72a613134ac0d469913702237d5a023e8445e58021bf6748451d",
+    "client_panel.py": "3f0537ae3a292e19a7c592a5e75aab70b2cc3761f464ae8576bae32911d23355",
+    "routing_panel.py": "76f9cb400e88dd90c7142b45ae64b3ac3fea20591e2235df4e5be9c6ed95f8c7",
+    "panel_updater.py": "bea5932d0b2f69dd5ab4e491e9a3bd6b09802370a73f64567b0a2f9689f88f22",
+    "interaction_ui.js": "c6947e2a1bebafa01773b5ce60fe3516d037b8bd7ced5a8a7f4fb1b7056ccd91",
+    "update-ru-blocked.sh": "df208df606046db3ac31766ec0729f06aaf90369ec3af8a19f7dd90ee9787ebe",
+    "logs_ui.html": "3ea7a47e84c77e62a171e63a3c42237c49622332e560853eba1162b058485422",
+    "dns_forwarder.py": "cff3e4803f397b1cfdc24be5934ad086e16bb2e8c3a77cd604d4df710b21219e",
+    "vpn_traffic.py": "5550845d9a741acb225cfbbe30fb015bbbd2a967497d9e663dda3ca988fea3fa",
+    "subscription_automation.py": "0a2f179c0d3b7aea1659c14c19c3f29cd2abdb842197afb604bb12adc0ec4ff1",
+    "dns_table_ui.py": "7b30443b4efdd7a213610a33ff01e145414903838948452688cb3b95f05a92a5",
+    "client_policy.py": "c613d63a4677dbe4c66818a43838ea00c479a61f0f2221a47b438322d9efc5e3",
+    "service_routes_panel.py": "449f55bfb2da846838c5c5bdf67315b1ae222485334f403dee10b2ee25176bd9",
+    "routes_table_ui.py": "d9eac650b47ba22b5512f7f5fb3f5af1a6a7ef0895ff099dcf127774ccc54758",
+    "sing_box_supervisor.py": "76ebd699ea2dd73fd2851b672af488141d6ce08ee493e66324ca87085efb424a",
+    "configuration_draft_ui.js": "f6d526a5edc2c5e831c0284d53d5c95e99cf161e1543a74fa5ce87bbd41d8b32",
+    "geodata_domains.py": "d11db939a9905a38e7bb45ea8967d1e81142958b9adc6f40faca932efa458e7f",
+    "component_binary.py": "a4f33d60b5f757b64e5f0a7936850b89ac7d65e81e660703c7ef01f184d51048",
+    "log_panel.py": "31be1d483abe72ab803ad0ee1c4e2efb232ed4c38a2cc9d0e9e82d32577f6884",
+    "route_draft_ui.py": "553028b0aaddcc901713ee6e491cec28bec2ca764e3b5d77acf29a292c43d29f",
+    "transparent_tcp.py": "5d1e832eefec6106365614091c3e3c8a944ae41d178997983bb3a58cc1045367",
+    "runtime_actions.py": "96e64cbccec3f894717903d753b5214d0d61f1184485cf7c7c30dcf47066e62f",
+    "vpn_components.py": "8a4dae295c7cdeeaaa38274e68f8bbb7b5c9ae5a6b55be4da9aef505d67e15a3",
+    "durable_io.py": "d68a7c2f1bbae1344f968ea216999cead7fa09892f48e12d5cb7c4f51c489731",
+    "action_queue_ui.html": "7b821da9ec2d55d93e60895fdaf4c909f85722f76e768086e2ca261e544d113e",
+    "vpn_clients.py": "6e4cb47b82c135a1568e735e1fee33bc032f27768cfd34018f6e9bcd933bfdeb",
+    "tls_profile_capture.py": "f01dbaecfa283e31fe924326eed6d95e3b6d5ee2be05db70752ad8dbe7d0ed38",
+    "ui_i18n.py": "018b950ef3e1d570970bd7cb934cf037b672fb3c1aa6fb8a854db3fa6d5304c8",
+    "management-firewall.sh": "31664390c2886e51f0c62c23a6dbeb8c513cce1f2d839e5805057f1070f98c97",
+    "proxy_manager.py": "e52f7bdce4d29c6576cd8e4475ef8660b5bc939fd114c55b6c2443f5c7d4a408",
+    "retired_routes.py": "dcefb00347ed08e8a2addb7c7c02ddef472a957727f3b552df440861c345c34c",
+    "local_dns_zones.py": "6ea433e22bf36bbbd9268938b8150993f3b85e986b80c4ba3cf6087e83529b30",
+    "geodata_catalog.py": "37e8f7984bc6fdae0b6ada68bc0dac385aad71f4d56885bafb5e2eccfd0eb3de",
+    "boot_config.py": "700cdb6f5f71dd27e9ef56a4e704061c9d29095120f10583dbeba180ca217fe2",
+    "client_panel.js": "545146943dbeaff50dbe95583a4da0a2e21d99ae7781c6b6da1eadc9b9ff606e",
+    "component_versions.py": "142a272261cd8c44fcc316cb79f4ddecb6ed6c1cfff132f87079417286832fbd",
+    "ui_i18n.js": "4b7b91aee78de1c46e275337e845b08682a92e3c7a77d61ab45fe273aa521e0c",
+    "geodata_search.py": "9c0f06b4ede319877cb9b4a8ca54e3dabed54aaf7a88c049373b321dc32921ad",
+    "components_ui.html": "b4f83da2e0875978db72fc178e74a6046e3aaa9a42532528f4feb2a6371f44c2",
+    "download-ru-blocked.sh": "b2b7d93695d0e3b38f4f664ebc741fcb60bfee0d871767ff41cbb80aadc28998",
+    "core-supervisor.sh": "96c1e29c56538760c23eebb53b0a16a5ce7f3624a4ceff1a11305239ee89f265",
+    "config_backup.py": "b2a5a3a7d7e7448bf61284ca87e4cfca89c4294ba44dc40f3e467062eedf5829",
+    "route_draft_ui.js": "1d7e86d4066c66ea1d08cc5b1102c719e99052ee2cba3b08c926c1b5948c83a2",
+    "router_routes.py": "48755cb85b8c495a629d210aa6db7ec0c99a14906a35e7e76a2a3a290dd405cb",
+    "sing_box_update.py": "8dccf694c8e051a9b4bd59305bd334bb08be1d2d56758a1c87abb674bd6b582d",
+    "interaction_ui.py": "f6f01991f6e9ad01f8198e08d97a26883d0744116d704ac8551b40782b931e21",
+    "storage_space.py": "bfed56dcc69531eb1f2f0ae8b09dab4905dee213433b32e083a5707af77e8475",
+    "build-service-routes.py": "28f1059619359a53e11523fbdbe3516bf1172a93539049fc693101c07267ecf6",
+    "refresh-ru-blocked.sh": "0ea0ca2f72ac3247b90ec3b80b058b44ea5bd4ff16e6f9a7914498738efd4f77",
+    "action_log.py": "1ff05ecd7319e21640dcbccd7741dfc565b472e06fae6592c7b4cfde793852e3",
+    "geodata_panel.py": "c546bfbc312617092f47a07e0f1b8a081625b67371bbd96651bc7d771c022c16",
+    "apply-service-routes.py": "261c179872b961aec0ff8ccbbb9c076e656ec5fdc51e68deca8be69ea905e39c",
+    "network_priority.py": "2a7f14dc92dcbbcc64579e78cafcffb215f787c2836d6df2a0409702c5e38837",
+    "control_shared.css": "caa3aa41cd34be704e52eb2e4c8e07ef6d5f0b69ae5611ad4d16d2497daa77af",
+    "domain_provider.py": "814780b6a3486000489e8a1bbd5edbcf93c3c137d89143b91ae8a3cfd69d9a9c",
+    "domain_filter.py": "5b2d9e9a59cd20e6d26dfca18845158bc1d72e5acfaea00cf722cd8dc588e5b6",
+    "configuration_draft.py": "62bc426ec52197c3dea2d1cf888b0475d59e7696577324b8f6bfc2848e2c53c0"
+  },
+  "created": "2026-11-25T18:06:13.0188323+03:00",
+  "version": "0.41b.251126.1804",
+  "vpn_profiles": 0,
+  "architectures": {
+    "armv7": {
+      "base_sha256": "0a22be8cc722befe088ea604cac1698b9ef548d509299fbd36b0b816d9623e0b",
+      "sha256": "9f334e9226b3ccffbdede9e0c0ca91b0b2eeb6e1fc34e9102b622921d1af0f91",
+      "core_version": "Mihomo 1.19.34",
+      "files": 2476,
+      "regular_file_bytes": 113257643,
+      "layer_diff_id": "sha256:a6f424662294e2b4def887b17c6a91246ce8710608770f59312f8ace56ba7549",
+      "archive_bytes": 44894720
+    },
+    "arm64": {
+      "base_sha256": "e9329a2572eab87f083e0149e9784b3fa76ebf4f855d91cadada8ef5bb2c8a08",
+      "sha256": "e5edfab35fd12866ec5a0c2a0bbf9c2cf3ba3dc65c57bc69b23eb915aa6fd398",
+      "core_version": "Mihomo 1.19.33 (from 0.31b ARM64 base)",
+      "files": 2635,
+      "regular_file_bytes": 133595694,
+      "layer_diff_id": "sha256:0611dc223e4216f3fac94e98e99ddf77e48c15b2428a3ee2762c73842116b9f4",
+      "archive_bytes": 46575616
+    }
+  },
+  "rules": [
+    {
+      "target": "SELECTOR",
+      "name": "telegram"
+    },
+    {
+      "target": "SELECTOR",
+      "name": "blocked-from-ru"
+    },
+    {
+      "target": "SELECTOR",
+      "name": "blocked-for-ru"
+    }
+  ],
+  "release": "0.41b",
+  "private_runtime_state_included": false,
+  "subscriptions": 0,
+  "validation": {
+    "subscriptions": 0,
+    "arm64_hardware_boot_tested": false,
+    "vpn_profiles": 0,
+    "oci_and_elf": {
+      "armv7": {
+        "architecture": "armv7",
+        "panel_modules": 66,
+        "oci": "generated",
+        "seed_rules": 3
+      },
+      "arm64": {
+        "architecture": "arm64",
+        "panel_modules": 66,
+        "oci": "generated",
+        "seed_rules": 3
+      }
+    }
+  },
+  "defaults_sha256": "ffc54c760b3c8fb520d4c2ecbb3e407727a4df5f0c2ad8db51b20d60b378999e"
+}
