@@ -1,11 +1,6 @@
 name: Publish panel-only update
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "version/panel/VERSION"
-      - ".github/workflows/release-panel-update.yml"
   workflow_dispatch:
 
 permissions:
