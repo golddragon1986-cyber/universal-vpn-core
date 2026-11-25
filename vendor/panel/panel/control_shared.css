@@ -16,7 +16,8 @@
 body{width:100%;max-width:none;margin:0;padding:0;box-sizing:border-box;background:var(--ui-bg);color:var(--ui-text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
 body .unified-main{width:calc(100% - 32px);max-width:1100px;margin:0 auto;padding:0 clamp(14px,3vw,32px) 44px;box-sizing:border-box}
 @media(min-width:761px){body .unified-main,body .unified-topbar{width:1100px;max-width:none}}
-body .unified-main .routing-panel>.config-queue{margin:8px -20px -20px;width:calc(100% + 40px);border-radius:0 0 14px 14px;border-left:0;border-right:0;border-bottom:0}
+body .unified-main .routing-panel>.config-queue{margin:4px 0 0;width:100%;padding:0;border:0;border-radius:0;background:transparent;color:inherit;box-shadow:none}
+body .unified-main .routing-panel>.config-queue:not([open]){height:32px;min-height:32px;max-height:32px}
 body .unified-main .routing-panel form.routing-controls{margin:0;row-gap:4px}
 body .unified-main .routing-panel #configuration-message:empty{display:none}
 body .unified-main .rule-create-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0;border-bottom:1px solid var(--ui-border)}
