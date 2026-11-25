@@ -12,7 +12,7 @@ import tempfile
 import shutil
 import time
 import threading
-from urllib.parse import parse_qs, urlencode, quote
+from urllib.parse import parse_qs, urlencode, quote, urlsplit
 from urllib.request import urlopen
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from service_routes_panel import render_services, handle_action, route_targets, read_services, service_rule_count, service_domains_for_listing, service_edit_url, effective_domain_rules
@@ -28,6 +28,12 @@ BUILD = os.path.join(BASE, "update-ru-blocked.sh")
 REFRESH = os.path.join(BASE, "refresh-ru-blocked.sh")
 FILTER_FILE = os.path.join(BASE, "ru-blocked-filters.txt")
 PORT = 9091
+FAVICON_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+               '<rect width="64" height="64" rx="12" fill="#3565e8"/>'
+               '<path d="M19 17v20c0 9 5 13 13 13s13-4 13-13V17" '
+               'fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>'
+               '</svg>')
+FAVICON_LINK = '<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,' + quote(FAVICON_SVG, safe='') + '">'
 PAGE_SIZE = 25
 BACKUP_LIMIT = 32 * 1024 * 1024
 BACKUP_FORMAT = "mihomo-control-backup"
@@ -754,6 +760,13 @@ class Handler(BaseHTTPRequestHandler):
     def send_html(self, body, status=200):
         from ui_i18n import bootstrap, LANGUAGE, localize_page_scripts
         body = localize_page_scripts(body)
+        try:
+            panel_host = urlsplit('http://' + self.headers.get('Host', '')).hostname or ''
+        except ValueError:
+            panel_host = ''
+        title = '<title>UvpnC' + (' - ' + html.escape(panel_host) if panel_host else '') + '</title>'
+        body = re.sub(r'<title\b[^>]*>.*?</title>', lambda _: title + FAVICON_LINK,
+                      body, count=1, flags=re.I | re.S)
         body = body.replace('lang="ru"', 'lang="' + LANGUAGE.get() + '"', 1)
         init = bootstrap()
         body = body.replace('<head>', '<head>' + init, 1) if '<head>' in body else init + body
