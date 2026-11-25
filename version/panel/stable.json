@@ -1,7 +1,7 @@
 {
-  "version": "0.4.1",
-  "tag": "panel-v0.4.1",
-  "url": "https://raw.githubusercontent.com/golddragon1986-cyber/universal-vpn-core/main/version/panel/0.4.1/panel.tar.gz",
-  "sha256": "bd6899ed86334743f07002dde4eb64561279927ca35bf3f80be1c39352bbb9f8",
-  "size": 244845
+  "version": "0.4.2",
+  "tag": "panel-v0.4.2",
+  "url": "https://raw.githubusercontent.com/golddragon1986-cyber/universal-vpn-core/main/version/panel/0.4.2/panel.tar.gz",
+  "sha256": "ea62af2952c7f3a169a1532c4f1e3f16bfbfcb17bec47dd8a977a5c98b6cb4e6",
+  "size": 244600
 }
