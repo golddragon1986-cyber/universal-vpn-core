@@ -13,9 +13,11 @@
  --ui-button-hover:#303b4d;--ui-danger:#ffd1d1;--ui-danger-bg:#48272b;--ui-danger-border:#754047;
  --ui-success:#78d99b;--ui-shadow:0 8px 28px #00000012;color-scheme:dark}
 }
-body{width:100%;max-width:none;margin:0;padding:0;box-sizing:border-box;background:var(--ui-bg);color:var(--ui-text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
-body .unified-main{width:calc(100% - 32px);max-width:1100px;margin:0 auto;padding:0 clamp(14px,3vw,32px) 44px;box-sizing:border-box}
-@media(min-width:761px){body .unified-main,body .unified-topbar{width:1100px;max-width:none}}
+body{width:100%;min-width:1100px;max-width:none;margin:0;padding:0;box-sizing:border-box;background:var(--ui-bg);color:var(--ui-text);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+body .unified-main{width:1100px;min-width:1100px;max-width:none;margin:0 auto;padding:0 32px 44px;box-sizing:border-box}
+body .unified-main .unified-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+body .unified-main .routing-panel .routing-grid{grid-template-columns:220px 130px minmax(0,1fr)}
+body .unified-main .routing-panel .routing-heading:nth-child(2){grid-column:2;grid-row:1}
 body .unified-main .routing-panel>.config-queue{margin:4px 0 0;width:100%;padding:0;border:0;border-radius:0;background:transparent;color:inherit;box-shadow:none}
 body .unified-main .routing-panel>.config-queue:not([open]){height:32px;min-height:32px;max-height:32px}
 body .unified-main .routing-panel form.routing-controls{margin:0;row-gap:4px}
@@ -157,13 +159,7 @@ body .unified-main .config-queue button{min-height:30px;padding:5px 10px;font-si
 body .unified-main .config-queue p{margin:0}
 @media(prefers-color-scheme:light){body .unified-main .unified-tabs a.active{color:var(--ui-primary)}}
 @media(max-width:600px){
- body .unified-main{width:calc(100% - 20px);padding-left:0;padding-right:0}
- body .unified-topbar{width:calc(100% - 20px)}
- body .unified-main>.panel,body .unified-main>.routing-panel{padding:16px}
- body .unified-main .search{align-items:stretch}
- body .unified-main .search :is(input,select){flex:1 1 100%;width:100%}
  body .unified-main .actions form,body .unified-main form.inline{margin-right:4px}
- body .unified-main .unified-tabs a{padding:12px}
 }
 
 body .unified-main select{height:40px}
@@ -171,7 +167,7 @@ body .unified-main input[type=file]{height:40px;padding:4px 6px}
 
 /* Header aligned with main content */
 body .unified-topbar{
- width:calc(100% - 32px - clamp(14px,3vw,32px) - clamp(14px,3vw,32px));max-width:1036px;
+ width:1036px;min-width:1036px;max-width:none;
  box-sizing:border-box;margin:20px auto 0;padding:20px;border:1px solid var(--ui-border);border-radius:14px;
  background:#17243d;color:#f7f9ff;box-shadow:var(--ui-shadow);
  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;
@@ -194,7 +190,7 @@ body .unified-topbar .unified-api{
  min-height:40px;padding:8px 12px;box-sizing:border-box;border:1px solid var(--ui-border);border-radius:8px;
  background:var(--ui-surface-alt);color:var(--ui-muted);font-size:13px;line-height:20px;
 }
-@media(max-width:600px){body .unified-topbar{width:calc(100% - 20px);max-width:none;padding:16px}}
+body .unified-topbar .unified-status,body .unified-topbar .unified-health-group{width:auto}
 
 /* Link from the API status to the built-in Mihomo dashboard. */
 body .unified-topbar a.unified-api{text-decoration:none;cursor:pointer}
@@ -226,20 +222,6 @@ body .proxy-manager .vpn-client-form select{width:100%;min-width:0;max-width:100
 body .proxy-manager-table td form{min-width:0;margin:0}
 body .proxy-manager .proxy-manager-table button{width:100%!important;min-width:0!important;max-width:100%;padding:8px 5px;white-space:normal!important;box-sizing:border-box;line-height:1.25}
 body .proxy-manager .proxy-manager-table .vpn-traffic{white-space:normal!important;font-variant-numeric:tabular-nums}
-@media(max-width:700px){
- body .proxy-manager .proxy-manager-table,body .proxy-manager-table tbody{display:block;width:100%}
- body .proxy-manager-table thead{display:none}
- body .proxy-manager-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;padding:12px 0;border-bottom:1px solid #46516a}
- body .proxy-manager .proxy-manager-table td{display:block;width:auto;border:0;padding:4px;min-width:0}
- body .proxy-manager-table td::before{display:block;font-size:12px;color:var(--ui-muted);margin-bottom:5px}
- body .proxy-manager-table td:nth-child(2)::before{content:'VPN / тип'}
- body .proxy-manager-table td:nth-child(3)::before{content:'Клиент'}
- body .proxy-manager-table td:nth-child(4)::before{content:'Сервер'}
- body .proxy-manager-table td:nth-child(5)::before{content:'Статус'}
- body .proxy-manager-table td:nth-child(6)::before{content:'Проверка'}
- body .proxy-manager-table td:nth-child(7)::before{content:'Трафик ↓ / ↑'}
-}
-
 /* Runtime maintenance never submits the configuration draft. */
 body .unified-main form.runtime-action{display:none}
 body .unified-main .runtime-result{font-size:13px;color:var(--ui-muted);margin:10px 0 0;line-height:1.4}
