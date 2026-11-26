@@ -131,13 +131,14 @@ function assignedRoute(address){
 function configureLease(lease,route){
  const address=lease.active_ip||(!lease.dynamic?lease.ip:'');
  if(!address||!seed.state.live)return;
+ const leaseName=String(lease.comment||lease.host||'').replace(/[\x00-\x1f]/g,' ').trim().slice(0,100);
  const names=Object.keys(seed.state.lists),source=names.includes('uvpn-main-lan')?'uvpn-main-lan':names[0];
  if(!source){dhcpStatus.textContent='Список клиентов контейнера в RouterOS не найден';return;}
  let row=rows.find(item=>item.address===address);
  if(!row){
-  row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:'',route,enabled:true};
+  row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:leaseName,route,enabled:true};
   rows.push(row);
- }else{row.route=route;row.enabled=true;}
+ }else{row.route=route;row.enabled=true;if(!row.name)row.name=leaseName;}
  if(lease.dynamic&&!leaseRequests.some(request=>request.id===lease.id)){
   leaseRequests.push({id:lease.id,ip:lease.ip,mac:lease.mac,server:lease.server,client_id:lease.client_id,client_row_id:row.id});
  }
@@ -163,6 +164,7 @@ function renderDhcp(){
   select.value=assignedRoute(lease.active_ip||lease.ip);tr.insertCell().append(select);
   const action=tr.insertCell(),ready=!!(lease.active_ip||(!lease.dynamic&&lease.ip))&&!lease.disabled&&seed.state.live;
   const pending=leaseRequests.some(request=>request.id===lease.id);
+  if(pending){const note=document.createElement('small');note.textContent='Станет статической после применения';state.append(note);}
   const configured=rows.some(row=>row.address===(lease.active_ip||lease.ip));
   const configure=button(pending?'Закрепление ожидает':lease.dynamic?'Закрепить и настроить':configured?'Изменить маршрут':'Настроить маршрут',()=>configureLease(lease,select.value));
   configure.disabled=!ready;action.append(configure);

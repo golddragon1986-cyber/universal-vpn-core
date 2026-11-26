@@ -10,6 +10,7 @@ window.uiCatalog = {
   "Закреплена": "Pinned",
   "Закрепить и настроить": "Pin and configure",
   "Закрепление ожидает": "Pinning pending",
+  "Станет статической после применения": "Will become static when applied",
   "Настроить маршрут": "Configure route",
   "Изменить маршрут": "Change route",
   "Не удалось прочитать DHCP-аренды": "Could not read DHCP leases",
