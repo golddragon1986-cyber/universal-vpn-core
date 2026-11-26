@@ -361,6 +361,10 @@ def render(navigation="", *, subscription_controls=None, subscription_groups=Non
 .vpn-subscription-form{margin-top:10px}
 .vpn-subscription-form label,.vpn-subscription-filters label{display:grid;gap:4px;min-width:0;font-size:13px;color:var(--ui-muted)}
 body .proxy-manager :is(.vpn-subscription-form,.vpn-subscription-filters) :is(input,select){width:100%;min-width:0;box-sizing:border-box}
+body .proxy-manager .vpn-subscription-add .vpn-subscription-form{grid-template-columns:minmax(140px,1fr) minmax(240px,2fr) minmax(140px,1fr) minmax(150px,1fr) minmax(175px,1fr);align-items:end;gap:12px}
+body .proxy-manager .vpn-subscription-add .vpn-subscription-form label{margin:0}
+body .proxy-manager .vpn-subscription-add .vpn-subscription-form :is(input,select,button){height:40px;margin:0}
+body .proxy-manager .vpn-subscription-add .vpn-subscription-form button{width:100%;min-width:0;white-space:nowrap}
 .vpn-auto{margin-top:12px;font-weight:400}
 .vpn-auto summary{cursor:pointer;font-size:15px;font-weight:700}
 body .proxy-manager .vpn-auto[open] summary{margin-bottom:10px}
