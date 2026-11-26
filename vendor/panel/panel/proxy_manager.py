@@ -353,23 +353,23 @@ def render(navigation="", *, subscription_controls=None, subscription_groups=Non
   result=re.sub(r'<thead>.*?</thead>', '', result, count=1)
   result=result.replace('<tbody>'+''.join(rows)+'</tbody>', ''.join(rows),1)
   result=result.replace('class="proxy-manager-table">','class="proxy-manager-table subscription-table">'
-    '<colgroup><col style="width:4%"><col style="width:5%"><col style="width:20%"><col style="width:8%">'
-    '<col style="width:16%"><col style="width:12%"><col style="width:17%"><col style="width:18%"></colgroup>',1)
+    '<colgroup><col style="width:4%"><col style="width:5%"><col style="width:19%"><col style="width:6%">'
+    '<col style="width:15%"><col style="width:12%"><col style="width:17%"><col style="width:22%"></colgroup>',1)
   result+='''<style>.vpn-subscription-add{margin-bottom:16px}
 .vpn-subscription-add summary{cursor:pointer;font-weight:700;padding:6px 0}
 .vpn-subscription-form,.vpn-subscription-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
 .vpn-subscription-form{margin-top:10px}
 .vpn-subscription-form label,.vpn-subscription-filters label{display:grid;gap:4px;min-width:0;font-size:13px;color:var(--ui-muted)}
 body .proxy-manager :is(.vpn-subscription-form,.vpn-subscription-filters) :is(input,select){width:100%;min-width:0;box-sizing:border-box}
-.vpn-auto{margin-top:8px;font-weight:400}
-.vpn-auto summary{cursor:pointer}
-body .proxy-manager .vpn-auto input[type=checkbox]{width:auto}
-body .proxy-manager .vpn-auto[open]{display:flex;align-items:center;gap:10px;min-width:0}
-body .proxy-manager .vpn-auto[open] summary{flex:none;white-space:nowrap}
-body .proxy-manager .vpn-auto .vpn-subscription-form{display:flex;align-items:center;gap:6px;margin:0;min-width:0;flex:1}
-body .proxy-manager .vpn-auto .vpn-subscription-form label{display:flex;align-items:center;gap:3px;flex:none;width:auto;min-width:0;white-space:nowrap;font-size:12px}
-body .proxy-manager .vpn-auto .vpn-subscription-form input[type=number]{width:58px;min-width:58px;height:34px;margin:0;padding:5px}
-body .proxy-manager .vpn-auto .vpn-subscription-form button{flex:none;width:102px!important;min-width:102px!important;min-height:34px;margin:0;padding:5px 6px;white-space:nowrap!important}
+.vpn-auto{margin-top:12px;font-weight:400}
+.vpn-auto summary{cursor:pointer;font-size:15px;font-weight:700}
+body .proxy-manager .vpn-auto[open] summary{margin-bottom:10px}
+body .proxy-manager .vpn-auto .vpn-subscription-form{display:grid;grid-template-columns:120px repeat(3,minmax(0,1fr)) 120px;align-items:end;gap:12px;margin:0;min-width:0}
+body .proxy-manager .vpn-auto .vpn-subscription-form label{display:grid;align-content:end;gap:6px;min-width:0;font-size:14px;font-weight:500;line-height:20px}
+body .proxy-manager .vpn-auto .vpn-subscription-form label:first-of-type{display:flex;align-items:center;height:40px;gap:8px}
+body .proxy-manager .vpn-auto .vpn-subscription-form input[type=checkbox]{width:18px!important;min-width:18px;height:18px;margin:0}
+body .proxy-manager .vpn-auto .vpn-subscription-form input[type=number]{width:100%;min-width:0;height:40px;margin:0;padding:7px 10px;font-size:14px}
+body .proxy-manager .vpn-auto .vpn-subscription-form button{width:100%!important;min-width:0!important;height:40px;min-height:40px;margin:0;padding:7px 10px;white-space:nowrap!important;font-size:14px}
 .subscription-table [hidden]{display:none!important}
 body .proxy-manager-table.subscription-table .vpn-group-heading th{width:auto;background:var(--ui-surface-alt);padding:10px 12px}
 .vpn-group-bar,.vpn-group-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -386,6 +386,6 @@ body .proxy-manager .subscription-table .vpn-group-toggle{display:flex;align-ite
 </style>'''
  else:
   result=re.sub(r'<details class="proxy-import-spoiler">.*?</details>',lambda match:form(),result,count=1,flags=re.S)
-  result=result.replace('class="proxy-manager-table">','class="proxy-manager-table"><colgroup><col style="width:4%"><col style="width:5%"><col style="width:20%"><col style="width:8%"><col style="width:16%"><col style="width:12%"><col style="width:17%"><col style="width:18%"></colgroup>',1)
+  result=result.replace('class="proxy-manager-table">','class="proxy-manager-table"><colgroup><col style="width:4%"><col style="width:5%"><col style="width:19%"><col style="width:6%"><col style="width:15%"><col style="width:12%"><col style="width:17%"><col style="width:22%"></colgroup>',1)
  result+=_ui('<style>.vpn-client-form{display:flex;flex-direction:column;gap:7px;min-width:130px}.vpn-client-form select{width:145px;padding:8px;border-radius:7px;background:#202a3b;color:inherit;border:1px solid #526078}.vpn-client-form button{min-height:34px;padding:6px 10px}</style><p>Откройте соединение по названию, чтобы изменить его параметры или выбрать клиент. Доступность проверьте кнопкой «Проверить».</p>')
  return result.replace(_ui('Выбрать прокси '),_ui('Выбрать VPN '))

@@ -26,7 +26,8 @@ body .proxy-manager .vpn-open-editor:hover{text-decoration:underline;color:var(-
 body .proxy-manager .vpn-name-cell small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 body .proxy-manager .vpn-endpoint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 body .proxy-manager .proxy-manager-table .vpn-status-button,body .proxy-manager .proxy-manager-table .proxy-health-btn{width:100%!important;min-width:0!important;margin:0;padding:7px 5px;min-height:38px;box-sizing:border-box;white-space:nowrap!important;line-height:20px}
-body .proxy-manager .proxy-manager-table .vpn-traffic{font-size:11px;white-space:nowrap}
+body .proxy-manager .proxy-manager-table .vpn-traffic{font-size:14px;white-space:nowrap}
+body .proxy-manager .proxy-select-cell input[type=checkbox]{display:block;margin:0 auto}
 body .proxy-manager .proxy-manager-table tr:not(.vpn-group-heading)>:is(td,th){white-space:nowrap}
 body .vpn-editor{width:min(760px,calc(100vw - 36px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box;padding:22px;background:var(--ui-surface,#171e2b);color:var(--ui-text,#f4f7ff);border:1px solid var(--ui-border,#344056);border-radius:12px}
 body .vpn-editor::backdrop{background:rgba(0,0,0,.7)}
