@@ -11,7 +11,7 @@ def payload(row, name=None):
             'disabled':not row['enabled'] if 'enabled' in row else rr.yes(row.get('disabled'))}
 
 
-def plan(rows, baseline, router=None, lease_requests=None):
+def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
     router=router or rr.Router()
     state=panel.read_state(router,cache=False)
     if baseline!=panel.fingerprint(state):raise ValueError('Список клиентов изменён в RouterOS. Обновите страницу или отмените черновик.')
@@ -52,10 +52,17 @@ def plan(rows, baseline, router=None, lease_requests=None):
     client_policy.effective(desired)
     import dhcp_leases
     dhcp_static = dhcp_leases.plan(lease_requests or [], desired, router)
+    dhcp_actions = dhcp_leases.plan_actions(lease_actions or [], dhcp_static, router)
+    for item in dhcp_actions:
+        linked = [row for row in desired if row['address'] == item['identity']['ip']]
+        if item['action'] == 'unpin' and linked:
+            raise ValueError('Сначала удалите маршрут DHCP-клиента')
+        if item['action'] == 'disable' and any(row['enabled'] for row in linked):
+            raise ValueError('Отключите маршрут DHCP-клиента вместе с арендой')
     return {'baseline':baseline,'before':state['raw'],'bindings':state['management_bindings'],
             'policy_before':client_policy.owned_snapshot(router),'state':state,
             'desired':desired,'migrations':migrations,'lists':list(state['lists']),
-            'dhcp_static':dhcp_static}
+            'dhcp_static':dhcp_static,'dhcp_actions':dhcp_actions}
 
 
 def apply(router, change, report=lambda _:None):
@@ -97,10 +104,12 @@ def apply(router, change, report=lambda _:None):
     client_policy.apply(router,desired,change['state'])
     import dhcp_leases
     dhcp_leases.apply(router,change.get('dhcp_static',[]),report)
+    dhcp_leases.apply_actions(router,change.get('dhcp_actions',[]),report)
 
 
 def restore(router, change):
     import dhcp_leases
+    dhcp_leases.restore_actions(router,change.get('dhcp_actions',[]))
     dhcp_leases.restore(router,change.get('dhcp_static',[]))
     if 'policy_before' in change:
         import client_policy

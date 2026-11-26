@@ -40,7 +40,7 @@ def snapshot(router=None):
 
 
 def _identity(row):
-    return tuple(row.get(key, '') for key in ('ip', 'mac', 'server', 'client_id'))
+    return tuple(row.get(key, '') for key in ('ip', 'mac', 'server'))
 
 
 def plan(requests, desired, router):
@@ -66,7 +66,7 @@ def plan(requests, desired, router):
                 or _identity(observed) != _identity(request)):
             raise ValueError('DHCP-аренда изменилась. Обновите список клиентов и черновик.')
         client = by_id.get(request['client_row_id'])
-        if not client or not client['enabled'] or client['address'] != observed['active_ip']:
+        if request['client_row_id'] and (not client or not client['enabled'] or client['address'] != observed['active_ip']):
             raise ValueError('Закрепляемая DHCP-аренда не связана с активным правилом клиента')
         validated.append(observed)
     return validated
@@ -95,3 +95,86 @@ def restore(router, requests):
         matches = [row for row in current if not row['dynamic'] and _identity(row) == _identity(request)]
         if len(matches) == 1:
             router.call(PATH + '/' + rr.rid(matches[0]['id']), 'DELETE')
+
+
+WRITABLE = {'address', 'address-list', 'agent-circuit-id', 'agent-remote-id',
+            'allow-dual-stack-queue', 'always-broadcast', 'block-access',
+            'client-id', 'comment', 'dhcp-option', 'dhcp-option-set', 'disabled',
+            'insert-queue-before', 'lease-time', 'mac-address', 'parent-queue',
+            'queue-type', 'rate-limit', 'routes', 'server', 'use-src-mac'}
+
+
+def plan_actions(requests, pins, router):
+    if not isinstance(requests, list) or len(requests) > 64:
+        raise ValueError('Некорректный список действий DHCP')
+    if not requests:
+        return []
+    raw = {row['.id']: row for row in router.call(PATH)}
+    pinned = {row['id'] for row in pins}
+    seen = set()
+    result = []
+    for request in requests:
+        if not isinstance(request, dict) or not all(isinstance(request.get(key), str)
+                for key in ('id', 'ip', 'mac', 'server', 'client_id', 'action')):
+            raise ValueError('Некорректное действие DHCP')
+        ident = rr.rid(request['id'])
+        action = request['action']
+        if ident in seen or action not in {'enable', 'disable', 'unpin'}:
+            raise ValueError('Некорректное действие DHCP')
+        seen.add(ident)
+        before = raw.get(ident)
+        if not before or _identity(model(before)) != _identity(request):
+            raise ValueError('DHCP-аренда изменилась. Обновите список клиентов и черновик.')
+        if rr.yes(before.get('dynamic')) and (action == 'unpin' or ident not in pinned):
+            raise ValueError('Сначала закрепите динамическую DHCP-аренду')
+        result.append({'action': action, 'before': before, 'identity': model(before)})
+    return result
+
+
+def _match(router, identity):
+    matches = [row for row in router.call(PATH) if _identity(model(row)) == _identity(identity)]
+    if len(matches) != 1:
+        raise RuntimeError('Не найден единственный DHCP-клиент для изменения')
+    return matches[0]
+
+
+def apply_actions(router, actions, report=lambda _: None):
+    if not actions:
+        return
+    report('Управление DHCP-арендами RouterOS')
+    for item in actions:
+        row = _match(router, item['identity'])
+        if rr.yes(row.get('dynamic')):
+            raise RuntimeError('DHCP-аренда не закреплена')
+        action = item['action']
+        if action in {'enable', 'disable'}:
+            router.call(PATH + '/' + rr.rid(row['.id']), 'PATCH', {'disabled': action == 'disable'})
+            if rr.yes(_match(router, item['identity']).get('disabled')) != (action == 'disable'):
+                raise RuntimeError('RouterOS не подтвердил состояние DHCP-аренды')
+        else:
+            router.call(PATH + '/' + rr.rid(row['.id']), 'DELETE')
+            if any(_identity(model(row)) == _identity(item['identity']) and not rr.yes(row.get('dynamic'))
+                   for row in router.call(PATH)):
+                raise RuntimeError('RouterOS не подтвердил удаление DHCP-аренды')
+
+
+def restore_actions(router, actions):
+    for item in reversed(actions):
+        before = item['before']
+        matches = [row for row in router.call(PATH)
+                   if _identity(model(row)) == _identity(item['identity'])]
+        if len(matches) > 1:
+            raise RuntimeError('Не найден единственный DHCP-клиент для восстановления')
+        row = matches[0] if matches else None
+        if item['action'] in {'enable', 'disable'}:
+            if row and not rr.yes(row.get('dynamic')):
+                router.call(PATH + '/' + rr.rid(row['.id']), 'PATCH',
+                            {'disabled': rr.yes(before.get('disabled'))})
+        elif row and rr.yes(row.get('dynamic')):
+            router.call(PATH + '/make-static', 'POST', {'numbers': row['.id']})
+            restored = _match(router, item['identity'])
+            data = {key: value for key, value in before.items() if key in WRITABLE and value != ''}
+            router.call(PATH + '/' + rr.rid(restored['.id']), 'PATCH', data)
+        elif not row:
+            data = {key: value for key, value in before.items() if key in WRITABLE and value != ''}
+            router.call(PATH, 'PUT', data)
