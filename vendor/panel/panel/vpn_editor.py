@@ -20,12 +20,14 @@ body .proxy-manager .proxy-manager-table :is(th,td){padding:6px 5px;overflow:hid
 body .proxy-manager .proxy-manager-table .vpn-country{text-align:center!important;width:5%;white-space:nowrap}
 body .proxy-manager .proxy-manager-table .vpn-country img{display:block;width:24px;height:18px;object-fit:cover;margin:auto;border:1px solid #526078;border-radius:2px}
 body .proxy-manager .proxy-manager-table .vpn-name-cell{overflow:hidden}
+body .proxy-manager .proxy-manager-table .vpn-type{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 body .proxy-manager .vpn-open-editor{display:block;width:100%;padding:0;border:0;background:transparent;color:inherit;text-align:left;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
 body .proxy-manager .vpn-open-editor:hover{text-decoration:underline;color:var(--ui-primary)}
 body .proxy-manager .vpn-name-cell small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 body .proxy-manager .vpn-endpoint{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-body .proxy-manager .proxy-manager-table .vpn-status-button,body .proxy-manager .proxy-manager-table .proxy-health-btn{width:100%!important;min-width:0!important;margin:0;padding:7px 5px;min-height:38px;box-sizing:border-box}
-body .proxy-manager .proxy-manager-table .vpn-traffic{font-size:12px;white-space:nowrap}
+body .proxy-manager .proxy-manager-table .vpn-status-button,body .proxy-manager .proxy-manager-table .proxy-health-btn{width:100%!important;min-width:0!important;margin:0;padding:7px 5px;min-height:38px;box-sizing:border-box;white-space:nowrap!important;line-height:20px}
+body .proxy-manager .proxy-manager-table .vpn-traffic{font-size:11px;white-space:nowrap}
+body .proxy-manager .proxy-manager-table tr:not(.vpn-group-heading)>:is(td,th){white-space:nowrap}
 body .vpn-editor{width:min(760px,calc(100vw - 36px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box;padding:22px;background:var(--ui-surface,#171e2b);color:var(--ui-text,#f4f7ff);border:1px solid var(--ui-border,#344056);border-radius:12px}
 body .vpn-editor::backdrop{background:rgba(0,0,0,.7)}
 body .vpn-editor h2{margin:0 0 8px}
@@ -52,6 +54,8 @@ document.addEventListener('DOMContentLoaded',()=>{
    for(const option of network.options)option.disabled=!!option.dataset.engines&&!option.dataset.engines.split(',').includes(engine);
    if(network.selectedOptions[0]?.disabled)network.value='tcp';
    for(const block of form.querySelectorAll('[data-network-fields],[data-engine-fields]'))block.hidden=(!!block.dataset.networkFields&&!block.dataset.networkFields.split(',').includes(network.value))||(!!block.dataset.engineFields&&!block.dataset.engineFields.split(',').includes(engine))||(block.dataset.networkFields==='tcp,http'&&network.value==='tcp'&&engine!=='xray');
+   const transportHeading=form.querySelector('[data-transport-heading]');
+   if(transportHeading)transportHeading.hidden=![...form.querySelectorAll('[data-network-fields]')].some(block=>!block.hidden);
    for(const block of form.querySelectorAll('[data-tls-fields]'))block.hidden=form.elements.tls_mode.value!==block.dataset.tlsFields;
   }
   form.addEventListener('change',refresh);refresh();
@@ -111,7 +115,7 @@ def render(node):
             field('UUID (id)', 'uuid', profile.get('uuid', '')),
             choice('Управление потоком (Flow)', 'flow', profile.get('flow', ''), [('', 'Нет', ''), ('xtls-rprx-vision', 'xtls-rprx-vision', ''), ('xtls-rprx-vision-udp443', 'xtls-rprx-vision-udp443', 'xray')]),
             choice('Транспорт', 'network', net, [('tcp', 'raw / TCP', ''), ('ws', 'WebSocket', ''), ('grpc', 'gRPC', ''), ('http', 'HTTP', 'mihomo,sing-box'), ('h2', 'HTTP/2', 'mihomo'), ('xhttp', 'XHTTP', 'mihomo,xray'), ('mkcp', 'mKCP', 'xray'), ('httpupgrade', 'HTTP Upgrade', 'sing-box,xray'), ('quic', 'QUIC', 'sing-box')]),
-            '<div class="vpn-editor-section">' + _ui('Транспорт и камуфляж') + '</div>',
+            '<div class="vpn-editor-section" data-transport-heading>' + _ui('Транспорт и камуфляж') + '</div>',
             choice('Тип raw-камуфляжа', 'raw_type', raw.get('type', 'none'), [('none', 'none', ''), ('http', 'HTTP', '')]).replace('<label>', '<label data-network-fields="tcp" data-engine-fields="xray">', 1),
             field('HTTP Host', 'raw_host', raw.get('host', '') if net == 'tcp' else ((http_opts.get('headers') or {}).get('Host') or [''])[0], extra=' data-network-fields="tcp,http"'),
             field('HTTP Path', 'raw_path', raw.get('path', '') if net == 'tcp' else (http_opts.get('path') or [''])[0], extra=' data-network-fields="tcp,http"'),
