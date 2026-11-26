@@ -17,6 +17,7 @@ def describe(payload):
  if action.startswith("subscription_"):
   return "VPN-подписки", {"subscription_add":"Добавление подписки","subscription_refresh":"Обновление подписки","subscription_delete":"Удаление подписки","subscription_automation":"Настройки автобалансировки"}[action]
  if action=="vpn_client":return "VPN «"+value('name')+"»","выбор клиента "+value('client')
+ if action=="vpn_edit":return "VPN «"+value('name')+"»","параметры соединения обновлены (секреты скрыты)"
  if action=='route_toggle':return 'Маршруты RouterOS','включение/отключение маршрута'
  if action=='route_metric':return 'Маршруты RouterOS','метрика '+value('metric')
  if action.startswith('route_'):

@@ -17,6 +17,7 @@ LABELS = {
  "subscription_delete":"Удаление VPN-подписки",
  "subscription_automation":"Настройки автобалансировки подписки",
  "vpn_client":"Выбор VPN-клиента",
+ "vpn_edit":"Редактирование VPN-соединения",
  "route_apply":"Применение набора маршрутов", "route_metric":"Метрика маршрута", "route_toggle":"Включение/отключение маршрута", "route_target":"Изменение маршрута сети", "route_add":"Добавление маршрута RouterOS", "route_delete":"Удаление маршрута RouterOS",
  "vpn_import":"Добавление VPN-соединений", "component_change":"Компоненты",
  "proxy_import":"Добавление прокси", "proxy_delete_selected":"Удаление выбранных прокси",

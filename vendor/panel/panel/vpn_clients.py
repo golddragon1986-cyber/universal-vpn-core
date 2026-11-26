@@ -120,8 +120,10 @@ def convert(p,engine):
     net=p.get('network','tcp')
     if net not in ('tcp','ws','grpc'):raise ValueError('Транспорт '+net+' нельзя перенести в выбранный клиент')
     reality=p.get('reality-opts',{})
-    allowed(reality,{'public-key','short-id','support-x25519mlkem768'})
+    allowed(reality,{'public-key','short-id','support-x25519mlkem768','spider-x'})
     if engine=='sing-box':
+        if reality.get('spider-x'):
+            raise ValueError('SpiderX не поддерживается адаптером sing-box; очистите поле или выберите Mihomo/Xray')
         out={'type':{'ss':'shadowsocks','socks5':'socks'}.get(typ,typ),'server':p['server'],'server_port':int(p['port'])}
         for key in ('uuid','flow','password','username'):
             if key in p:out[key]=p[key]
@@ -165,7 +167,9 @@ def convert(p,engine):
     if p.get('tls') or typ=='trojan':
         stream['security']='reality' if reality else 'tls'
         opts={'serverName':p.get('servername',p.get('sni',p['server'])),'fingerprint':xray_reality_fingerprint(p)}
-        if reality:opts.update(password=reality['public-key'],shortId=reality.get('short-id',''))
+        if reality:
+            opts.update(password=reality['public-key'],shortId=reality.get('short-id',''))
+            if reality.get('spider-x'):opts['spiderX']=reality['spider-x']
         elif p.get('skip-cert-verify'):opts['allowInsecure']=True
         stream['realitySettings' if reality else 'tlsSettings']=opts
     if net=='ws':

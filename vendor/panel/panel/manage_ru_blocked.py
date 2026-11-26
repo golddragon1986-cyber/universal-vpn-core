@@ -910,6 +910,12 @@ class Handler(BaseHTTPRequestHandler):
             import vpn_traffic
             self.send_json(vpn_traffic.snapshot())
             return
+        if self.path.split('?',1)[0] == '/api/vpn-countries':
+            import proxy_manager, vpn_clients, vpn_geoip
+            hosts = {str(vpn_clients.canonical(node).get('server', ''))
+                     for node in proxy_manager.read()['nodes']}
+            self.send_json({'countries': vpn_geoip.countries(hosts)})
+            return
         if params.get('tab',[''])[0]=='components':
             try:
                 import vpn_components
@@ -1327,6 +1333,10 @@ class Handler(BaseHTTPRequestHandler):
             if action == 'vpn_client':
                 import vpn_clients
                 self.redirect_message(vpn_clients.select(data.get('name',[''])[0],data.get('client',[''])[0],data.get('fingerprint',[None])[0]),tab='vpn')
+                return
+            if action == 'vpn_edit':
+                import vpn_editor
+                self.redirect_message(vpn_editor.update(data.get('name',[''])[0],data),tab='vpn')
                 return
             if action == 'vpn_import':
                 import proxy_manager
