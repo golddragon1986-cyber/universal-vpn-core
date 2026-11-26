@@ -829,6 +829,13 @@ class Handler(BaseHTTPRequestHandler):
 
     def _get(self):
         params = parse_qs(self.path.split("?", 1)[1]) if "?" in self.path else {}
+        if self.path.split('?', 1)[0] == '/api/clients/dhcp':
+            try:
+                from dhcp_leases import snapshot
+                self.send_json(snapshot())
+            except Exception as error:
+                self.send_json({'ok': False, 'message': str(error)}, 503)
+            return
         if self.path.split("?", 1)[0] == "/api/dns/probe":
             from dns_panel import probe
             try:

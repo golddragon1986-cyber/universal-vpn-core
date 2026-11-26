@@ -158,9 +158,11 @@ def stage(raw, execute):
             import client_panel,router_routes,re
             router_routes.check_token(data.get('client_token',[''])[0])
             rows=json.loads(data.get('clients',['[]'])[0]);baseline=data.get('baseline',[''])[0];original=data.get('rows_baseline',[''])[0]
+            lease_requests=json.loads(data.get('lease_requests',['[]'])[0])
             if not isinstance(rows,list) or len(rows)>512 or not re.fullmatch('[0-9a-f]{64}',baseline) or not re.fullmatch('[0-9a-f]{64}',original):raise ValueError('Некорректный черновик клиентов')
-            if client_panel.rows_fingerprint(rows)==original:manifest.pop('clients',None)
-            else:manifest['clients']={'rows':rows,'baseline':baseline}
+            if not isinstance(lease_requests,list) or len(lease_requests)>64:raise ValueError('Некорректный список DHCP-аренд')
+            if client_panel.rows_fingerprint(rows)==original and not lease_requests:manifest.pop('clients',None)
+            else:manifest['clients']={'rows':rows,'baseline':baseline,'lease_requests':lease_requests}
             message='Клиенты сохранены в общий черновик'
         elif action == 'route_apply':
             from route_batch import fingerprint
@@ -235,7 +237,8 @@ def apply(report=lambda _: None, after_commit=None, job_id=None, revision=None):
         client_plan=None
         if manifest.get('clients'):
             import client_batch
-            client_plan=client_batch.plan(manifest['clients']['rows'],manifest['clients']['baseline'])
+            client_plan=client_batch.plan(manifest['clients']['rows'],manifest['clients']['baseline'],
+                                          lease_requests=manifest['clients'].get('lease_requests',[]))
         normalized_dns = None
         if 'dns-settings.json' in manifest['files']:
             from dns_panel import parse_settings

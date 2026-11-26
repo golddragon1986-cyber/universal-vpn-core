@@ -11,7 +11,7 @@ def payload(row, name=None):
             'disabled':not row['enabled'] if 'enabled' in row else rr.yes(row.get('disabled'))}
 
 
-def plan(rows, baseline, router=None):
+def plan(rows, baseline, router=None, lease_requests=None):
     router=router or rr.Router()
     state=panel.read_state(router,cache=False)
     if baseline!=panel.fingerprint(state):raise ValueError('Список клиентов изменён в RouterOS. Обновите страницу или отмените черновик.')
@@ -50,9 +50,12 @@ def plan(rows, baseline, router=None):
         migrations[name]=target
     import client_policy
     client_policy.effective(desired)
+    import dhcp_leases
+    dhcp_static = dhcp_leases.plan(lease_requests or [], desired, router)
     return {'baseline':baseline,'before':state['raw'],'bindings':state['management_bindings'],
             'policy_before':client_policy.owned_snapshot(router),'state':state,
-            'desired':desired,'migrations':migrations,'lists':list(state['lists'])}
+            'desired':desired,'migrations':migrations,'lists':list(state['lists']),
+            'dhcp_static':dhcp_static}
 
 
 def apply(router, change, report=lambda _:None):
@@ -92,9 +95,13 @@ def apply(router, change, report=lambda _:None):
     if observed!=expected:raise RuntimeError('RouterOS не подтвердил итоговый список клиентов')
     import client_policy
     client_policy.apply(router,desired,change['state'])
+    import dhcp_leases
+    dhcp_leases.apply(router,change.get('dhcp_static',[]),report)
 
 
 def restore(router, change):
+    import dhcp_leases
+    dhcp_leases.restore(router,change.get('dhcp_static',[]))
     if 'policy_before' in change:
         import client_policy
         client_policy.restore(router,change['policy_before'])

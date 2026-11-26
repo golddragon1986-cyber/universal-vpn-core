@@ -8,6 +8,20 @@ body .unified-main .clients-table :is(th,td):nth-child(2){width:125px}
 body .unified-main .clients-table :is(th,td):nth-child(3){width:200px;min-width:0}
 body .unified-main .clients-table :is(th,td):nth-child(4){width:170px;min-width:0;white-space:nowrap}
 body .unified-main .clients-table td:last-child button{font-size:13px;padding:8px;margin-right:4px}
+body .unified-main .dhcp-panel{margin-top:16px}
+body .unified-main .dhcp-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:10px 0}
+body .unified-main .dhcp-toolbar p{margin:0}
+body .unified-main .dhcp-table{width:100%;table-layout:fixed;border-collapse:collapse}
+body .unified-main .dhcp-table :is(th,td){padding:9px 6px;text-align:left;border-bottom:1px solid var(--ui-border);vertical-align:middle;overflow-wrap:anywhere}
+body .unified-main .dhcp-table :is(th,td):nth-child(1){width:19%}
+body .unified-main .dhcp-table :is(th,td):nth-child(2){width:12%}
+body .unified-main .dhcp-table :is(th,td):nth-child(3){width:15%}
+body .unified-main .dhcp-table :is(th,td):nth-child(4){width:16%}
+body .unified-main .dhcp-table :is(th,td):nth-child(5){width:20%}
+body .unified-main .dhcp-table :is(th,td):nth-child(6){width:18%}
+body .unified-main .dhcp-table select{width:100%;min-width:0;margin:0;height:40px}
+body .unified-main .dhcp-table button{width:100%;min-height:40px;white-space:normal}
+body .unified-main .dhcp-table small{display:block;color:var(--ui-muted);font-size:12px}
 `;document.head.append(layout);
 const seed=JSON.parse(document.getElementById('clients-data').textContent),body=document.getElementById('clients-table-body'),search=document.getElementById('clients-search');
 const legacyAdd=document.getElementById('client-add-form');
@@ -16,7 +30,7 @@ const header=document.querySelector('.clients-table thead tr');
 if(header.cells.length===6){header.cells[2].remove();header.cells[2].remove();}
 const clone=value=>JSON.parse(JSON.stringify(value));
 const original=seed.state.rows,old=new Map(original.map(row=>[row.id,row]));
-let rows=clone(seed.pending?.rows||original),view={...seed.view,page:1},error='';
+let rows=clone(seed.pending?.rows||original),leaseRequests=clone(seed.pending?.lease_requests||[]),view={...seed.view,page:1},error='',dhcpLeases=[];
 const baseline=seed.pending?.baseline||seed.baseline,stale=baseline!==seed.baseline;
 const signature=row=>JSON.stringify({id:row.id,list:row.list,address:row.address,label:row.label,name:(row.name||'').trim(),route:row.route||'RULES',enabled:row.enabled});
 const ip=value=>{const parts=value.split('.');if(parts.length!==4||parts.some(p=>!/^\d{1,3}$/.test(p)||Number(p)>255))throw Error('Укажите IPv4-адрес');return parts.reduce((n,p)=>n*256+Number(p),0);};
@@ -35,7 +49,7 @@ function matches(row){
  try{const [a,b]=interval(row.address),[c,d]=interval(q);return a<=d&&c<=b;}catch(e){return [row.address,row.name,row.label,row.list].some(v=>String(v).toLowerCase().includes(q));}
 }
 function persist(){
- error='';window.configurationDraft?.set('clients',new URLSearchParams({action:'client_apply',client_token:seed.token,baseline,rows_baseline:seed.rows_baseline,clients:JSON.stringify(rows)}));
+ error='';window.configurationDraft?.set('clients',new URLSearchParams({action:'client_apply',client_token:seed.token,baseline,rows_baseline:seed.rows_baseline,clients:JSON.stringify(rows),lease_requests:JSON.stringify(leaseRequests)}));
 }
 function button(text,fn,danger=false){const b=document.createElement('button');b.type='button';b.textContent=text;if(danger)b.className='danger';b.addEventListener('click',fn);b.disabled=!seed.state.live;return b;}
 function input(value,label,change){const field=document.createElement('input');field.value=value;field.setAttribute('aria-label',label);field.disabled=!seed.state.live;field.addEventListener('input',()=>{change(field.value);persist();updateStatus();});return field;}
@@ -48,7 +62,7 @@ function status(row,removed,readonly){
 }
 function updateStatus(){
  const byId=new Map(rows.map(row=>[row.id,row]));
- for(const tr of body.rows){const row=byId.get(tr.dataset.clientId);if(row){const pending=rowChanged(row);tr.classList.toggle('client-pending',pending);tr.title=status(row,false,false);const toggle=tr.querySelector('[data-toggle-on]');if(toggle){toggle.dataset.togglePending=pending?'1':'0';window.paintToggle?.(toggle,row.enabled,pending);}}}
+ for(const tr of body.rows){const row=byId.get(tr.dataset.clientId);if(row){const pending=rowChanged(row)||leaseRequests.some(request=>request.client_row_id===row.id);tr.classList.toggle('client-pending',pending);tr.title=status(row,false,false);const toggle=tr.querySelector('[data-toggle-on]');if(toggle){toggle.dataset.togglePending=pending?'1':'0';window.paintToggle?.(toggle,row.enabled,pending);}}}
  document.getElementById('clients-inline-status').textContent=error||(stale?'Список RouterOS изменился. Отмените черновик и повторите изменения.':!seed.state.live?'RouterOS недоступен; показан последний сохранённый список.':'');
 }
 function draw(){
@@ -76,7 +90,7 @@ function draw(){
   else if(removed)actions.append(button('Вернуть',()=>{rows.push(clone(row));persist();draw();}));
   else{
    const toggle=button(row.enabled?'Включено':'Отключено',()=>{row.enabled=!row.enabled;persist();draw();});toggle.dataset.toggleOn=row.enabled?'1':'0';toggle.dataset.togglePending=rowChanged(row)?'1':'0';window.paintToggle?.(toggle,row.enabled,rowChanged(row));actions.append(toggle);
-   actions.append(button('Удалить',()=>{rows=rows.filter(value=>value.id!==row.id);persist();draw();},true));
+   actions.append(button('Удалить',()=>{rows=rows.filter(value=>value.id!==row.id);leaseRequests=leaseRequests.filter(request=>request.client_row_id!==row.id);persist();draw();},true));
   }
  }
  if(!list.length){const cell=body.insertRow().insertCell();cell.colSpan=4;cell.textContent='Нет клиентов по заданному запросу';}
@@ -85,6 +99,7 @@ function draw(){
  const prev=button('Назад',()=>{view.page--;draw();});prev.disabled=view.page===1;
  const next=button('Далее',()=>{view.page++;draw();});next.disabled=view.page===pages;pagination.append(prev,label,next);
  updateStatus();
+ renderDhcp();
 }
 const addRow=document.getElementById('client-add-row')||button('Добавить клиента',()=>{});
 addRow.id='client-add-row';addRow.disabled=!seed.state.live||!Object.keys(seed.state.lists).length;
@@ -99,5 +114,74 @@ for(const key of ['q','source','status'])search.elements[key].value=view[key]||'
 function find(){const values=new FormData(search);for(const key of ['q','source','status'])view[key]=String(values.get(key)||'');view.page=1;draw();const url=new URL(location.href);for(const key of ['q','source','status']){if(view[key])url.searchParams.set(key,view[key]);else url.searchParams.delete(key);}history.replaceState(null,'',url);}
 search.addEventListener('submit',event=>{event.preventDefault();find();});
 document.getElementById('clients-search-reset').addEventListener('click',()=>{search.reset();find();});
+const dhcpBody=document.getElementById('dhcp-table-body'),dhcpStatus=document.getElementById('dhcp-status');
+const routeLabels={RULES:'По общим правилам',BYPASS:'Через RouterOS (NAT)',SELECTOR:'Основной маршрут',LOADBALANCE:'Балансировка'};
+function assignedRoute(address){
+ let best=null;
+ try{
+  const number=ip(address);
+  for(const row of rows){
+   if(!row.enabled||!row.address)continue;
+   const [start,end]=interval(row.address);
+   if(start<=number&&number<=end&&(!best||end-start<best.size))best={route:row.route||'RULES',size:end-start};
+  }
+ }catch(e){}
+ return best?.route||'RULES';
+}
+function configureLease(lease,route){
+ const address=lease.active_ip||(!lease.dynamic?lease.ip:'');
+ if(!address||!seed.state.live)return;
+ const names=Object.keys(seed.state.lists),source=names.includes('uvpn-main-lan')?'uvpn-main-lan':names[0];
+ if(!source){dhcpStatus.textContent='Список клиентов контейнера в RouterOS не найден';return;}
+ let row=rows.find(item=>item.address===address);
+ if(!row){
+  row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:'',route,enabled:true};
+  rows.push(row);
+ }else{row.route=route;row.enabled=true;}
+ if(lease.dynamic&&!leaseRequests.some(request=>request.id===lease.id)){
+  leaseRequests.push({id:lease.id,ip:lease.ip,mac:lease.mac,server:lease.server,client_id:lease.client_id,client_row_id:row.id});
+ }
+ persist();
+ search.elements.q.value=address;search.elements.source.value='';search.elements.status.value='';find();
+ document.querySelector('.clients-panel')?.scrollIntoView({block:'start',behavior:'smooth'});
+}
+function renderDhcp(){
+ if(!dhcpBody)return;
+ dhcpBody.replaceChildren();
+ if(!dhcpLeases.length){const cell=dhcpBody.insertRow().insertCell();cell.colSpan=6;cell.textContent='Аренд DHCP пока нет';return;}
+ for(const lease of dhcpLeases){
+  const tr=dhcpBody.insertRow();
+  const device=tr.insertCell();device.textContent=lease.comment||lease.host||lease.mac||'—';
+  if(lease.comment&&lease.host&&lease.comment!==lease.host){const host=document.createElement('small');host.textContent=lease.host;device.append(host);}
+  const server=document.createElement('small');server.textContent=lease.server||'—';device.append(server);
+  tr.insertCell().textContent=lease.active_ip||lease.ip||'—';
+  tr.insertCell().textContent=lease.mac||'—';
+  const state=tr.insertCell();state.textContent=(lease.dynamic?'Динамическая':'Закреплена')+' · '+(lease.status||'—');
+  const seen=document.createElement('small');seen.textContent=lease.last_seen||lease.expires_after||'';state.append(seen);
+  const select=document.createElement('select');select.setAttribute('aria-label','Маршрут DHCP-клиента '+(lease.ip||lease.mac));
+  for(const value of seed.routes){const option=document.createElement('option');option.value=value;option.textContent=routeLabels[value]||value.replace(/^CHANNEL-/,'');select.append(option);}
+  select.value=assignedRoute(lease.active_ip||lease.ip);tr.insertCell().append(select);
+  const action=tr.insertCell(),ready=!!(lease.active_ip||(!lease.dynamic&&lease.ip))&&!lease.disabled&&seed.state.live;
+  const pending=leaseRequests.some(request=>request.id===lease.id);
+  const configured=rows.some(row=>row.address===(lease.active_ip||lease.ip));
+  const configure=button(pending?'Закрепление ожидает':lease.dynamic?'Закрепить и настроить':configured?'Изменить маршрут':'Настроить маршрут',()=>configureLease(lease,select.value));
+  configure.disabled=!ready;action.append(configure);
+ }
+}
+let dhcpLoading=false;
+async function refreshDhcp(){
+ if(dhcpLoading||document.visibilityState==='hidden')return;
+ dhcpLoading=true;
+ try{
+  const response=await fetch('/api/clients/dhcp',{cache:'no-store'}),data=await response.json();
+  if(!response.ok||!data.ok)throw Error(data.message||'RouterOS не ответил');
+  dhcpLeases=data.leases||[];dhcpStatus.textContent='Аренд DHCP: '+dhcpLeases.length;renderDhcp();
+ }catch(e){dhcpStatus.textContent='Не удалось прочитать DHCP-аренды: '+e.message;}
+ finally{dhcpLoading=false;}
+}
 draw();
+refreshDhcp();
+document.getElementById('dhcp-refresh')?.addEventListener('click',refreshDhcp);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshDhcp();});
+setInterval(refreshDhcp,30000);
 })();
