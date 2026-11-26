@@ -364,12 +364,12 @@ body .proxy-manager :is(.vpn-subscription-form,.vpn-subscription-filters) :is(in
 .vpn-auto{margin-top:12px;font-weight:400}
 .vpn-auto summary{cursor:pointer;font-size:15px;font-weight:700}
 body .proxy-manager .vpn-auto[open] summary{margin-bottom:10px}
-body .proxy-manager .vpn-auto .vpn-subscription-form{display:grid;grid-template-columns:120px repeat(3,minmax(0,1fr)) 120px;align-items:end;gap:12px;margin:0;min-width:0}
+body .proxy-manager .vpn-auto .vpn-subscription-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 120px 120px;align-items:end;gap:12px;margin:0;min-width:0}
 body .proxy-manager .vpn-auto .vpn-subscription-form label{display:grid;align-content:end;gap:6px;min-width:0;margin:0;font-size:14px;font-weight:500;line-height:20px}
-body .proxy-manager .vpn-auto .vpn-subscription-form label:first-of-type{display:flex;align-items:center;height:40px;gap:8px}
-body .proxy-manager .vpn-auto .vpn-subscription-form input[type=checkbox]{width:18px!important;min-width:18px;height:18px;margin:0}
 body .proxy-manager .vpn-auto .vpn-subscription-form input[type=number]{width:100%;min-width:0;height:40px;margin:0;padding:7px 10px;font-size:14px}
 body .proxy-manager .vpn-auto .vpn-subscription-form button{width:100%!important;min-width:0!important;height:40px;min-height:40px;margin:0;padding:7px 10px;white-space:nowrap!important;font-size:14px}
+body .proxy-manager .vpn-auto .vpn-auto-toggle[data-toggle-on="1"]{background:#128038;border-color:#128038;color:#fff;font-weight:700}
+body .proxy-manager .vpn-auto .vpn-auto-toggle[data-toggle-on="0"]{background:#c62828;border-color:#c62828;color:#fff;font-weight:700}
 .subscription-table [hidden]{display:none!important}
 body .proxy-manager-table.subscription-table .vpn-group-heading th{width:auto;background:var(--ui-surface-alt);padding:10px 12px}
 .vpn-group-bar,.vpn-group-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
