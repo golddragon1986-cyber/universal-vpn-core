@@ -59,6 +59,9 @@ def recover(journal):
         if journal.get('clients'):
             import client_batch
             client_batch.restore(router,journal['clients'])
+        elif journal.get('transit_policy'):
+            import client_policy
+            client_policy.restore(router,journal['transit_policy'])
         restore_external(router,journal['external'])
     rr.sync_container(router.routes(),reload=False)
     rr.clear_intent()
@@ -98,8 +101,11 @@ def apply(data, report=lambda _stage:None, after_commit=None, job_id=None, *, pr
         if not force and fingerprint(original)==fingerprint([{**value,'net':net} for net,value in desired.items()]):return 'Изменений маршрутов нет'
         before=rr.saved_files();external=external_snapshot(router)
         old_networks=rr.service_networks((rr.ROOT/'default_config_candidate.yaml').read_text())
+        import client_policy
+        transit_policy=client_policy.owned_snapshot(router) if not client_plan else None
         journal={'action':'route_apply','committed':False,'job_id':job_id,'external':external}
         if client_plan:journal['clients']=client_plan
+        else:journal['transit_policy']=transit_policy
         write(rr.JOURNAL,json.dumps(journal).encode())
         try:
             report('Проверка и сборка нового набора маршрутов')
@@ -136,13 +142,16 @@ def apply(data, report=lambda _stage:None, after_commit=None, job_id=None, *, pr
             import boot_config
             module=boot_config.apply_module();module.put_config()
             from routing_panel import read_settings,set_global_proxy
-            set_global_proxy(read_settings()['main_proxy']);module.save_last_good()
+            set_global_proxy(read_settings()['main_proxy'])
+            if not client_plan:client_policy.sync_transit(router)
             if fingerprint(snapshot(router.routes()))!=fingerprint([{**row,'net':net} for net,row in desired.items()]):raise RuntimeError('RouterOS не подтвердил итоговые маршруты')
+            module.save_last_good()
         except Exception as error:
             try:
                 if client_plan:
                     import client_batch
                     client_batch.restore(router,client_plan)
+                else:client_policy.restore(router,transit_policy)
                 restore_external(router,external)
                 rr.rollback_files(before)
                 rr.sync_service_routes(old_networks)

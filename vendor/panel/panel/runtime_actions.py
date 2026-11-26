@@ -21,6 +21,8 @@ def flush_dns(report=lambda _: None):
     report('Очистка DNS-кеша контейнера')
     try:
         api('/cache/dns/flush', 'POST')
+        import dns_response_cache
+        dns_response_cache.clear()
     except Exception as error:
         errors.append('Контейнер: ' + str(error))
     report('Очистка DNS-кеша RouterOS')

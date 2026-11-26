@@ -132,7 +132,8 @@ def render_routing_panel():
         labels = {}
         options = []
         for name in choices:
-            label = name[len("CHANNEL-"):] if name.startswith("CHANNEL-") else name
+            label = ("TRANSIT · контейнер → NAT RouterOS" if name == "TRANSIT" else
+                     name[len("CHANNEL-"):] if name.startswith("CHANNEL-") else name)
             mark = " selected" if name == selected else ""
             current_class = ' class="current-route"' if name == selected else ""
             options.append(

@@ -74,7 +74,8 @@ def read_settings():
 
 
 def tunnel_mode():
-    return not read_settings()["fake_ip"]
+    from routing_panel import resolve_target
+    return not read_settings()["fake_ip"] or resolve_target() == "TRANSIT"
 
 
 def route_ports(values=None):
@@ -178,7 +179,11 @@ def parse_settings(form):
 
 
 def apply_settings(text):
+    from transit_mode import with_group, with_sniffer
+    text = with_sniffer(with_group(text))
     if not SETTINGS.exists():
+        if tunnel_mode():
+            text = re.sub(r"(?m)^(  enhanced-mode:)\s*[^\n]+", r"\1 redir-host", text)
         return with_probe_listener(text)
     values = read_settings()
     original = dns_section(text)
@@ -192,10 +197,10 @@ def apply_settings(text):
     section = re.sub(r"(?m)^(    ['\"]rule-set:RU-BLOCKED[^\n]*['\"]:\n)(?:      - [^\n]*\n)+",
                      lambda m: m[1] + '      - "tcp://127.0.0.1:1054"\n', section)
     from routing_panel import resolve_target
-    inherited_answer = "real-ip" if resolve_target() == "DIRECT" else "fake-ip"
+    inherited_answer = "real-ip" if resolve_target() in {"DIRECT", "TRANSIT"} else "fake-ip"
     section = re.sub(r"(?m)^(    - RULE-SET,RU-BLOCKED(?:-LOCAL)?,)(?:fake-ip|real-ip)$",lambda m:m[1]+inherited_answer,section)
     text = text[:original.start()] + section + text[original.end():]
-    text = re.sub(r"(?m)^(  enhanced-mode:)\s*[^\n]+", lambda m: m[1] + (" fake-ip" if values["fake_ip"] else " redir-host"), text)
+    text = re.sub(r"(?m)^(  enhanced-mode:)\s*[^\n]+", lambda m: m[1] + (" redir-host" if tunnel_mode() else " fake-ip"), text)
     # The new FakeIP control only changes DNS; restore the old mode's traffic fallback.
     text = re.sub(r"(?m)^  - MATCH,SELECTOR # DNS-TUNNEL-DEFAULT:([^\s]+)$", r"  - MATCH,\1", text)
     from local_dns_zones import configure

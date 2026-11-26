@@ -230,6 +230,8 @@ def main():
     new_networks = service_networks(new_text)
     new_text = with_service_tun_routes(new_text, template_text)
     routes_synced = False
+    transit_snapshot = None
+    settings_written = False
 
     directory = os.path.dirname(CANDIDATE)
     rollback_fd, backup = tempfile.mkstemp(prefix=".apply-rollback-", dir=directory)
@@ -253,6 +255,9 @@ def main():
             routes_synced = True
         if routing_settings != original_settings:
             write_routing_settings(routing_settings)
+            settings_written = True
+        from client_policy import sync_transit
+        transit_snapshot = sync_transit()
         if flush_dns_caches:
             for cache_path in ("/cache/fakeip/flush", "/cache/dns/flush"):
                 try:
@@ -272,6 +277,18 @@ def main():
         )
 
     except Exception:
+        if settings_written:
+            if original_settings:
+                write_routing_settings(original_settings)
+            else:
+                os.unlink(SETTINGS)
+        if transit_snapshot is not None:
+            try:
+                from client_policy import restore as restore_transit
+                from router_routes import Router
+                restore_transit(Router(), transit_snapshot)
+            except Exception as rollback_error:
+                print("WARNING: TRANSIT policy rollback failed:", rollback_error)
         shutil.copy2(backup, CANDIDATE)
         if routes_synced:
             try:

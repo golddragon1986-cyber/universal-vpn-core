@@ -68,6 +68,7 @@ proxy-groups:
     proxies:
       - DIRECT
       - LOADBALANCE
+      - TRANSIT
       # BEGIN SELECTOR-CHANNELS
       # END SELECTOR-CHANNELS
   - name: LOADBALANCE
@@ -82,6 +83,10 @@ proxy-groups:
       # BEGIN BALANCE-CHANNELS
       - DIRECT
       # END BALANCE-CHANNELS
+  - name: TRANSIT
+    type: select
+    proxies:
+      - DIRECT
   # BEGIN SERVICE-CHANNEL-GROUPS
   # END SERVICE-CHANNEL-GROUPS
 rules:

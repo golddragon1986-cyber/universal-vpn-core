@@ -5,6 +5,7 @@ import threading
 import time
 import logging
 import http.client
+import dns_response_cache
 
 from dns_panel import read_settings, bootstrap_servers, exchange, read_name, receive
 
@@ -35,6 +36,10 @@ def resolve(packet, route=None):
         servers = ([{'name':zone['name'],'address':server,'route':'DIRECT'} for server in zone['servers']]
                    if zone else [r for r in values['servers'] if r['enabled']])
         if zone:route=None
+        cache_key = None if zone else (route, packet[2:], repr(values))
+        if cache_key is not None:
+            cached = dns_response_cache.get(cache_key, packet)
+            if cached is not None: return cached
         bootstrap = bootstrap_servers(values)
         deadline = time.monotonic() + 4.0
         for index, row in enumerate(servers):
@@ -46,7 +51,9 @@ def resolve(packet, route=None):
                                   routed=route if route else False if row['route'] == 'DIRECT' else row['route'],
                                   raw=True, request=packet, timeout=timeout)
                 # Negative answers are final; transient/protocol failures try the next DNS.
-                if answer[3] & 15 in (0, 3): return answer
+                if answer[3] & 15 in (0, 3):
+                    if cache_key is not None: dns_response_cache.put(cache_key, answer)
+                    return answer
             except (OSError, ValueError, struct.error, http.client.HTTPException) as error:
                 logging.debug('DNS upstream %s failed: %s', row['name'], error)
         return failure(packet)

@@ -46,7 +46,7 @@ def apply(text):
         for position,item in enumerate(items):
             if not item.get('enabled',True) or item.get('target')=='PASS':continue
             target=item.get('target') or 'SELECTOR'
-            if target not in {'SELECTOR','DIRECT','REJECT','LOADBALANCE'} and not target.startswith('CHANNEL-'):target='CHANNEL-'+target
+            if target not in {'SELECTOR','DIRECT','TRANSIT','REJECT','LOADBALANCE'} and not target.startswith('CHANNEL-'):target='CHANNEL-'+target
             for net in service_networks(item):add(net,target,100,position)
         exported = sorted(map(str, entries))
         for position,(net,item) in enumerate(manual.items()):

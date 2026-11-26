@@ -97,7 +97,7 @@ def import_connections(src,kind='auto',name='VPN',client='mihomo'):
  from vpn_import import parse,unique
  src=fetch(src.strip()) if src.strip().startswith('https://') and not urllib.parse.urlsplit(src.strip()).username else src
  old=read();new=json.loads(json.dumps(old))
- used={x['proxy']['name'] for x in new['nodes']}|{'DIRECT','REJECT','GLOBAL','SELECTOR','LOADBALANCE','PASS','COMPATIBLE'}
+ used={x['proxy']['name'] for x in new['nodes']}|{'DIRECT','REJECT','GLOBAL','SELECTOR','LOADBALANCE','TRANSIT','PASS','COMPATIBLE'}
  nodes=[unique(x,used) for x in parse(src,kind,name)]
  if not nodes or len(nodes)>100:raise ValueError('Можно добавить от 1 до 100 соединений')
  # Validate before writing the managed database, without exposing credentials in errors.

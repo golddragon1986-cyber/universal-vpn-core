@@ -1078,7 +1078,7 @@ class Handler(BaseHTTPRequestHandler):
             dns_label = "RealIP"
             if target in {"REJECT", "BLOCK"}:
                 dns_label = "NODOMAIN"
-            elif fake_mode and ((owner is not None and target != "DIRECT") or (owner is None and legacy_fake and resolve_target() != "DIRECT")):
+            elif fake_mode and ((owner is not None and target not in {"DIRECT", "TRANSIT"}) or (owner is None and legacy_fake and resolve_target() not in {"DIRECT", "TRANSIT"})):
                 dns_label = "FakeIP"
             if owner is None and domain in local_dns and settings.get("services_enabled", True):
                 dns_label = local_dns[domain]

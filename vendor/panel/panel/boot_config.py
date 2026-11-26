@@ -127,6 +127,13 @@ def ready(*, reload_config=False):
             module.save_last_good()
             from client_policy import runtime as client_runtime
             client_runtime()
+            try:
+                from client_policy import sync_transit
+                sync_transit()
+            except Exception:
+                from transit_mode import active as transit_active
+                if transit_active():raise
+                print('TRANSIT policy: RouterOS synchronization deferred',flush=True)
             print("STARTUP READY: full configuration, proxy providers and selected route verified",flush=True)
             return
         except Exception as error:

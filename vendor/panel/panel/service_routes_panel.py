@@ -357,6 +357,7 @@ def write_services(items):
 ROUTE_LABELS = {
     "SELECTOR": "Основной маршрут",
     "LOADBALANCE": "Балансировка (LOADBALANCE)",
+    "TRANSIT": "Контейнер → NAT RouterOS (TRANSIT)",
     "DIRECT": "Напрямую (DIRECT)",
     "REJECT": "Блокировать (REJECT)",
     "PASS": "Разрешить (PASS)",
@@ -390,7 +391,7 @@ def route_targets():
         for name in members
         if isinstance(name, str) and name and name not in ROUTE_LABELS
     })
-    for standard in ("LOADBALANCE", "DIRECT", "REJECT", "PASS"):
+    for standard in ("LOADBALANCE", "TRANSIT", "DIRECT", "REJECT", "PASS"):
         if standard in groups:
             targets.append(standard)
 

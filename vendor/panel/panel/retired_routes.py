@@ -5,7 +5,7 @@ from durable_io import write
 import router_routes as rr
 
 def disable_missing(groups,names=()):
-    available=set(groups)|set(names)|{'SELECTOR','DIRECT','LOADBALANCE','REJECT','PASS','BLOCK'}
+    available=set(groups)|set(names)|{'SELECTOR','DIRECT','LOADBALANCE','TRANSIT','REJECT','PASS','BLOCK'}
     targets=rr.read_targets();changed=False
     for value in targets.values():
         if value.get('target','SELECTOR') not in available:

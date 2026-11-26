@@ -234,7 +234,7 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
         for node in sorted(previous_nodes, key=lambda n: (bool(n.get("stale")), not n.get("balance", False))):
             existing.setdefault(identity(clients.canonical(node)), node)
         used = {n["proxy"]["name"] for n in new["nodes"]} | {
-            "DIRECT", "REJECT", "GLOBAL", "SELECTOR", "LOADBALANCE", "PASS", "COMPATIBLE",
+            "DIRECT", "REJECT", "GLOBAL", "SELECTOR", "LOADBALANCE", "TRANSIT", "PASS", "COMPATIBLE",
         }
         seen = set()
         retained = set()

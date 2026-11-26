@@ -105,7 +105,7 @@ group_names = make_group_names(proxy_names)
 from retired_routes import disable_missing
 disable_missing(group_names.values(),group_names.keys())
 with open(DATA,encoding='utf-8') as source:services=json.load(source)
-standard_targets = {"SELECTOR", "LOADBALANCE", "DIRECT", "REJECT", "PASS"}
+standard_targets = {"SELECTOR", "LOADBALANCE", "TRANSIT", "DIRECT", "REJECT", "PASS"}
 rules = []
 fake_ip_rules = []
 seen = set()
@@ -158,7 +158,7 @@ for service_index, service in enumerate(services):
             rules.append(f"  - RULE-SET,{provider},{actual_target}")
             if actual_target != "PASS":
                 service_providers.append(provider)
-                answer = "real-ip" if policy_target in {"DIRECT", "REJECT"} else "fake-ip"
+                answer = "real-ip" if policy_target in {"DIRECT", "TRANSIT", "REJECT"} else "fake-ip"
                 fake_ip_rules.append(f"    - RULE-SET,{provider},{answer}")
     if networks:
         from router_routes import validate_destination
@@ -191,7 +191,7 @@ for service_index, service in enumerate(services):
             rules.append("  - " + (json.dumps(route_rule, ensure_ascii=False) if rule_type in {"DOMAIN-KEYWORD", "DOMAIN-REGEX"} else route_rule))
         if actual_target != "PASS":
             service_domains.append(f"{rule_type},{value}")
-            answer = "real-ip" if policy_target in {"DIRECT", "REJECT"} else "fake-ip"
+            answer = "real-ip" if policy_target in {"DIRECT", "TRANSIT", "REJECT"} else "fake-ip"
             fake_rule = f"{rule_type},{value},{answer}"
             fake_ip_rules.append("    - " + (json.dumps(fake_rule, ensure_ascii=False) if rule_type in {"DOMAIN-KEYWORD", "DOMAIN-REGEX"} else fake_rule))
     if service_domains:

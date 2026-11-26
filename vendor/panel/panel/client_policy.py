@@ -66,6 +66,8 @@ def compose(text):
 
 def runtime():
     """Only forwarded client packets enter TUN; container upstreams keep main."""
+    from transit_mode import active as transit_active
+    capture = transit_active()
     rows=[(net,row) for net,row in effective(read()) if row.get('route','RULES') not in {'RULES','BYPASS'}]
     def run(args,check=True):
         p=subprocess.run(['ip',*args],capture_output=True,text=True,timeout=10)
@@ -75,7 +77,7 @@ def runtime():
     for line in run(['-4','rule','show']).splitlines():
         match=re.match(r'(\d+):',line)
         if match and (4000<=int(match[1])<8100 or 10900<=int(match[1])<15000) and re.search(r'lookup 206\b',line):run(['-4','rule','del','pref',match[1]])
-    if not rows:
+    if not rows and not capture:
         run(['-4','route','flush','table','206'],False);return
     links=list(Path('/sys/class/net').iterdir())
     tunnels=[p.name for p in links if (p/'tun_flags').exists()]
@@ -86,6 +88,8 @@ def runtime():
     run(['-4','route','replace','table','206','default','dev',tunnels[0]])
     for index,(net,row) in enumerate(rows):
         run(['-4','rule','add','pref',str(4000+index),'iif',ingress,'from',str(net),'lookup','206'])
+    if capture:
+        run(['-4','rule','add','pref','8099','iif',ingress,'lookup','206'])
 
 def owned_snapshot(router):
     return {path:[row for row in router.call(path) if row.get('comment')==TAG]
@@ -106,22 +110,48 @@ def prepend(router,path,data):
 def restore(router,saved):
     clear(router)
     allowed={'routing/table':{'name','fib','comment'},'ip/route':{'dst-address','gateway','routing-table','distance','comment','disabled'}}
-    firewall={'chain','action','src-address','dst-address','dst-address-type','in-interface-list','connection-state','new-routing-mark','passthrough','jump-target','protocol','dst-port','to-addresses','to-ports','comment','disabled'}
+    firewall={'chain','action','src-address','dst-address','dst-address-type','in-interface-list','out-interface-list','connection-state','new-routing-mark','passthrough','jump-target','protocol','dst-port','to-addresses','to-ports','comment','disabled'}
     for path in ('routing/table','ip/route','ip/firewall/filter','ip/firewall/nat','ip/firewall/mangle'):
         for row in reversed(saved.get(path,[])):
             data={k:v for k,v in row.items() if k in allowed.get(path,firewall)}
             if path.startswith('ip/firewall/'):prepend(router,path,data)
             else:router.call(path,'PUT',data)
 
+def sync_transit(router=None):
+    """Rebuild RouterOS ingress only when full LAN capture changed."""
+    from transit_mode import active as transit_active
+    router=router or rr.Router()
+    mangle=router.call('ip/firewall/mangle')
+    nat=router.call('ip/firewall/nat')
+    installed=any(row.get('comment')==TAG and row.get('chain')==CHAIN
+                  and row.get('action')=='mark-routing'
+                  and row.get('src-address','') in {'','0.0.0.0/0'}
+                  for row in mangle)
+    dns_ready=all(any(row.get('comment')==TAG and row.get('chain')==DNS_CHAIN
+                      and row.get('protocol')==protocol and not row.get('src-address')
+                      and row.get('action')=='dst-nat' and row.get('to-ports')=='53'
+                      for row in nat) for protocol in ('udp','tcp'))
+    if installed==transit_active() and (not installed or dns_ready):return None
+    from client_panel import read_state
+    previous=owned_snapshot(router)
+    try:apply(router,read(),read_state(router,cache=False))
+    except Exception:
+        restore(router,previous)
+        raise
+    return previous
+
+
 def apply(router,rows,state):
+    from transit_mode import active as transit_active
+    capture=transit_active()
     clear(router)
     entries=effective(rows)
-    if not any(row.get('route','RULES')!='RULES' for _,row in entries):return
+    if not capture and not any(row.get('route','RULES')!='RULES' for _,row in entries):return
     def add(path,data):
         data={**data,'comment':TAG}
         if 'place-before' in data:prepend(router,path,data)
         else:router.call(path,'PUT',data)
-    forced=any(row.get('route','RULES') not in {'RULES','BYPASS'} for _,row in entries)
+    forced=capture or any(row.get('route','RULES') not in {'RULES','BYPASS'} for _,row in entries)
     if forced:
         add('routing/table',{'name':TABLE,'fib':True})
         add('ip/route',{'dst-address':'0.0.0.0/0','gateway':'172.31.41.2@main','routing-table':TABLE})
@@ -143,7 +173,17 @@ def apply(router,rows,state):
         # Established traffic must not be fasttracked into the main table.
         for field in ('src-address','dst-address'):
             add('ip/firewall/filter',{'chain':'forward',field:str(net),'connection-state':'established,related','action':'accept','place-before':'0'})
+    if capture:
+        # Specific BYPASS clients above keep their WAN route. Unmatched LAN
+        # sources enter the TUN, where the final DIRECT exits via RouterOS NAT.
+        add('ip/firewall/mangle',{'chain':CHAIN,'action':'mark-routing','new-routing-mark':TABLE,'passthrough':False})
+        for protocol in ('udp','tcp'):
+            add('ip/firewall/nat',{'chain':DNS_CHAIN,'protocol':protocol,'dst-port':'53',
+                                  'action':'dst-nat','to-addresses':'172.31.41.2','to-ports':'53'})
+        for field in ('in-interface-list','out-interface-list'):
+            add('ip/firewall/filter',{'chain':'forward',field:'LAN',
+                                      'connection-state':'established,related','action':'accept','place-before':'0'})
     add('ip/firewall/mangle',{'chain':'prerouting','in-interface-list':'LAN','action':'jump','jump-target':CHAIN,'place-before':'0'})
-    if entries:
+    if entries or capture:
         add('ip/firewall/nat',{'chain':'dstnat','in-interface-list':'LAN','protocol':'udp','dst-port':'53','action':'jump','jump-target':DNS_CHAIN,'place-before':'0'})
         add('ip/firewall/nat',{'chain':'dstnat','in-interface-list':'LAN','protocol':'tcp','dst-port':'53','action':'jump','jump-target':DNS_CHAIN,'place-before':'0'})
