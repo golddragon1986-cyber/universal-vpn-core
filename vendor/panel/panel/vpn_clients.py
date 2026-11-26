@@ -10,7 +10,7 @@ XR=ROOT/'panel-xray.json'
 LOCK=threading.RLock()
 IDLE=Path('/tmp/sing-box-idle')
 NAMES={'mihomo':'Mihomo','sing-box':'sing-box','xray':'Xray'}
-TLS_PROFILES=('chrome','firefox','safari','edge','randomized','randomizednoalpn')
+TLS_PROFILES=('chrome','firefox','safari','ios','android','edge','360','qq','random','randomized','randomizednoalpn')
 
 def users(engine):
     import proxy_manager
@@ -116,9 +116,12 @@ def convert(p,engine):
         p.pop('encryption')
     if typ not in ('vless','vmess','trojan','ss','socks5','http','hysteria2','anytls'):
         raise ValueError('Перенос протокола '+typ+' в '+NAMES[engine]+' пока не поддерживается')
-    allowed(p,{'name','type','server','port','uuid','flow','udp','tls','servername','sni','client-fingerprint','skip-cert-verify','reality-opts','network','ws-opts','grpc-opts','password','username','cipher','alterId'})
+    allowed(p,{'name','type','server','port','uuid','flow','udp','tls','servername','sni','client-fingerprint','skip-cert-verify','reality-opts','network','ws-opts','grpc-opts','http-opts','xhttp-opts','xray-raw','xray-finalmask','password','username','cipher','alterId','encryption'})
     net=p.get('network','tcp')
-    if net not in ('tcp','ws','grpc'):raise ValueError('Транспорт '+net+' нельзя перенести в выбранный клиент')
+    supported={'sing-box':('tcp','ws','grpc','http','httpupgrade','quic'),'xray':('tcp','ws','grpc','xhttp','mkcp','httpupgrade')}
+    if net not in supported.get(engine,()):raise ValueError('Транспорт '+net+' нельзя перенести в выбранный клиент')
+    if engine!='xray' and (p.get('xray-raw') or p.get('xray-finalmask')):
+        raise ValueError('Raw-камуфляж и FinalMask поддерживаются только Xray')
     reality=p.get('reality-opts',{})
     allowed(reality,{'public-key','short-id','support-x25519mlkem768','spider-x'})
     if engine=='sing-box':
@@ -145,6 +148,13 @@ def convert(p,engine):
         if net=='grpc':
             g=p.get('grpc-opts',{});allowed(g,{'grpc-service-name'})
             out['transport']={'type':'grpc','service_name':g.get('grpc-service-name','')}
+        if net=='http':
+            h=p.get('http-opts',{});allowed(h,{'path','headers'})
+            host=h.get('headers',{}).get('Host',[])
+            out['transport']={'type':'http','path':(h.get('path') or ['/'])[0]}
+            if host:out['transport']['host']=host
+        if net in ('httpupgrade','quic'):
+            out['transport']={'type':net}
         return out
     if engine!='xray':raise ValueError('Неизвестный клиент')
     if typ in ('hysteria2','anytls'):raise ValueError('Этот протокол не поддерживается адаптером Xray')
@@ -163,7 +173,7 @@ def convert(p,engine):
         if typ=='ss':server['method']=p['cipher']
         if typ in ('socks5','http') and p.get('username'):server['users']=[{'user':p['username'],'pass':p.get('password','')}]
         out['settings']={'servers':[server]}
-    stream={'network':net,'security':'none'}
+    stream={'network':{'tcp':'raw','mkcp':'kcp'}.get(net,net),'security':'none'}
     if p.get('tls') or typ=='trojan':
         stream['security']='reality' if reality else 'tls'
         opts={'serverName':p.get('servername',p.get('sni',p['server'])),'fingerprint':xray_reality_fingerprint(p)}
@@ -176,6 +186,18 @@ def convert(p,engine):
         w=p.get('ws-opts',{});allowed(w,{'path','headers'});stream['wsSettings']=copy.deepcopy(w)
     if net=='grpc':
         g=p.get('grpc-opts',{});allowed(g,{'grpc-service-name'});stream['grpcSettings']={'serviceName':g.get('grpc-service-name','')}
+    if net=='tcp' and p.get('xray-raw'):
+        raw=p['xray-raw'];allowed(raw,{'type','host','path'})
+        if raw.get('type')!='http':raise ValueError('Неизвестный тип raw-камуфляжа')
+        request={'path':[raw.get('path') or '/']}
+        if raw.get('host'):request['headers']={'Host':[raw['host']]}
+        stream['rawSettings']={'header':{'type':'http','request':request}}
+    if net=='xhttp':
+        x=p.get('xhttp-opts',{});allowed(x,{'path','host'})
+        stream['xhttpSettings']=copy.deepcopy(x)
+    if net=='httpupgrade':stream['httpupgradeSettings']={}
+    if net=='mkcp':stream['kcpSettings']={}
+    if p.get('xray-finalmask'):stream['finalmask']=copy.deepcopy(p['xray-finalmask'])
     out['streamSettings']=stream
     return out
 

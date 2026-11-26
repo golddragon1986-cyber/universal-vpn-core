@@ -1,4 +1,4 @@
-"""Edit a managed VPN connection while retaining its existing client."""
+"""Edit a managed VPN connection and its client in one transaction."""
 import copy
 import hashlib
 import html
@@ -29,14 +29,13 @@ body .proxy-manager .proxy-manager-table .vpn-traffic{font-size:12px;white-space
 body .vpn-editor{width:min(760px,calc(100vw - 36px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box;padding:22px;background:var(--ui-surface,#171e2b);color:var(--ui-text,#f4f7ff);border:1px solid var(--ui-border,#344056);border-radius:12px}
 body .vpn-editor::backdrop{background:rgba(0,0,0,.7)}
 body .vpn-editor h2{margin:0 0 8px}
-body .vpn-editor h3{margin:18px 0 8px}
 body .vpn-editor-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 body .vpn-editor-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 body .vpn-editor-fields label,body .vpn-editor-json{display:grid;gap:4px;min-width:0}
 body .vpn-editor :is(input,select,textarea){width:100%;min-width:0;box-sizing:border-box;margin:0}
 body .vpn-editor-json textarea{min-height:280px;font-family:monospace}
 body .vpn-editor-buttons{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
-body .vpn-editor .vpn-client-form{border-top:1px solid var(--ui-border);padding-top:10px}
+body .vpn-editor-section{grid-column:1/-1;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--ui-border);font-weight:700}
 </style><script>
 document.addEventListener('click',event=>{
  const open=event.target.closest('[data-vpn-editor]');
@@ -45,6 +44,18 @@ document.addEventListener('click',event=>{
  if(close)document.getElementById(close.dataset.closeEditor)?.close();
 });
 document.addEventListener('DOMContentLoaded',()=>{
+ document.querySelectorAll('.vpn-editor').forEach(dialog=>{
+  const form=dialog.querySelector('form'),client=form?.elements.client,network=form?.elements.network;
+  if(!client||!network)return;
+  function refresh(){
+   const engine=client.value;
+   for(const option of network.options)option.disabled=!!option.dataset.engines&&!option.dataset.engines.split(',').includes(engine);
+   if(network.selectedOptions[0]?.disabled)network.value='tcp';
+   for(const block of form.querySelectorAll('[data-network-fields],[data-engine-fields]'))block.hidden=(!!block.dataset.networkFields&&!block.dataset.networkFields.split(',').includes(network.value))||(!!block.dataset.engineFields&&!block.dataset.engineFields.split(',').includes(engine))||(block.dataset.networkFields==='tcp,http'&&network.value==='tcp'&&engine!=='xray');
+   for(const block of form.querySelectorAll('[data-tls-fields]'))block.hidden=form.elements.tls_mode.value!==block.dataset.tlsFields;
+  }
+  form.addEventListener('change',refresh);refresh();
+ });
  const cells=[...document.querySelectorAll('.vpn-country[data-vpn-host]')];
  const localFlags={
   FI:'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="18" viewBox="0 0 24 18"><path fill="#fff" d="M0 0h24v18H0z"/><path fill="#003580" d="M7 0h4v18H7zM0 7h24v4H0z"/></svg>',
@@ -74,39 +85,60 @@ def render(node):
     name = node['proxy']['name']
     e = lambda value: html.escape(str(value or ''), quote=True)
     ident = dialog_id(name)
+    engine = vpn_clients.current(node)
+    client_options = ''.join('<option value="' + key + '"' + (' selected' if key == engine else '') + (' disabled' if not vpn_clients.binary(key) else '') + '>' + e(label) + (_ui(' · не установлен') if not vpn_clients.binary(key) else '') + '</option>' for key, label in vpn_clients.NAMES.items())
+    client_field = '<label><span>' + _ui('Клиент VPN') + '</span><select name="client">' + client_options + '</select></label>'
     fields = []
     if profile.get('type') == 'vless' and 'xray_outbound' not in profile:
         reality = profile.get('reality-opts') or {}
         mode = 'reality' if reality else 'tls' if profile.get('tls') else 'none'
-        def field(label, key, value, kind='text'):
-            return '<label><span>' + _ui(label) + '</span><input type="' + kind + '" name="' + key + '" value="' + e(value) + '"></label>'
+        def field(label, key, value, kind='text', extra=''):
+            return '<label' + extra + '><span>' + _ui(label) + '</span><input type="' + kind + '" name="' + key + '" value="' + e(value) + '"></label>'
         def choice(label, key, current, values):
-            options = ''.join('<option value="' + e(value) + '"' + (' selected' if value == current else '') + '>' + _ui(text) + '</option>' for value, text in values)
+            options = ''.join('<option value="' + e(value) + '"' + (' selected' if value == current else '') + (' data-engines="' + engines + '"' if engines else '') + '>' + _ui(text) + '</option>' for value, text, engines in values)
             return '<label><span>' + _ui(label) + '</span><select name="' + key + '">' + options + '</select></label>'
+        net = profile.get('network', 'tcp')
+        ws = profile.get('ws-opts') or {}
+        grpc = profile.get('grpc-opts') or {}
+        raw = profile.get('xray-raw') or {}
+        http_opts = profile.get('http-opts') or {}
+        xhttp = profile.get('xhttp-opts') or {}
+        fingerprint = node.get('tls_fingerprint') or profile.get('client-fingerprint', 'chrome')
         fields.extend((
+            client_field,
             field('Адрес', 'server', profile.get('server', '')),
             field('Порт', 'port', profile.get('port', ''), 'number'),
             field('UUID (id)', 'uuid', profile.get('uuid', '')),
-            field('Управление потоком (Flow)', 'flow', profile.get('flow', '')),
-            field('Шифрование', 'encryption', profile.get('encryption', 'none')),
-            choice('Транспорт', 'network', profile.get('network', 'tcp'), [('tcp', 'raw / TCP'), ('ws', 'WebSocket'), ('grpc', 'gRPC')]),
-            choice('TLS', 'tls_mode', mode, [('none', 'Нет'), ('tls', 'TLS'), ('reality', 'REALITY')]),
+            choice('Управление потоком (Flow)', 'flow', profile.get('flow', ''), [('', 'Нет', ''), ('xtls-rprx-vision', 'xtls-rprx-vision', ''), ('xtls-rprx-vision-udp443', 'xtls-rprx-vision-udp443', 'xray')]),
+            choice('Транспорт', 'network', net, [('tcp', 'raw / TCP', ''), ('ws', 'WebSocket', ''), ('grpc', 'gRPC', ''), ('http', 'HTTP', 'mihomo,sing-box'), ('h2', 'HTTP/2', 'mihomo'), ('xhttp', 'XHTTP', 'mihomo,xray'), ('mkcp', 'mKCP', 'xray'), ('httpupgrade', 'HTTP Upgrade', 'sing-box,xray'), ('quic', 'QUIC', 'sing-box')]),
+            '<div class="vpn-editor-section">' + _ui('Транспорт и камуфляж') + '</div>',
+            choice('Тип raw-камуфляжа', 'raw_type', raw.get('type', 'none'), [('none', 'none', ''), ('http', 'HTTP', '')]).replace('<label>', '<label data-network-fields="tcp" data-engine-fields="xray">', 1),
+            field('HTTP Host', 'raw_host', raw.get('host', '') if net == 'tcp' else ((http_opts.get('headers') or {}).get('Host') or [''])[0], extra=' data-network-fields="tcp,http"'),
+            field('HTTP Path', 'raw_path', raw.get('path', '') if net == 'tcp' else (http_opts.get('path') or [''])[0], extra=' data-network-fields="tcp,http"'),
+            field('WebSocket Path', 'ws_path', ws.get('path', ''), extra=' data-network-fields="ws"'),
+            field('WebSocket Host', 'ws_host', (ws.get('headers') or {}).get('Host', ''), extra=' data-network-fields="ws"'),
+            field('gRPC Service Name', 'grpc_service', grpc.get('grpc-service-name', ''), extra=' data-network-fields="grpc"'),
+            field('XHTTP Path', 'xhttp_path', xhttp.get('path', ''), extra=' data-network-fields="xhttp"'),
+            field('XHTTP Host', 'xhttp_host', xhttp.get('host', ''), extra=' data-network-fields="xhttp"'),
+            field('FinalMask (JSON)', 'finalmask', json.dumps(profile.get('xray-finalmask') or {}, ensure_ascii=False), extra=' data-engine-fields="xray"'),
+            '<div class="vpn-editor-section">TLS / REALITY</div>',
+            choice('TLS', 'tls_mode', mode, [('none', 'Нет', ''), ('tls', 'TLS', ''), ('reality', 'REALITY', '')]),
             field('SNI', 'servername', profile.get('servername', '')),
-            field('Отпечаток', 'fingerprint', profile.get('client-fingerprint', '')),
-            field('Открытый ключ', 'public_key', reality.get('public-key', '')),
-            field('Short ID', 'short_id', reality.get('short-id', '')),
-            field('SpiderX', 'spider_x', reality.get('spider-x', '')),
+            choice('TLS-профиль (отпечаток)', 'fingerprint', fingerprint, [(fp, fp, '') for fp in vpn_clients.TLS_PROFILES]),
+            field('Открытый ключ', 'public_key', reality.get('public-key', ''), extra=' data-tls-fields="reality"'),
+            field('Short ID', 'short_id', reality.get('short-id', ''), extra=' data-tls-fields="reality"'),
+            field('SpiderX', 'spider_x', reality.get('spider-x', ''), extra=' data-tls-fields="reality"'),
         ))
         editor = '<div class="vpn-editor-fields">' + ''.join(fields) + '</div>'
     else:
-        editor = '<label class="vpn-editor-json"><span>' + _ui('Конфигурация соединения JSON') + '</span><textarea name="profile" rows="18" spellcheck="false">' + e(json.dumps(profile, ensure_ascii=False, indent=2)) + '</textarea></label>'
+        editor = '<div class="vpn-editor-fields">' + client_field + '</div><label class="vpn-editor-json"><span>' + _ui('Конфигурация соединения JSON') + '</span><textarea name="profile" rows="18" spellcheck="false">' + e(json.dumps(profile, ensure_ascii=False, indent=2)) + '</textarea></label>'
     return ('<dialog class="vpn-editor" id="' + ident + '"><h2>' + _ui('Редактировать соединение') + '</h2>'
             + '<p class="vpn-editor-name" title="' + e(name) + '">' + e(name) + '</p>'
             + '<form method="post" action="/action"><input type="hidden" name="action" value="vpn_edit">'
             + '<input type="hidden" name="name" value="' + e(name) + '">' + editor
             + '<div class="vpn-editor-buttons"><button type="submit">' + _ui('Сохранить') + '</button>'
             + '<button type="button" data-close-editor="' + ident + '">' + _ui('Отмена') + '</button></div></form>'
-            + '<h3>' + _ui('Клиент VPN') + '</h3>' + vpn_clients.form(node) + '</dialog>')
+            + '</dialog>')
 
 
 def update(name, data):
@@ -120,6 +152,12 @@ def update(name, data):
         if node is None:
             raise ValueError('Соединение не найдено')
         profile = clients.canonical(node)
+        previous_engine = clients.current(node)
+        engine = value('client')
+        if engine not in clients.NAMES:
+            raise ValueError('Неизвестный VPN-клиент')
+        if not clients.binary(engine):
+            raise ValueError('Сначала установите ' + clients.NAMES[engine] + ' во вкладке «Компоненты»')
         if profile.get('type') == 'vless' and 'xray_outbound' not in profile:
             server = value('server')
             if not server or len(server) > 253 or re.search(r'[\s/?#@]', server):
@@ -132,15 +170,61 @@ def update(name, data):
             if not 1 <= port <= 65535:
                 raise ValueError('Порт должен быть от 1 до 65535')
             network, tls_mode = value('network'), value('tls_mode')
-            if network not in {'tcp', 'ws', 'grpc'} or tls_mode not in {'none', 'tls', 'reality'}:
+            networks = {'mihomo': {'tcp', 'ws', 'grpc', 'http', 'h2', 'xhttp'}, 'sing-box': {'tcp', 'ws', 'grpc', 'http', 'httpupgrade', 'quic'}, 'xray': {'tcp', 'ws', 'grpc', 'xhttp', 'mkcp', 'httpupgrade'}}
+            if network not in networks[engine] or tls_mode not in {'none', 'tls', 'reality'}:
                 raise ValueError('Неверный транспорт или режим TLS')
+            old_network = profile.get('network', 'tcp')
             profile.update(server=server, port=port, uuid=uid, network=network)
+            if value('flow') not in {'', 'xtls-rprx-vision', 'xtls-rprx-vision-udp443'}:
+                raise ValueError('Неизвестный режим Flow')
+            if value('flow') == 'xtls-rprx-vision-udp443' and engine != 'xray':
+                raise ValueError('Flow UDP443 доступен только для Xray')
             for key, source in (('flow', 'flow'), ('servername', 'servername'), ('client-fingerprint', 'fingerprint')):
                 if value(source): profile[key] = value(source)
                 else: profile.pop(key, None)
-            if value('encryption') not in ('', 'none'):
-                raise ValueError('VLESS encryption поддерживает только none')
+            if value('fingerprint') not in clients.TLS_PROFILES:
+                raise ValueError('Неизвестный TLS-профиль')
             profile['encryption'] = 'none'
+            if old_network != network:
+                for key in ('ws-opts', 'grpc-opts', 'xhttp-opts', 'http-opts', 'xray-raw'):
+                    profile.pop(key, None)
+            if network == 'ws':
+                opts = dict(profile.get('ws-opts') or {})
+                opts['path'] = value('ws_path') or '/'
+                headers = dict(opts.get('headers') or {})
+                if value('ws_host'): headers['Host'] = value('ws_host')
+                else: headers.pop('Host', None)
+                if headers: opts['headers'] = headers
+                else: opts.pop('headers', None)
+                profile['ws-opts'] = opts
+            if network == 'grpc':
+                opts = dict(profile.get('grpc-opts') or {})
+                opts['grpc-service-name'] = value('grpc_service')
+                profile['grpc-opts'] = opts
+            if network == 'xhttp':
+                opts = dict(profile.get('xhttp-opts') or {})
+                opts['path'] = value('xhttp_path') or '/'
+                if value('xhttp_host'): opts['host'] = value('xhttp_host')
+                else: opts.pop('host', None)
+                profile['xhttp-opts'] = opts
+            if network == 'http':
+                opts = dict(profile.get('http-opts') or {})
+                opts['path'] = [value('raw_path') or '/']
+                headers = dict(opts.get('headers') or {})
+                if value('raw_host'): headers['Host'] = [value('raw_host')]
+                else: headers.pop('Host', None)
+                if headers: opts['headers'] = headers
+                else: opts.pop('headers', None)
+                profile['http-opts'] = opts
+            if network == 'tcp' and engine == 'xray' and value('raw_type') == 'http':
+                profile['xray-raw'] = {'type': 'http', 'host': value('raw_host'), 'path': value('raw_path') or '/'}
+            elif network == 'tcp': profile.pop('xray-raw', None)
+            if engine == 'xray':
+                try: mask = json.loads(value('finalmask') or '{}')
+                except ValueError: raise ValueError('Некорректный JSON FinalMask') from None
+                if not isinstance(mask, dict): raise ValueError('FinalMask должен быть объектом JSON')
+                if mask: profile['xray-finalmask'] = mask
+                else: profile.pop('xray-finalmask', None)
             if tls_mode == 'none':
                 profile.pop('tls', None)
                 profile.pop('reality-opts', None)
@@ -163,7 +247,13 @@ def update(name, data):
                 raise ValueError('Имя соединения в JSON должно совпадать с исходным')
         profile['name'] = name
         node['connection'] = profile
-        engine = clients.current(node)
+        node['client'] = engine
+        node.pop('tls_fingerprint', None)
+        if engine != 'xray':
+            profile.pop('xray-raw', None)
+            profile.pop('xray-finalmask', None)
+        if previous_engine == 'sing-box' and 'sing-box' not in node.setdefault('client_proxies', {}):
+            node['client_proxies']['sing-box'] = copy.deepcopy(node['proxy'])
         previous_file = None
         path = None
         if engine == 'mihomo':
@@ -176,6 +266,7 @@ def update(name, data):
             node.setdefault('client_ports', {})[engine] = port
             node['proxy'] = {'name': name, 'type': 'socks5', 'server': '127.0.0.1',
                              'port': port, 'udp': profile.get('udp', True)}
+            node.setdefault('client_proxies', {})[engine] = copy.deepcopy(node['proxy'])
         try:
             if path:
                 clients.write(path, json.dumps(cfg).encode(), 0o600)
@@ -194,4 +285,9 @@ def update(name, data):
                 except Exception: pass
             manager.sync()
             raise ValueError('Не удалось применить соединение; предыдущая конфигурация восстановлена') from None
+        if previous_engine != engine:
+            for unused in ('sing-box', 'xray'):
+                if not clients.users(unused):
+                    try: clients.pause_unused(unused)
+                    except Exception: pass
         return 'Соединение «' + name + '» обновлено'
