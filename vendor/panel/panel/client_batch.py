@@ -82,6 +82,18 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
             if (not lease or lease['ip']!=row['address']
                     or (lease['dynamic'] and lease['id'] not in pinned)):
                 raise ValueError('Новый DHCP-клиент не связан с закреплённой арендой')
+    active_hosts = {}
+    for row in desired:
+        if not row['enabled']:
+            continue
+        networks = client_policy.networks(row['address'])
+        if len(networks) != 1 or networks[0].prefixlen != 32:
+            continue
+        host = networks[0].network_address
+        from_dhcp = bool(row['dhcp_owner'])
+        if host in active_hosts and active_hosts[host] != from_dhcp:
+            raise ValueError(f'Конфликт маршрутов для {host}: уже включён маршрут для этого IP в другой таблице.')
+        active_hosts[host] = from_dhcp
     client_policy.effective(desired)
     return {'baseline':baseline,'before':state['raw'],'bindings':state['management_bindings'],
             'policy_before':client_policy.owned_snapshot(router),'state':state,

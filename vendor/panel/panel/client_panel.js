@@ -53,7 +53,20 @@ function matches(row){
  try{const [a,b]=interval(row.address),[c,d]=interval(q);return a<=d&&c<=b;}catch(e){return [row.address,row.name,row.label,row.list].some(v=>String(v).toLowerCase().includes(q));}
 }
 function persist(){
+ error=routeConflict();
+ if(error){updateStatus();return;}
  error='';window.configurationDraft?.set('clients',new URLSearchParams({action:'client_apply',client_token:seed.token,baseline,rows_baseline:seed.rows_baseline,clients:JSON.stringify(rows),lease_requests:JSON.stringify(leaseRequests),lease_actions:JSON.stringify(leaseActions)}));
+}
+function singleAddress(address){
+ try{const [first,last]=interval(address);return first===last?first:null;}catch(e){return null;}
+}
+function routeConflict(){
+ const owned=new Set(rows.filter(row=>row.enabled&&row.dhcp_owner).map(row=>singleAddress(row.address)));
+ const conflict=rows.find(row=>row.enabled&&!row.dhcp_owner&&singleAddress(row.address)!==null&&owned.has(singleAddress(row.address)));
+ return conflict?conflictMessage(conflict.address):'';
+}
+function conflictMessage(address){
+ return 'Конфликт маршрутов для '+address+': уже включён маршрут для этого IP в другой таблице.';
 }
 function button(text,fn,danger=false){const b=document.createElement('button');b.type='button';b.textContent=text;if(danger)b.className='danger';b.addEventListener('click',fn);b.disabled=!seed.state.live;return b;}
 function input(value,label,change){const field=document.createElement('input');field.value=value;field.setAttribute('aria-label',label);field.disabled=!seed.state.live;field.addEventListener('input',()=>{change(field.value);persist();updateStatus();});return field;}
@@ -162,8 +175,8 @@ const linkedRow=lease=>{
  return owner?rows.find(row=>row.dhcp_owner===owner):undefined;
 };
 function manualRoute(lease){
- const address=leaseAddress(lease);
- return address&&rows.find(row=>!row.dhcp_owner&&(row.address===address||row.address===address+'/32'));
+ const host=singleAddress(leaseAddress(lease));
+ return host===null?undefined:rows.find(row=>!row.dhcp_owner&&singleAddress(row.address)===host);
 }
 function pinLease(lease){
  if(!lease.dynamic||leaseRequests.some(request=>request.id===lease.id))return;
@@ -177,7 +190,8 @@ function configureLease(lease,route){
  const leaseName=String(lease.comment||lease.host||'').replace(/[\x00-\x1f]/g,' ').trim().slice(0,100);
  let row=linkedRow(lease);
  if(!row){
-  if(manualRoute(lease))return;
+  const manual=manualRoute(lease);
+  if(manual){error=manual.enabled?conflictMessage(address):'Для '+address+' уже есть запись в списке клиентов контейнера. Удалите её, чтобы задать маршрут DHCP.';draw();return;}
   const owner=leaseOwner(lease);
   if(!owner)return;
   row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:leaseName,route,enabled:!lease.disabled,dhcp_owner:owner};
@@ -242,9 +256,9 @@ function renderDhcp(){
   if(pending){const note=document.createElement('small');note.textContent='Станет статической после применения';state.append(note);}
   const select=document.createElement('select');select.setAttribute('aria-label','Маршрут DHCP-клиента '+(lease.ip||lease.mac));
   for(const value of seed.routes){const option=document.createElement('option');option.value=value;option.textContent=routeLabels[value]||value.replace(/^CHANNEL-/,'');select.append(option);}
-  const linked=linkedRow(lease),manual=linked?null:manualRoute(lease);
+  const linked=linkedRow(lease);
   select.value=effectiveDisabled?assignedRoute(leaseAddress(lease),true):linked?.route||assignedRoute(leaseAddress(lease));
-  select.disabled=!leaseAddress(lease)||Boolean(manual)||effectiveDisabled||action?.action==='unpin'||!seed.state.live;
+  select.disabled=!leaseAddress(lease)||effectiveDisabled||action?.action==='unpin'||!seed.state.live;
   const routeCell=tr.insertCell();
   if(effectiveDisabled){
    routeCell.textContent=select.selectedOptions[0]?.textContent||'—';
