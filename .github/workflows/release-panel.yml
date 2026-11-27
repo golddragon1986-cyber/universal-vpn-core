@@ -21,22 +21,51 @@ jobs:
           python-version: '3.x'
       - name: Build verified panel archive
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
           VERSION="$(tr -d '\r\n' < version/panel/VERSION)"
           mkdir -p dist
-          python scripts/build-panel-release.py "$VERSION" dist/panel.tar.gz > dist/release-info.json
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq panel.tar.gz; then
+            gh release download "$TAG" --pattern panel.tar.gz --dir dist
+          else
+            python scripts/build-panel-release.py "$VERSION" dist/panel.tar.gz > dist/release-info.json
+          fi
           python - <<'PY'
-          import json
+          import hashlib, json, tarfile
           from pathlib import Path
-          d=json.loads(Path('dist/release-info.json').read_text())
+          archive=Path('dist/panel.tar.gz')
+          with tarfile.open(archive, 'r:gz') as tar:
+              files={item.name.removeprefix('panel/'): item for item in tar.getmembers()}
+              manifest=json.load(tar.extractfile(files['panel-release.json']))
+              for item in manifest['files']:
+                  raw=tar.extractfile(files[item['name']]).read()
+                  assert len(raw)==item['size'] and hashlib.sha256(raw).hexdigest()==item['sha256']
+          assert manifest['version']==Path('version/panel/VERSION').read_text().strip()
+          d={'version':manifest['version'],'size':archive.stat().st_size,
+             'sha256':hashlib.sha256(archive.read_bytes()).hexdigest()}
+          Path('dist/release-info.json').write_text(json.dumps(d))
           print(f"::notice::Panel {d['version']} archive: {d['size']} bytes, SHA-256 {d['sha256']}")
           PY
       - name: Attach panel and stable installer to core release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG" dist/panel.tar.gz scripts/install-latest.rsc --clobber
+        run: |
+          if ! gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq panel.tar.gz; then
+            gh release upload "$TAG" dist/panel.tar.gz
+          fi
+          gh release upload "$TAG" scripts/install-latest.rsc --clobber
+          if gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fxq SHA256SUMS; then
+            gh release download "$TAG" --pattern SHA256SUMS --dir dist
+            tr -d '\r' < dist/SHA256SUMS | grep -Ev '  (panel\.tar\.gz|install-latest\.rsc)$' > dist/SHA256SUMS.next || true
+            sha256sum dist/panel.tar.gz | sed 's#  dist/#  #' >> dist/SHA256SUMS.next
+            sha256sum scripts/install-latest.rsc | sed 's#  scripts/#  #' >> dist/SHA256SUMS.next
+            mv dist/SHA256SUMS.next dist/SHA256SUMS
+            gh release upload "$TAG" dist/SHA256SUMS --clobber
+          fi
       - name: Update stable manifest on main
         env:
           GH_TOKEN: ${{ github.token }}
@@ -52,18 +81,20 @@ jobs:
           tag=os.environ['TAG']
           repository=os.environ['GITHUB_REPOSITORY']
           data={'version':info['version'],'tag':tag,
-                'url':f"https://raw.githubusercontent.com/{repository}/main/version/panel/{info['version']}/panel.tar.gz",
+                'url':f"https://github.com/{repository}/releases/download/{tag}/panel.tar.gz",
                 'sha256':info['sha256'],'size':info['size']}
           Path('dist/stable.json').write_text(json.dumps(data,indent=2)+'\n')
           PY
           git fetch origin main
           git switch -C main origin/main
           mkdir -p "version/panel/${VERSION}"
+          mkdir -p updates/panel
           cp dist/panel.tar.gz "version/panel/${VERSION}/panel.tar.gz"
           cp dist/stable.json version/panel/stable.json
+          cp dist/stable.json updates/panel/stable.json
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add version/panel/stable.json "version/panel/${VERSION}/panel.tar.gz"
+          git add version/panel/stable.json updates/panel/stable.json "version/panel/${VERSION}/panel.tar.gz"
           if ! git diff --cached --quiet; then
             git commit -m "Point panel updates to ${TAG}"
             git push origin main
