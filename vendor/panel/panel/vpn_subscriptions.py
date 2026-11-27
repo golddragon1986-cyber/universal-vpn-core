@@ -330,7 +330,11 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
                 retained.add(node["proxy"]["name"])
                 node_engine = clients.current(node)
             else:
-                normalized = unique({**source, "name": sub["name"] + "-" + source["name"]}, used)
+                source_name = re.sub(
+                    r"(?i)[\s_-]+\d+(?:[.,]\d+)?\s*(?:[KMGT]i?B)[\s_-]+\d+\s*D$",
+                    "", source["name"]
+                ).strip() or source["name"]
+                normalized = unique({**source, "name": sub["name"] + "-" + source_name}, used)
                 node = {"proxy": normalized, "balance": False, "subscription": subscription_id,
                         "source_key": key}
                 new["nodes"].append(node)
