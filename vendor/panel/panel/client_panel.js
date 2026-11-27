@@ -247,9 +247,6 @@ function renderDhcp(){
   select.disabled=!leaseAddress(lease)||Boolean(manual)||effectiveDisabled||action?.action==='unpin'||!seed.state.live;
   const routeCell=tr.insertCell();
   select.addEventListener('change',()=>configureLease(lease,select.value));routeCell.append(select);
-  if(manual){
-   const note=document.createElement('small');note.textContent=window.uiText('Маршрут задаётся в списке клиентов контейнера');routeCell.append(note);
-  }
   const actions=tr.insertCell(),buttons=document.createElement('div');buttons.className='dhcp-actions';actions.append(buttons);
   if(active){const pin=button(lease.dynamic?(pending?'Отменить закрепление':'Закрепить'):(action?.action==='unpin'?'Отменить отвязку':'Отвязать'),()=>togglePin(lease));pin.disabled=!seed.state.live;buttons.append(pin);}
   const toggle=button(effectiveDisabled?'Отключено':'Включено',()=>toggleLease(lease));
