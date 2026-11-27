@@ -140,12 +140,12 @@ function updateDhcpServers(){
 dhcpSearch.addEventListener('submit',event=>{event.preventDefault();const values=new FormData(dhcpSearch);for(const key of ['q','server','status','type'])dhcpFilter[key]=String(values.get(key)||'').trim();renderDhcp();});
 document.getElementById('dhcp-search-reset').addEventListener('click',()=>{dhcpSearch.reset();dhcpFilter={q:'',server:'',status:'',type:''};renderDhcp();});
 const routeLabels={RULES:'По общим правилам',BYPASS:'Через RouterOS (NAT)',SELECTOR:'Основной маршрут',LOADBALANCE:'Балансировка'};
-function assignedRoute(address){
+function assignedRoute(address, containerOnly=false){
  let best=null;
  try{
   const number=ip(address);
   for(const row of rows){
-   if(!row.enabled||!row.address)continue;
+   if(!row.enabled||!row.address||(containerOnly&&row.dhcp_owner))continue;
    const [start,end]=interval(row.address);
    if(start<=number&&number<=end&&(!best||end-start<best.size))best={route:row.route||'RULES',size:end-start};
   }
@@ -243,10 +243,15 @@ function renderDhcp(){
   const select=document.createElement('select');select.setAttribute('aria-label','Маршрут DHCP-клиента '+(lease.ip||lease.mac));
   for(const value of seed.routes){const option=document.createElement('option');option.value=value;option.textContent=routeLabels[value]||value.replace(/^CHANNEL-/,'');select.append(option);}
   const linked=linkedRow(lease),manual=linked?null:manualRoute(lease);
-  select.value=effectiveDisabled?assignedRoute(leaseAddress(lease)):linked?.route||assignedRoute(leaseAddress(lease));
+  select.value=effectiveDisabled?assignedRoute(leaseAddress(lease),true):linked?.route||assignedRoute(leaseAddress(lease));
   select.disabled=!leaseAddress(lease)||Boolean(manual)||effectiveDisabled||action?.action==='unpin'||!seed.state.live;
   const routeCell=tr.insertCell();
-  select.addEventListener('change',()=>configureLease(lease,select.value));routeCell.append(select);
+  if(effectiveDisabled){
+   routeCell.textContent=select.selectedOptions[0]?.textContent||'—';
+  }else{
+   select.addEventListener('change',()=>configureLease(lease,select.value));
+   routeCell.append(select);
+  }
   const actions=tr.insertCell(),buttons=document.createElement('div');buttons.className='dhcp-actions';actions.append(buttons);
   if(active){const pin=button(lease.dynamic?(pending?'Отменить закрепление':'Закрепить'):(action?.action==='unpin'?'Отменить отвязку':'Отвязать'),()=>togglePin(lease));pin.disabled=!seed.state.live;buttons.append(pin);}
   const toggle=button(effectiveDisabled?'Отключено':'Включено',()=>toggleLease(lease));
