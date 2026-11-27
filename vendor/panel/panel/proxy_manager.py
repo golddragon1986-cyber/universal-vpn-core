@@ -194,6 +194,12 @@ def write_text_atomic(path,text):
  finally:
   if os.path.exists(tmp): os.unlink(tmp)
 
+def client_route_references(names):
+ import client_policy
+ targets={'CHANNEL-'+re.sub(r'[^A-Za-z0-9_-]+','-',name).strip('-'):name for name in names}
+ return [(row['address'],targets[row['route']]) for row in client_policy.read()
+         if row['enabled'] and row.get('route') in targets]
+
 def delete_many(names=(), *, subscription=None):
  d=read(); old=json.loads(json.dumps(d))
  if subscription is not None:
@@ -203,6 +209,10 @@ def delete_many(names=(), *, subscription=None):
  else:
   names=list(dict.fromkeys(x for x in names if x))
   if not names: raise ValueError("Не выбраны прокси для удаления")
+ references=client_route_references(names)
+ if references:
+  address,node=references[0]
+  raise ValueError(f'Канал «{node}» используется клиентом или сетью {address}. Сначала измените маршрут во вкладке «Клиенты» и примените конфигурацию.')
  managed_names={x['proxy']['name'] for x in d['nodes']}
  native=[x for x in names if x not in managed_names]
  d['nodes']=[x for x in d['nodes'] if x['proxy']['name'] not in names]

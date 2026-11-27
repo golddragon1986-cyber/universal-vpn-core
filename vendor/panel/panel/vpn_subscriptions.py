@@ -347,6 +347,11 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
                 node["proxy"] = {"name": canonical["name"], "type": "socks5",
                                  "server": "127.0.0.1", "port": port, "udp": canonical.get("udp", True)}
         removed = {n["proxy"]["name"] for n in previous_nodes} - retained
+        referenced = {name for _, name in manager.client_route_references(removed)}
+        for node in previous_nodes:
+            if node["proxy"]["name"] in referenced:
+                node["stale"] = True
+        removed -= referenced
         if removed:
             new["nodes"] = [n for n in new["nodes"] if n["proxy"]["name"] not in removed]
             for name in removed:
@@ -393,7 +398,7 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
                     clients.ensure_runtime(node_engine)
             manager.sync()
             raise ValueError("Не удалось применить обновление подписки.") from None
-        return f"Подписка обновлена. Уникальных узлов: {len(seen)}. Удалено устаревших или повторных записей: {len(removed)}. Дублей в ответе пропущено: {len(incoming) - len(seen)}."
+        return f"Подписка обновлена. Уникальных узлов: {len(seen)}. Удалено устаревших или повторных записей: {len(removed)}. Дублей в ответе пропущено: {len(incoming) - len(seen)}. Сохранено каналов, используемых клиентами: {len(referenced)}."
 
 
 def refresh_info(subscription_id):
