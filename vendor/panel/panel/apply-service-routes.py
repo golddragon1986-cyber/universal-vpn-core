@@ -232,6 +232,8 @@ def main():
     routes_synced = False
     transit_snapshot = None
     settings_written = False
+    from transit_mode import active as transit_active
+    capture_desired = transit_active()
 
     directory = os.path.dirname(CANDIDATE)
     rollback_fd, backup = tempfile.mkstemp(prefix=".apply-rollback-", dir=directory)
@@ -250,14 +252,17 @@ def main():
         # The controller parses the candidate before applying it.
         put_config()
         verified = verify(check_domains)
-        if old_networks != new_networks:
+        from client_policy import sync_transit
+        if capture_desired:
+            transit_snapshot = sync_transit()
+        if old_networks != new_networks or capture_desired:
             sync_service_routes(new_networks)
             routes_synced = True
         if routing_settings != original_settings:
             write_routing_settings(routing_settings)
             settings_written = True
-        from client_policy import sync_transit
-        transit_snapshot = sync_transit()
+        if not capture_desired:
+            transit_snapshot = sync_transit()
         if flush_dns_caches:
             for cache_path in ("/cache/fakeip/flush", "/cache/dns/flush"):
                 try:

@@ -38,6 +38,16 @@ def with_sniffer(text):
     return text.rstrip() + '\n' + block
 
 
+def with_fallback(text):
+    """Captured traffic not matched by a TRANSIT rule follows the main route."""
+    text = text.replace('  - MATCH,SELECTOR # TRANSIT-FALLBACK\n',
+                        '  - MATCH,DIRECT\n')
+    if active():
+        text = re.sub(r'(?m)^  - MATCH,DIRECT$',
+                      '  - MATCH,SELECTOR # TRANSIT-FALLBACK', text, count=1)
+    return text
+
+
 def active():
     from routing_panel import read_settings
     settings = read_settings()

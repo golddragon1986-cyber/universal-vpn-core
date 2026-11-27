@@ -137,13 +137,16 @@ def apply(data, report=lambda _stage:None, after_commit=None, job_id=None, *, pr
                     router.call('routing/rule','PUT',{'src-address':'172.31.41.2/32','dst-address':net,'action':'lookup-only-in-table','table':router.cfg['bypass_table'],'comment':rr.PREFIX+'return path'})
                     router.call('ip/route','PUT',payload)
             new_networks=rr.service_networks((rr.ROOT/'default_config_candidate.yaml').read_text())
-            rr.sync_service_routes(new_networks)
             report('Реконфигурация Mihomo')
             import boot_config
             module=boot_config.apply_module();module.put_config()
             from routing_panel import read_settings,set_global_proxy
             set_global_proxy(read_settings()['main_proxy'])
-            if not client_plan:client_policy.sync_transit(router)
+            from transit_mode import active as transit_active
+            capture_desired=transit_active()
+            if not client_plan and capture_desired:client_policy.sync_transit(router)
+            rr.sync_service_routes(new_networks)
+            if not client_plan and not capture_desired:client_policy.sync_transit(router)
             if fingerprint(snapshot(router.routes()))!=fingerprint([{**row,'net':net} for net,row in desired.items()]):raise RuntimeError('RouterOS не подтвердил итоговые маршруты')
             module.save_last_good()
         except Exception as error:

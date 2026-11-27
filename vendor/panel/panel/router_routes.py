@@ -143,16 +143,21 @@ def service_networks(text):
     return nets
 
 def with_service_tun_routes(text, template):
+    from transit_mode import active as transit_active
     pattern = r'(?m)^  route-address:\n((?:^    - .*\n)*)'
     baseline = re.search(pattern, template)
     entries = baseline[1].splitlines(keepends=True) if baseline else []
+    present = set(entries)
     fake_entry = f'    - {FAKE}\n'
-    if fake_entry not in entries:
+    if fake_entry not in present:
         entries.insert(0, fake_entry)
-    for net in sorted(service_networks(text)):
-        line = f'    - {net}\n'
-        if line not in entries:
-            entries.append(line)
+        present.add(fake_entry)
+    if not transit_active():
+        for net in sorted(service_networks(text)):
+            line = f'    - {net}\n'
+            if line not in present:
+                entries.append(line)
+                present.add(line)
     route_addresses = '  route-address:\n'+''.join(entries)
     updated, count = re.subn(pattern, lambda _: route_addresses, text, count=1)
     if count:
@@ -160,6 +165,9 @@ def with_service_tun_routes(text, template):
     return re.sub(r'(?m)^tun:\n', lambda _: 'tun:\n'+route_addresses, text, count=1)
 
 def sync_service_routes(networks):
+    from transit_mode import active as transit_active
+    if transit_active():
+        networks = set()
     if not configured():
         return
     with LOCK:

@@ -86,7 +86,10 @@ def prepare():
         write(RUNTIME,text.encode())
     finally:
         if os.path.exists(tmp):os.unlink(tmp)
-    if networks or previous_networks or SERVICE_STATE.exists():
+    from transit_mode import active as transit_active
+    # The catchall RouterOS policy is installed after Mihomo starts. Until then,
+    # retain existing per-network routes; the watcher removes them afterward.
+    if not transit_active() and (networks or previous_networks or SERVICE_STATE.exists()):
         try:
             sync_service_routes(networks)
         except Exception as error:

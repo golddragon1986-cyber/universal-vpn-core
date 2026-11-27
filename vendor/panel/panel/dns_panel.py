@@ -179,8 +179,8 @@ def parse_settings(form):
 
 
 def apply_settings(text):
-    from transit_mode import with_group, with_sniffer
-    text = with_sniffer(with_group(text))
+    from transit_mode import with_group, with_sniffer, with_fallback
+    text = with_fallback(with_sniffer(with_group(text)))
     if not SETTINGS.exists():
         if tunnel_mode():
             text = re.sub(r"(?m)^(  enhanced-mode:)\s*[^\n]+", r"\1 redir-host", text)

@@ -18,14 +18,16 @@ EXPORT_END='# END SERVICE-NETWORK-EXPORT\n'
 
 
 def apply(text):
+    from transit_mode import active as transit_active
     from service_routes_panel import read_services
     from geodata_service_files import provider_file, mrs_command
     from routes_table_ui import service_networks
     import router_routes
     from routing_panel import read_settings
     items=read_services() if read_settings().get('services_enabled',True) else []
+    capture=transit_active()
     manual=router_routes.read_targets()
-    signature=[manual]
+    signature=[manual,capture]
     for item in items:
         files=[]
         for name in item.get('geo_sets',[]):
@@ -48,7 +50,7 @@ def apply(text):
             target=item.get('target') or 'SELECTOR'
             if target not in {'SELECTOR','DIRECT','TRANSIT','REJECT','LOADBALANCE'} and not target.startswith('CHANNEL-'):target='CHANNEL-'+target
             for net in service_networks(item):add(net,target,100,position)
-        exported = sorted(map(str, entries))
+        exported = [] if capture else sorted(map(str, entries))
         for position,(net,item) in enumerate(manual.items()):
             if item.get('enabled',True):add(net,item['target'],item.get('metric',100),len(items)+position)
         groups={}

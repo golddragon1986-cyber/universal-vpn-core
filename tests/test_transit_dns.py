@@ -88,6 +88,15 @@ class CacheTests(unittest.TestCase):
 
 
 class TransitTests(unittest.TestCase):
+    def test_unmatched_capture_uses_main_route_and_restores_direct(self):
+        source = (PANEL / 'default-config.yaml').read_text(encoding='utf-8')
+        with patch.object(transit, 'active', return_value=True):
+            captured = transit.with_fallback(source)
+            self.assertIn('  - MATCH,SELECTOR # TRANSIT-FALLBACK\n', captured)
+            self.assertEqual(transit.with_fallback(captured), captured)
+        with patch.object(transit, 'active', return_value=False):
+            self.assertEqual(transit.with_fallback(captured), source)
+
     def test_main_and_standalone_rule_enable_capture(self):
         routing = types.SimpleNamespace(read_settings=lambda: {
             'main_proxy': 'DIRECT', 'services_enabled': True})
