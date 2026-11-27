@@ -29,7 +29,7 @@ class SubscriptionUserinfoTests(unittest.TestCase):
         self.assertIn("2 ГиБ", rendered)
         self.assertIn("10 ГиБ", rendered)
         self.assertIn("Осталось", rendered)
-        self.assertIn("UTC", rendered)
+        self.assertIn("MSK", rendered)
 
     def test_unlimited_and_no_expiry(self):
         rendered = subscriptions.usage_html(

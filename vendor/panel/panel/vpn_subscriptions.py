@@ -15,6 +15,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
+from zoneinfo import ZoneInfo
 
 import proxy_manager as manager
 import vpn_clients as clients
@@ -143,7 +144,7 @@ def usage_html(usage):
             parts.append(_ui("Без срока действия"))
         else:
             try:
-                date = datetime.fromtimestamp(expiry, timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
+                date = datetime.fromtimestamp(expiry, ZoneInfo("Europe/Moscow")).strftime("%d.%m.%Y %H:%M MSK")
                 parts.append(f'{_ui("Срок до")} {date}')
             except (OverflowError, OSError, ValueError):
                 pass
