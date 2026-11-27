@@ -14,6 +14,7 @@ LABELS = {
  "configuration_apply":"Применение конфигурации",
  "subscription_add":"Добавление VPN-подписки",
  "subscription_refresh":"Обновление VPN-подписки",
+ "subscription_info_refresh":"Обновление данных VPN-подписки",
  "subscription_delete":"Удаление VPN-подписки",
  "subscription_automation":"Настройки автобалансировки подписки",
  "vpn_client":"Выбор VPN-клиента",

@@ -233,6 +233,7 @@ window.uiCatalog = {
   "Ожидаем связь с панелью. Принятые действия сохранены в очереди.": "Waiting for the panel connection. Accepted actions are saved in the queue.",
   "Использовано": "Used",
   "Лимит и срок: провайдер не сообщил": "Quota and expiry: not provided",
+  "Обновить данные": "Refresh data",
   "Осталось": "Remaining",
   "без лимита": "unlimited",
   "Лимит": "Quota",

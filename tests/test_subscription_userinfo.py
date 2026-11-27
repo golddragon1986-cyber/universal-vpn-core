@@ -1,6 +1,7 @@
 """Provider subscription limits stay separate from local VPN traffic counters."""
 
 import sys
+import copy
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -50,6 +51,21 @@ class SubscriptionUserinfoTests(unittest.TestCase):
             body, usage = subscriptions.fetch("https://example.com/start", "standard")
         self.assertEqual(body, "vless://example")
         self.assertEqual(usage, {"upload": 2, "download": 3, "total": 10})
+
+    def test_info_refresh_updates_only_subscription_metadata(self):
+        db = {"nodes": [{"proxy": {"name": "vpn"}}],
+              "subscriptions": {"id": {"name": "sample", "url": "https://example.com/token",
+                                       "profile": "standard", "updated": "old"}}}
+        writes = []
+        with patch.object(subscriptions.manager, "read", side_effect=lambda: copy.deepcopy(db)), \
+                patch.object(subscriptions.manager, "put", side_effect=lambda path, value: writes.append((path, value))), \
+                patch.object(subscriptions, "fetch", return_value=("node data", {"total": 100, "download": 20})):
+            subscriptions.refresh_info("id")
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(writes[0][0], subscriptions.manager.DB)
+        self.assertEqual(writes[0][1]["nodes"], db["nodes"])
+        self.assertEqual(writes[0][1]["subscriptions"]["id"]["updated"], "old")
+        self.assertEqual(writes[0][1]["subscriptions"]["id"]["usage"], {"total": 100, "download": 20})
 
 
 if __name__ == "__main__":

@@ -381,6 +381,25 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
         return f"Подписка обновлена. Уникальных узлов: {len(seen)}. Удалено устаревших или повторных записей: {len(removed)}. Дублей в ответе пропущено: {len(incoming) - len(seen)}."
 
 
+def refresh_info(subscription_id):
+    """Update provider usage without touching nodes, routes, or VPN clients."""
+    with clients.LOCK:
+        sub = manager.read().get("subscriptions", {}).get(subscription_id)
+        if sub is None:
+            raise ValueError("Подписка не найдена.")
+        url, profile = sub["url"], sub["profile"]
+    _, usage = fetch(url, profile)
+    with clients.LOCK:
+        db = manager.read()
+        sub = db.get("subscriptions", {}).get(subscription_id)
+        if sub is None or (sub["url"], sub["profile"]) != (url, profile):
+            raise ValueError("Подписка изменилась во время обновления данных.")
+        sub["usage"] = usage
+        sub["usage_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        manager.put(manager.DB, db)
+    return "Данные подписки обновлены." if usage else "Провайдер не передал лимит и срок действия."
+
+
 def handle(action, data):
     def field(name, default=""):
         return data.get(name, [default])[0].strip()
@@ -388,6 +407,8 @@ def handle(action, data):
         return refresh(uuid.uuid4().hex, field("name"), field("url"), field("client"), field("profile"))
     if action == "subscription_refresh":
         return refresh(field("subscription"))
+    if action == "subscription_info_refresh":
+        return refresh_info(field("subscription"))
     if action == "subscription_automation":
         sid = field("subscription")
         limits = {"refresh": (5, 10080), "target": (1, 32), "grace": (1, 1440)}
@@ -444,6 +465,6 @@ def render():
         groups[sid] = (sub["name"],
                      f'<small class="vpn-group-meta">{escape(clients.NAMES[sub["engine"]])} · {escape(_ui(PROFILES[sub["profile"]]))}'
                      f' · {escape(sub.get("updated", "—"))}</small>{usage_html(sub.get("usage"))}',
-                     ''.join(('<form method="post" action="/action"><input type="hidden" name="action" value="subscription_refresh"><input type="hidden" name="subscription" value="', f'{escape(sid)}', _ui('"><button type="submit">Обновить подписку</button></form>'))),
+                     ''.join(('<form method="post" action="/action"><input type="hidden" name="action" value="subscription_info_refresh"><input type="hidden" name="subscription" value="', f'{escape(sid)}', _ui('"><button type="submit">Обновить данные</button></form><form method="post" action="/action"><input type="hidden" name="action" value="subscription_refresh"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', _ui('"><button type="submit">Обновить подписку</button></form>'))),
                      ''.join((_ui('<form class="vpn-group-delete" method="post" action="/action" onsubmit="return confirm(\'Удалить подписку и все её соединения?\')"><input type="hidden" name="action" value="subscription_delete"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', _ui('"><button type="submit">Удалить</button></form>'))), controls)
     return manager.render(navigation(True), subscription_controls="".join(parts), subscription_groups=groups)

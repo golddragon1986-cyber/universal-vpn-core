@@ -188,7 +188,7 @@ document.addEventListener("submit",async event=>{
  try{
   const r=await fetch("/api/actions/queue",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:data});
   const result=await r.json();if(!r.ok||!result.ok)throw new Error(result.message||"Не удалось добавить действие");
-  if(["subscription_add","subscription_refresh","subscription_delete","subscription_automation"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
+  if(["subscription_add","subscription_refresh","subscription_info_refresh","subscription_delete","subscription_automation"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
   if(["service_geodata_import","service_refresh_geodata","service_update_source","service_set_target","service_move","service_reorder","service_toggle","service_delete","service_save"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
   if(form.classList.contains("domain-toggle"))viewRefreshJobs.add(result.job_id);
   if(["dns_flush","core_restart"].includes(data.get("action"))){maintenanceJobs.set(result.job_id,form);form.dataset.inlineBusy="1";maintenanceLock(form,true);}
@@ -238,7 +238,7 @@ async function poll(){
   for(const component of acknowledged)submittedComponents.delete(component);
   renderComponentLocks();
   const failed=data.jobs.filter(j=>j.status==="failed");
-  if(pending){wasPending=true;box.hidden=false;title.textContent="Применяется: "+data.running+". В очереди: "+data.queued+".";refresh.hidden=true;}
+  if(pending){box.hidden=false;title.textContent="Применяется: "+data.running+". В очереди: "+data.queued+".";refresh.hidden=true;}
   else if(wasPending){box.hidden=false;title.textContent=failed.length?"Очередь завершена. Есть ошибки — откройте список действий.":"Все изменения применены.";refresh.hidden=false;
    if(vpnDone.length&&!requests){wasPending=false;try{sessionStorage.removeItem("mihomo-actions-pending");}catch(e){}}
    else if(!dirty()&&!requests&&!box.open&&!inlineRouteJobs.size){reloadView();return;}}
