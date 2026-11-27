@@ -388,12 +388,12 @@ body .proxy-manager-table.subscription-table .vpn-group-heading th{width:auto;ba
 .vpn-group-actions form{margin:0}
 body .proxy-manager .subscription-table .vpn-group-delete button{background:#c62828;border-color:#c62828;color:#fff}
 body .proxy-manager .subscription-table .vpn-group-delete button:hover{background:#a91f1f;border-color:#a91f1f}
-body .proxy-manager .subscription-table .vpn-group-bar button{width:auto!important;min-height:36px;padding:6px 9px;font-size:13px;white-space:nowrap}
-body .proxy-manager .subscription-table .vpn-group-toggle{display:flex;align-items:center;gap:8px;min-width:0;text-align:left;background:transparent;border-color:transparent}
+body .proxy-manager .subscription-table .vpn-group-bar button{width:auto!important;min-height:38px;padding:6px 9px;font-size:14px;white-space:nowrap}
+body .proxy-manager .subscription-table .vpn-group-toggle{display:flex;align-items:center;justify-content:flex-start;gap:8px;min-width:0;text-align:left;background:transparent;border-color:transparent}
 body .proxy-manager .subscription-table .vpn-group-toggle>span{display:block;min-width:0;overflow:hidden}
 .vpn-group-toggle::before{content:"▸"}.vpn-group-toggle[aria-expanded=true]::before{content:"▾"}
-.vpn-group-meta{display:inline;margin-left:6px;color:var(--ui-muted);font-size:12px;font-weight:400}
-.vpn-subscription-usage{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ui-text);font-size:12px;font-weight:500;line-height:1.3}
+.vpn-group-meta{display:inline;margin-left:6px;color:var(--ui-muted);font-size:14px;font-weight:400}
+.vpn-subscription-usage{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ui-text);font-size:14px;font-weight:500;line-height:1.3}
 @media(max-width:850px){.vpn-subscription-form,.vpn-subscription-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){body .subscription-table tbody tr.vpn-group-heading,body .subscription-table .vpn-group-heading th{display:block}}
 
