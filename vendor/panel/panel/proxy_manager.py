@@ -381,26 +381,19 @@ body .proxy-manager .vpn-subscription-add .vpn-subscription-form{grid-template-c
 body .proxy-manager .vpn-subscription-add .vpn-subscription-form label{margin:0}
 body .proxy-manager .vpn-subscription-add .vpn-subscription-form :is(input,select,button){height:40px;margin:0}
 body .proxy-manager .vpn-subscription-add .vpn-subscription-form button{width:100%;min-width:0;white-space:nowrap}
-.vpn-auto{margin-top:12px;font-weight:400}
-.vpn-auto summary{cursor:pointer;font-size:15px;font-weight:700}
-body .proxy-manager .vpn-auto[open] summary{margin-bottom:10px}
-body .proxy-manager .vpn-auto .vpn-subscription-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 120px 120px;align-items:end;gap:12px;margin:0;min-width:0}
-body .proxy-manager .vpn-auto .vpn-subscription-form label{display:grid;align-content:end;gap:6px;min-width:0;margin:0;font-size:14px;font-weight:500;line-height:20px}
-body .proxy-manager .vpn-auto .vpn-subscription-form input[type=number]{width:100%;min-width:0;height:40px;margin:0;padding:7px 10px;font-size:14px}
-body .proxy-manager .vpn-auto .vpn-subscription-form button{width:100%!important;min-width:0!important;height:40px;min-height:40px;margin:0;padding:7px 10px;white-space:nowrap!important;font-size:14px}
-body .proxy-manager .vpn-auto .vpn-auto-toggle[data-toggle-on="1"]{background:#128038;border-color:#128038;color:#fff;font-weight:700}
-body .proxy-manager .vpn-auto .vpn-auto-toggle[data-toggle-on="0"]{background:#c62828;border-color:#c62828;color:#fff;font-weight:700}
 .subscription-table [hidden]{display:none!important}
-body .proxy-manager-table.subscription-table .vpn-group-heading th{width:auto;background:var(--ui-surface-alt);padding:10px 12px}
-.vpn-group-bar,.vpn-group-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.vpn-group-bar{justify-content:space-between}
+body .proxy-manager-table.subscription-table .vpn-group-heading th{width:auto;background:var(--ui-surface-alt);padding:6px 10px}
+.vpn-group-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px}
+.vpn-group-actions{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.vpn-group-actions form{margin:0}
 body .proxy-manager .subscription-table .vpn-group-delete button{background:#c62828;border-color:#c62828;color:#fff}
 body .proxy-manager .subscription-table .vpn-group-delete button:hover{background:#a91f1f;border-color:#a91f1f}
-body .proxy-manager .subscription-table .vpn-group-bar button{width:auto!important;padding:8px 12px}
-body .proxy-manager .subscription-table .vpn-group-toggle{display:flex;align-items:center;gap:8px;text-align:left;background:transparent;border-color:transparent;min-height:40px}
+body .proxy-manager .subscription-table .vpn-group-bar button{width:auto!important;min-height:36px;padding:6px 9px;font-size:13px;white-space:nowrap}
+body .proxy-manager .subscription-table .vpn-group-toggle{display:flex;align-items:center;gap:8px;min-width:0;text-align:left;background:transparent;border-color:transparent}
+body .proxy-manager .subscription-table .vpn-group-toggle>span{display:block;min-width:0;overflow:hidden}
 .vpn-group-toggle::before{content:"▸"}.vpn-group-toggle[aria-expanded=true]::before{content:"▾"}
-.vpn-group-meta{display:block;margin-top:3px;color:var(--ui-muted);font-weight:400}
-.vpn-subscription-usage{display:block;margin-top:4px;color:var(--ui-text);font-size:13px;font-weight:500;line-height:1.35}
+.vpn-group-meta{display:inline;margin-left:6px;color:var(--ui-muted);font-size:12px;font-weight:400}
+.vpn-subscription-usage{display:block;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ui-text);font-size:12px;font-weight:500;line-height:1.3}
 @media(max-width:850px){.vpn-subscription-form,.vpn-subscription-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){body .subscription-table tbody tr.vpn-group-heading,body .subscription-table .vpn-group-heading th{display:block}}
 

@@ -125,7 +125,6 @@ function subscriptionControls(){
   panel,
   add:panel.querySelector(".vpn-subscription-add"),
   groups:[...panel.querySelectorAll("[data-vpn-group]")],
-  automation:[...panel.querySelectorAll("[data-vpn-auto]")],
   tls:[...panel.querySelectorAll(".vpn-client-form details")],
   filters:[...panel.querySelectorAll("[data-vpn-filter]")]
  };
@@ -137,7 +136,6 @@ function saveSubscriptionView(){
  sessionStorage.setItem(subscriptionViewKey,JSON.stringify({
   add:view.add?.open,
   groups:view.groups.filter(group=>group.querySelector(".vpn-group-toggle").getAttribute("aria-expanded")==="true").map(group=>group.dataset.vpnGroup),
-  automation:view.automation.filter(details=>details.open).map(details=>details.dataset.vpnAuto),
   tls:view.tls.filter(details=>details.open).map(tlsNode),
   filters:Object.fromEntries(view.filters.map(filter=>[filter.dataset.vpnFilter,filter.value]))
  }));
@@ -150,7 +148,6 @@ document.addEventListener("DOMContentLoaded",()=>{
   if(view.add)view.add.open=Boolean(state.add);
   for(const group of view.groups)group.querySelector(".vpn-group-toggle").setAttribute("aria-expanded",String(state.groups.includes(group.dataset.vpnGroup)));
   for(const details of view.tls)details.open=state.tls.includes(tlsNode(details));
-  for(const details of view.automation)details.open=(state.automation||[]).includes(details.dataset.vpnAuto);
   for(const filter of view.filters){
    const value=state.filters[filter.dataset.vpnFilter];
    if([...filter.options].some(option=>option.value===value))filter.value=value;

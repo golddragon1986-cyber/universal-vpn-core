@@ -126,8 +126,9 @@ def format_bytes(value):
 
 def usage_html(usage):
     if not isinstance(usage, dict):
-        return f'<span class="vpn-subscription-usage">{html.escape(_ui("Лимит и срок: провайдер не сообщил"))}</span>'
+        return f'<span class="vpn-subscription-usage" data-vpn-usage>{html.escape(_ui("Лимит и срок: провайдер не сообщил"))}</span>'
     parts = []
+    summary = []
     upload, download, total, expiry = (usage.get(key) for key in ("upload", "download", "total", "expire"))
     if isinstance(upload, int) and isinstance(download, int):
         used = upload + download
@@ -136,21 +137,33 @@ def usage_html(usage):
             parts[-1] += f' / {format_bytes(total)}' if total else f' · {_ui("без лимита")}'
             if total:
                 parts.append(f'{_ui("Осталось")} {format_bytes(max(0, total - used))}')
+                summary.append(f'{_ui("Осталось")} {format_bytes(max(0, total - used))} / {format_bytes(total)}')
+            else:
+                summary.append(f'{format_bytes(used)} · {_ui("без лимита")}')
+        else:
+            summary.append(parts[-1])
         parts.append(f'↓ {format_bytes(download)} / ↑ {format_bytes(upload)}')
     elif isinstance(total, int):
         parts.append(f'{_ui("Лимит")} {format_bytes(total)}' if total else _ui("Без лимита трафика"))
+        summary.append(parts[-1])
     if isinstance(expiry, int):
         if expiry == 0:
             parts.append(_ui("Без срока действия"))
+            summary.append(_ui("Без срока действия"))
         else:
             try:
                 date = datetime.fromtimestamp(expiry, ZoneInfo("Europe/Moscow")).strftime("%d.%m.%Y %H:%M MSK")
                 parts.append(f'{_ui("Срок до")} {date}')
+                summary.append(f'{_ui("Срок до")} {date[:10]}')
             except (OverflowError, OSError, ValueError):
                 pass
     if not parts:
         parts.append(_ui("Лимит и срок: провайдер не сообщил"))
-    return '<span class="vpn-subscription-usage">' + html.escape(" · ".join(parts)) + '</span>'
+    if not summary:
+        summary = parts
+    return ('<span class="vpn-subscription-usage" data-vpn-usage title="'
+            + html.escape(" · ".join(parts), quote=True) + '">'
+            + html.escape(" · ".join(summary)) + '</span>')
 
 
 def xray_vless(outbound, name, engine):
@@ -350,6 +363,7 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
                     configs[node_engine] = (path, cleaned)
         sub["updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         sub["usage"] = usage
+        sub["usage_updated"] = sub["updated"]
         subscriptions[subscription_id] = sub
         for node_engine, (_, cfg) in configs.items():
             clients.validate(node_engine, cfg)
@@ -446,6 +460,34 @@ def navigation(subscriptions):
             '</style>')
 
 
+def usage_snapshot():
+    return {"subscriptions": {sid: usage_html(sub.get("usage"))
+                              for sid, sub in manager.read().get("subscriptions", {}).items()}}
+
+
+def automation_dialog(sid, sub):
+    e = lambda value: html.escape(str(value), quote=True)
+    auto = sub.get("automation", {})
+    enabled = bool(auto.get("enabled"))
+    fields = "".join(
+        f'<label>{_ui(label)}<input type="number" name="{key}" min="{minimum}" max="{maximum}" value="{e(auto.get(key, default))}" required></label>'
+        for key, label, minimum, maximum, default in (
+            ("refresh", "Обновлять каждые, мин", 5, 10080, 60),
+            ("target", "Серверов в балансе", 1, 32, 3),
+            ("grace", "Исключать через, мин", 1, 1440, 5)))
+    return (f'<dialog class="vpn-auto-dialog" id="vpn-auto-{e(sid)}">'
+            f'<h2>{_ui("Автобалансировка")}: {e(sub["name"])}</h2>'
+            f'<form method="post" action="/action"><input type="hidden" name="action" value="subscription_automation">'
+            f'<input type="hidden" name="subscription" value="{e(sid)}">'
+            f'<input type="hidden" name="enabled" value="{"1" if enabled else "0"}">'
+            f'<div class="vpn-auto-fields">{fields}</div><div class="vpn-auto-actions">'
+            f'<button type="button" class="vpn-auto-toggle" data-vpn-auto-toggle data-toggle-on="{"1" if enabled else "0"}" aria-pressed="{str(enabled).lower()}">'
+            f'{_ui("Включено" if enabled else "Отключено")}</button>'
+            f'<button type="submit">{_ui("Сохранить")}</button>'
+            f'<button type="button" data-vpn-auto-close>{_ui("Отмена")}</button>'
+            '</div></form></dialog>')
+
+
 def render():
     escape = html.escape
     db = manager.read()
@@ -455,17 +497,53 @@ def render():
     parts = [
              ''.join((_ui('<details class="vpn-subscription-add"><summary>Добавить подписку</summary><form class="vpn-subscription-form" method="post" action="/action"><input type="hidden" name="action" value="subscription_add"><label>Имя<input name="name" maxlength="80" required></label><label>HTTPS-адрес<input name="url" type="password" autocomplete="off" required></label><label>Движок<select name="client">'), f'{options}', _ui('</select></label><label>Профиль запроса<select name="profile">'), f'{profiles}', _ui('</select></label><button type="submit">Добавить подписку</button></form></details>')))]
     groups = {}
+    dialogs = []
     for sid, sub in db.get("subscriptions", {}).items():
-        auto = sub.get("automation", {})
-        auto_enabled = bool(auto.get("enabled"))
-        toggle_on = escape(_ui("Включено"), quote=True)
-        toggle_off = escape(_ui("Отключено"), quote=True)
-        controls = (
-            ''.join(('<details class="vpn-auto" data-vpn-auto="', f'{escape(sid)}', _ui('"><summary>Автобалансировка</summary><form class="vpn-subscription-form" method="post" action="/action"><input type="hidden" name="action" value="subscription_automation"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', '"><input type="hidden" name="enabled" value="', '1' if auto_enabled else '0', _ui('"><label>Обновлять каждые, мин<input type="number" name="refresh" min="5" max="10080" value="'), f"{escape(str(auto.get('refresh', 60)))}", _ui('" required></label><label>Серверов в балансе<input type="number" name="target" min="1" max="32" value="'), f"{escape(str(auto.get('target', 3)))}", _ui('" required></label><label>Исключать через, мин<input type="number" name="grace" min="1" max="1440" value="'), f"{escape(str(auto.get('grace', 5)))}", _ui('" required></label><button type="button" class="vpn-auto-toggle" data-toggle-on="'), '1' if auto_enabled else '0', '" data-label-on="', toggle_on, '" data-label-off="', toggle_off, '" aria-pressed="', 'true' if auto_enabled else 'false', '" onclick="const field=this.form.elements.enabled;field.value=field.value===\'1\'?\'0\':\'1\';this.dataset.toggleOn=field.value;this.setAttribute(\'aria-pressed\',String(field.value===\'1\'));this.textContent=field.value===\'1\'?this.dataset.labelOn:this.dataset.labelOff">', toggle_on if auto_enabled else toggle_off, _ui('</button><button type="submit">Сохранить</button></form></details>')))
-        )
+        dialogs.append(automation_dialog(sid, sub))
         groups[sid] = (sub["name"],
-                     f'<small class="vpn-group-meta">{escape(clients.NAMES[sub["engine"]])} · {escape(_ui(PROFILES[sub["profile"]]))}'
-                     f' · {escape(sub.get("updated", "—"))}</small>{usage_html(sub.get("usage"))}',
-                     ''.join(('<form method="post" action="/action"><input type="hidden" name="action" value="subscription_info_refresh"><input type="hidden" name="subscription" value="', f'{escape(sid)}', _ui('"><button type="submit">Обновить данные</button></form><form method="post" action="/action"><input type="hidden" name="action" value="subscription_refresh"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', _ui('"><button type="submit">Обновить подписку</button></form>'))),
-                     ''.join((_ui('<form class="vpn-group-delete" method="post" action="/action" onsubmit="return confirm(\'Удалить подписку и все её соединения?\')"><input type="hidden" name="action" value="subscription_delete"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', _ui('"><button type="submit">Удалить</button></form>'))), controls)
-    return manager.render(navigation(True), subscription_controls="".join(parts), subscription_groups=groups)
+                     f'<small class="vpn-group-meta" title="{escape(sub.get("updated", "—"), quote=True)}">'
+                     f'{escape(clients.NAMES[sub["engine"]])} · {escape(_ui(PROFILES[sub["profile"]]))}</small>'
+                     f'{usage_html(sub.get("usage"))}',
+                     f'<form method="post" action="/action"><input type="hidden" name="action" value="subscription_refresh">'
+                     f'<input type="hidden" name="subscription" value="{escape(sid, quote=True)}">'
+                     f'<button type="submit" title="{escape(_ui("Обновить подписку"), quote=True)}">{_ui("Обновить")}</button></form>'
+                     f'<button type="button" data-vpn-auto-open="{escape(sid, quote=True)}" title="{escape(_ui("Автобалансировка"), quote=True)}">{_ui("Балансировка")}</button>',
+                     ''.join((_ui('<form class="vpn-group-delete" method="post" action="/action" onsubmit="return confirm(\'Удалить подписку и все её соединения?\')"><input type="hidden" name="action" value="subscription_delete"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', _ui('"><button type="submit">Удалить</button></form>'))), '')
+    assets = _ui('''<style>
+body .vpn-auto-dialog{width:min(560px,calc(100vw - 36px));max-height:calc(100vh - 40px);overflow:auto;box-sizing:border-box;padding:22px;background:var(--ui-surface,#171e2b);color:var(--ui-text,#f4f7ff);border:1px solid var(--ui-border,#344056);border-radius:12px}
+body .vpn-auto-dialog::backdrop{background:rgba(0,0,0,.7)}
+body .vpn-auto-dialog h2{margin:0 0 18px;font-size:20px}
+body .vpn-auto-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+body .vpn-auto-fields label{display:grid;gap:6px;min-width:0;font-size:14px}
+body .vpn-auto-fields input{width:100%;height:40px;margin:0}
+body .vpn-auto-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:20px}
+body .vpn-auto-actions button{min-height:40px;margin:0;padding:8px 12px;white-space:nowrap}
+body .vpn-auto-toggle[data-toggle-on="1"]{background:#128038;border-color:#128038;color:#fff;font-weight:700}
+body .vpn-auto-toggle[data-toggle-on="0"]{background:#c62828;border-color:#c62828;color:#fff;font-weight:700}
+</style><script>
+document.addEventListener('click',event=>{
+ const open=event.target.closest('[data-vpn-auto-open]');
+ if(open){document.getElementById('vpn-auto-'+open.dataset.vpnAutoOpen)?.showModal();return;}
+ const close=event.target.closest('[data-vpn-auto-close]');
+ if(close){close.closest('dialog')?.close();return;}
+ const toggle=event.target.closest('[data-vpn-auto-toggle]');
+ if(toggle){const field=toggle.form.elements.enabled;const on=field.value!=='1';field.value=on?'1':'0';toggle.dataset.toggleOn=field.value;toggle.setAttribute('aria-pressed',String(on));toggle.textContent=on?window.uiText('Включено'):window.uiText('Отключено');}
+});
+document.addEventListener('DOMContentLoaded',()=>{
+ let pending=false;
+ async function updateSubscriptionUsage(){if(pending)return;pending=true;try{
+  const response=await fetch('/api/subscription-usage',{cache:'no-store'});
+  if(!response.ok)return;const data=await response.json();
+  for(const [sid,markup] of Object.entries(data.subscriptions||{})){
+   const group=[...document.querySelectorAll('[data-vpn-group]')].find(item=>item.dataset.vpnGroup===sid);
+   const current=group?.querySelector('[data-vpn-usage]');if(!current)continue;
+   const template=document.createElement('template');template.innerHTML=markup;
+   const next=template.content.firstElementChild;
+   if(next?.matches('[data-vpn-usage]')&&next.outerHTML!==current.outerHTML)current.replaceWith(next);
+  }
+ }catch(error){}finally{pending=false;}}
+ const timer=setInterval(updateSubscriptionUsage,30000);
+ window.addEventListener('pagehide',()=>clearInterval(timer),{once:true});
+});
+</script>''')
+    return manager.render(navigation(True), subscription_controls="".join(parts), subscription_groups=groups) + ''.join(dialogs) + assets

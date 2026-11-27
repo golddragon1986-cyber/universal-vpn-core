@@ -812,7 +812,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         from ui_i18n import select_language
-        select_language('ui_language=ru' if self.path.startswith('/api/') or 'download=backup' in self.path else self.headers.get('Cookie', ''))
+        select_language('ui_language=ru' if (self.path.startswith('/api/') and not self.path.startswith('/api/subscription-usage')) or 'download=backup' in self.path else self.headers.get('Cookie', ''))
         from configuration_draft import preview, status
         path = self.path.split("?",1)[0]
         if path == "/api/configuration/status":
@@ -909,6 +909,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.split('?',1)[0] == '/api/vpn-traffic':
             import vpn_traffic
             self.send_json(vpn_traffic.snapshot())
+            return
+        if self.path.split('?',1)[0] == '/api/subscription-usage':
+            import vpn_subscriptions
+            self.send_json(vpn_subscriptions.usage_snapshot())
             return
         if self.path.split('?',1)[0] == '/api/vpn-countries':
             import proxy_manager, vpn_clients, vpn_geoip

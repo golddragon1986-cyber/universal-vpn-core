@@ -6,6 +6,7 @@ import json
 import time
 from datetime import datetime, timezone
 from urllib.request import urlopen
+from urllib.parse import urlencode
 
 import proxy_manager as manager
 import vpn_clients as clients
@@ -13,6 +14,7 @@ import vpn_subscriptions as subscriptions
 
 
 CHECK_INTERVAL = 30
+INFO_INTERVAL = 300
 CANDIDATE_BATCH = 8
 
 
@@ -34,6 +36,20 @@ def refresh_due(sub, settings):
         return age >= settings["refresh"] * 60
     except (KeyError, ValueError):
         return True
+
+
+def info_due(sub):
+    try:
+        updated = datetime.strptime(sub["usage_updated"], "%Y-%m-%d %H:%M UTC")
+        return time.time() - updated.replace(tzinfo=timezone.utc).timestamp() >= INFO_INTERVAL
+    except (KeyError, ValueError):
+        return True
+
+
+def has_enabled_node(db, nodes):
+    overrides = db.get("balance_overrides", {})
+    return any(not node.get("stale") and overrides.get(node["proxy"]["name"], node.get("balance", True))
+               for node in nodes)
 
 
 def apply(task):
@@ -127,6 +143,7 @@ def check(pool, settings, nodes, state):
 
 def watch(queue):
     states = {}
+    info_states = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         while not queue.stop.is_set():
             try:
@@ -134,8 +151,25 @@ def watch(queue):
                 configured = db.get("subscriptions", {})
                 states = {sid: state for sid, state in states.items()
                           if configured.get(sid, {}).get("automation", {}).get("enabled")}
+                info_states = {sid: state for sid, state in info_states.items() if sid in configured}
                 for sid in configured:
                     sub, settings, nodes = snapshot(db, sid)
+                    if has_enabled_node(db, nodes):
+                        info = info_states.setdefault(sid, {})
+                        if job := info.get("job"):
+                            with queue.db() as conn:
+                                row = conn.execute("SELECT status FROM jobs WHERE id=?", (job,)).fetchone()
+                            busy = bool(row and row["status"] in ("queued", "running"))
+                            if not busy:
+                                info.pop("job", None)
+                        else:
+                            busy = False
+                        now = time.monotonic()
+                        if not busy and now >= info.get("next_try", 0) and info_due(sub):
+                            info["next_try"] = now + INFO_INTERVAL
+                            info["job"] = queue.submit("Обновление данных подписки",
+                                {"path": "/action", "body": urlencode({
+                                    "action": "subscription_info_refresh", "subscription": sid})})
                     if not settings.get("enabled"):
                         continue
                     state = states.setdefault(sid, {})
