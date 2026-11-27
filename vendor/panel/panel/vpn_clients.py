@@ -106,6 +106,9 @@ def convert(p,engine):
             raise ValueError('This native Xray profile requires Xray.')
         return copy.deepcopy(p['xray_outbound'])
     if engine=='mihomo':return copy.deepcopy(p)
+    if 'client-version' in p.get('reality-opts', {}):
+        p=copy.deepcopy(p)
+        p['reality-opts'].pop('client-version')
     typ=p['type']
     # VLESS `encryption=none` is explicit in imported URI profiles but
     # implicit in sing-box. Reject other values instead of silently dropping them.

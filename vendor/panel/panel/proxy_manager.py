@@ -3,6 +3,7 @@ from durable_io import replace as durable_replace
 from pathlib import Path
 #!/usr/bin/env python3
 import base64, ipaddress, json, os, re, socket, tempfile, urllib.parse, urllib.request, subprocess, shutil, time
+from functools import lru_cache
 B='/etc/mihomo/rules'; DB=B+'/managed-proxies.json'; PF=B+'/user-proxies.yaml'; API='http://127.0.0.1:9090'; TEST='https://www.gstatic.com/generate_204'
 def read():
  if not os.path.exists(DB): return {'nodes':[]}
@@ -18,6 +19,20 @@ def put(path,obj):
   if os.path.exists(t): os.unlink(t)
 def save(d):
  put(DB,d); put(PF,{'proxies':[x['proxy'] for x in d['nodes']]})
+@lru_cache(maxsize=2)
+def _reality_client_version(binary_signature):
+ try:
+  result=subprocess.run(['/mihomo','-v'],capture_output=True,text=True,timeout=20)
+  if result.returncode==0 and 'uvpnc-reality-version' in result.stdout:
+   return '26.11.9'
+ except OSError:pass
+ return None
+def reality_client_version():
+ try:
+  stat=os.stat('/mihomo')
+ except OSError:return None
+ try:return _reality_client_version((stat.st_mtime_ns,stat.st_size))
+ except subprocess.TimeoutExpired:return None
 def fetch(url):
  u=urllib.parse.urlsplit(url)
  if u.scheme!='https' or not u.hostname or u.username or u.password: raise ValueError('Only credential-free HTTPS sources are accepted')
@@ -57,6 +72,7 @@ def parse_uri(u,used):
    # Keep the imported fingerprint: fixed Chrome is not reliable for these peers.
    # core-supervisor retries the specific unsupported-curve randomized failure.
    ro['support-x25519mlkem768']=True
+  if client_version:=reality_client_version():ro['client-version']=client_version
   if ro:x['reality-opts']=ro
  if net in ('ws','grpc','http','h2','xhttp'):x['network']='ws' if net=='ws' else net
  if net=='ws':
@@ -69,7 +85,7 @@ def parse_uri(u,used):
  return x
 def sync():
  for p in ('/etc/mihomo/rules/build-service-routes.py','/etc/mihomo/rules/apply-service-routes.py'):
-  r=subprocess.run(['python3',p],capture_output=True,text=True,timeout=90)
+  r=subprocess.run(['python3',p],capture_output=True,text=True,timeout=210)
   if r.returncode:raise RuntimeError((r.stderr or r.stdout)[-1200:])
 def import_source(src):
  src=fetch(src.strip()) if src.strip().startswith('https://') else src.strip()

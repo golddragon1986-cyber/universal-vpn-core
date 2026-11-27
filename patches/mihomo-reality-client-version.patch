@@ -1,0 +1,108 @@
+diff --git a/adapter/outbound/reality.go b/adapter/outbound/reality.go
+index 70c7bc7..773ec71 100644
+--- a/adapter/outbound/reality.go
++++ b/adapter/outbound/reality.go
+@@ -6,6 +6,8 @@ import (
+ 	"encoding/hex"
+ 	"errors"
+ 	"fmt"
++	"strconv"
++	"strings"
+ 
+ 	tlsC "github.com/metacubex/mihomo/component/tls"
+ )
+@@ -14,13 +16,28 @@ type RealityOptions struct {
+ 	PublicKey string `proxy:"public-key"`
+ 	ShortID   string `proxy:"short-id,omitempty"`
+ 
+-	SupportX25519MLKEM768 bool `proxy:"support-x25519mlkem768,omitempty"`
++	SupportX25519MLKEM768 bool   `proxy:"support-x25519mlkem768,omitempty"`
++	ClientVersion         string `proxy:"client-version,omitempty"`
+ }
+ 
+ func (o RealityOptions) Parse() (*tlsC.RealityConfig, error) {
+ 	if o.PublicKey != "" {
+ 		config := new(tlsC.RealityConfig)
+ 		config.SupportX25519MLKEM768 = o.SupportX25519MLKEM768
++		config.ClientVersion = [3]byte{1, 8, 2}
++		if o.ClientVersion != "" {
++			parts := strings.Split(o.ClientVersion, ".")
++			if len(parts) != 3 {
++				return nil, errors.New("invalid REALITY client version")
++			}
++			for i, part := range parts {
++				value, err := strconv.ParseUint(part, 10, 8)
++				if err != nil {
++					return nil, errors.New("invalid REALITY client version")
++				}
++				config.ClientVersion[i] = byte(value)
++			}
++		}
+ 
+ 		const x25519ScalarSize = 32
+ 		publicKey, err := base64.RawURLEncoding.DecodeString(o.PublicKey)
+diff --git a/adapter/outbound/reality_compat_test.go b/adapter/outbound/reality_compat_test.go
+new file mode 100644
+index 0000000..551ab20
+--- /dev/null
++++ b/adapter/outbound/reality_compat_test.go
+@@ -0,0 +1,36 @@
++package outbound
++
++import (
++	"crypto/ecdh"
++	"crypto/rand"
++	"encoding/base64"
++	"testing"
++)
++
++func TestRealityClientVersion(t *testing.T) {
++	private, err := ecdh.X25519().GenerateKey(rand.Reader)
++	if err != nil {
++		t.Fatal(err)
++	}
++	public := base64.RawURLEncoding.EncodeToString(private.PublicKey().Bytes())
++	for _, tc := range []struct {
++		value string
++		want  [3]byte
++	}{
++		{"", [3]byte{1, 8, 2}},
++		{"26.11.9", [3]byte{26, 11, 9}},
++	} {
++		config, err := (RealityOptions{PublicKey: public, ClientVersion: tc.value}).Parse()
++		if err != nil {
++			t.Fatal(err)
++		}
++		if config.ClientVersion != tc.want {
++			t.Errorf("version %q: got %v, want %v", tc.value, config.ClientVersion, tc.want)
++		}
++	}
++	for _, value := range []string{"26.11", "26.11.256", "a.b.c"} {
++		if _, err := (RealityOptions{PublicKey: public, ClientVersion: value}).Parse(); err == nil {
++			t.Errorf("version %q should be rejected", value)
++		}
++	}
++}
+diff --git a/component/tls/reality.go b/component/tls/reality.go
+index ff6a0a3..6598470 100644
+--- a/component/tls/reality.go
++++ b/component/tls/reality.go
+@@ -33,6 +33,7 @@ type RealityConfig struct {
+ 	ShortID   [RealityMaxShortIDLen]byte
+ 
+ 	SupportX25519MLKEM768 bool
++	ClientVersion         [3]byte
+ }
+ 
+ func GetRealityConn(ctx context.Context, conn net.Conn, fingerprint UClientHelloID, serverName string, realityConfig *RealityConfig) (net.Conn, error) {
+@@ -71,9 +72,7 @@ func GetRealityConn(ctx context.Context, conn net.Conn, fingerprint UClientHello
+ 		binary.BigEndian.PutUint64(hello.SessionId, uint64(ntp.Now().Unix()))
+ 
+ 		copy(hello.SessionId[8:], realityConfig.ShortID[:])
+-		hello.SessionId[0] = 1
+-		hello.SessionId[1] = 8
+-		hello.SessionId[2] = 2
++		copy(hello.SessionId[:3], realityConfig.ClientVersion[:])
+ 
+ 		//log.Debugln("REALITY hello.sessionId[:16]: %v", hello.SessionId[:16])
+ 

@@ -138,6 +138,8 @@ def xray_vless(outbound, name, engine):
                                     "short-id": opts.get("shortId", "")}
             if os.environ.get("MIHOMO_REALITY_COMPAT") == "1":
                 node["reality-opts"]["support-x25519mlkem768"] = True
+            if engine == "mihomo" and (client_version := manager.reality_client_version()):
+                node["reality-opts"]["client-version"] = client_version
         elif opts.get("allowInsecure"):
             node["skip-cert-verify"] = True
     return node
@@ -202,6 +204,7 @@ def identity(node):
     # introduction must update an existing node instead of replacing it.
     if isinstance(profile.get("reality-opts"), dict):
         profile["reality-opts"].pop("support-x25519mlkem768", None)
+        profile["reality-opts"].pop("client-version", None)
     if "uuid" in profile:
         try:
             profile["uuid"] = str(uuid.UUID(profile["uuid"]))

@@ -29,22 +29,33 @@ OUTBOUND = {
 
 class RealityCompatTests(unittest.TestCase):
     def test_xray_json_enables_mihomo_hybrid_in_compatible_image(self):
-        with patch.dict('os.environ', {'MIHOMO_REALITY_COMPAT': '1'}):
+        with patch.dict('os.environ', {'MIHOMO_REALITY_COMPAT': '1'}), \
+                patch.object(vpn_subscriptions.manager, 'reality_client_version', return_value='26.11.9'):
             node = vpn_subscriptions.xray_vless(copy.deepcopy(OUTBOUND), 'server-1', 'mihomo')
         self.assertTrue(node['reality-opts']['support-x25519mlkem768'])
+        self.assertEqual(node['reality-opts']['client-version'], '26.11.9')
         self.assertEqual(node['client-fingerprint'], 'firefox')
 
     def test_import_update_preserves_existing_node_identity(self):
-        with patch.dict('os.environ', {'MIHOMO_REALITY_COMPAT': '1'}):
+        with patch.dict('os.environ', {'MIHOMO_REALITY_COMPAT': '1'}), \
+                patch.object(vpn_subscriptions.manager, 'reality_client_version', return_value='26.11.9'):
             new = vpn_subscriptions.xray_vless(copy.deepcopy(OUTBOUND), 'server-1', 'mihomo')
         old = copy.deepcopy(new)
         del old['reality-opts']['support-x25519mlkem768']
+        del old['reality-opts']['client-version']
         self.assertEqual(vpn_subscriptions.identity(old), vpn_subscriptions.identity(new))
 
     def test_noncompatible_image_keeps_original_profile(self):
-        with patch.dict('os.environ', {}, clear=True):
+        with patch.dict('os.environ', {}, clear=True), \
+                patch.object(vpn_subscriptions.manager, 'reality_client_version', return_value=None):
             node = vpn_subscriptions.xray_vless(copy.deepcopy(OUTBOUND), 'server-1', 'mihomo')
         self.assertNotIn('support-x25519mlkem768', node['reality-opts'])
+        self.assertNotIn('client-version', node['reality-opts'])
+
+    def test_xray_engine_does_not_receive_mihomo_client_version(self):
+        with patch.object(vpn_subscriptions.manager, 'reality_client_version', return_value='26.11.9'):
+            node = vpn_subscriptions.xray_vless(copy.deepcopy(OUTBOUND), 'server-1', 'xray')
+        self.assertNotIn('reality-opts', node)
 
 
 if __name__ == '__main__':

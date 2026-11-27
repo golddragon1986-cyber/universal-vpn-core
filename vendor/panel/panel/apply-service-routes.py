@@ -100,7 +100,9 @@ def put_config():
         headers={"Content-Type": "application/json"},
         method="PUT",
     )
-    with urlopen(req, timeout=15) as response:
+    # Rebuilding a large ruleset can take longer than the previous fixed
+    # deadline; wait for the controller's definite success or failure.
+    with urlopen(req, timeout=60) as response:
         status=response.status
     from log_panel import restore_level
     restore_level()
