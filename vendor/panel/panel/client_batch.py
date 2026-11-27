@@ -61,16 +61,8 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
     import dhcp_leases
     dhcp_static = dhcp_leases.plan(lease_requests or [], desired, router)
     dhcp_actions = dhcp_leases.plan_actions(lease_actions or [], dhcp_static, router)
-    new_owned=[row for row in desired if row['dhcp_owner'] and row['id'] not in originals]
-    if new_owned:
-        leases={dhcp_leases.owner_key(row):row for row in dhcp_leases.snapshot(router)['leases']}
-        pinned={row['id'] for row in dhcp_static}
-        for row in new_owned:
-            lease=leases.get(row['dhcp_owner'])
-            if (not lease or lease['ip']!=row['address'] or lease['disabled']
-                    or (lease['dynamic'] and lease['id'] not in pinned)):
-                raise ValueError('Новый DHCP-клиент не связан с закреплённой арендой')
-    disabled_owners = set()
+    leases = {dhcp_leases.owner_key(row): row for row in dhcp_leases.snapshot(router)['leases']} if owners else {}
+    disabled_owners = {owner for owner, lease in leases.items() if owner and lease['disabled']}
     for item in dhcp_actions:
         owner=dhcp_leases.owner_key(item['identity'])
         linked = [row for row in desired if owner and row['dhcp_owner'] == owner]
@@ -78,7 +70,18 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
             raise ValueError('Сначала удалите маршрут DHCP-клиента')
         if item['action'] == 'disable' and owner:
             disabled_owners.add(owner)
+        elif item['action'] == 'enable':
+            disabled_owners.discard(owner)
     desired = [row for row in desired if row['dhcp_owner'] not in disabled_owners]
+    new_owned=[row for row in desired if row['dhcp_owner'] and row['id'] not in originals]
+    if new_owned:
+        leases={dhcp_leases.owner_key(row):row for row in dhcp_leases.snapshot(router)['leases']}
+        pinned={row['id'] for row in dhcp_static}
+        for row in new_owned:
+            lease=leases.get(row['dhcp_owner'])
+            if (not lease or lease['ip']!=row['address']
+                    or (lease['dynamic'] and lease['id'] not in pinned)):
+                raise ValueError('Новый DHCP-клиент не связан с закреплённой арендой')
     client_policy.effective(desired)
     return {'baseline':baseline,'before':state['raw'],'bindings':state['management_bindings'],
             'policy_before':client_policy.owned_snapshot(router),'state':state,

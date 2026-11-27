@@ -72,6 +72,17 @@ class OwnershipTests(unittest.TestCase):
             return client_batch.plan(desired, client_panel.fingerprint(before), Router(),
                                      lease_actions=[unpin()])
 
+    def test_stale_dhcp_row_does_not_block_manual_change(self):
+        manual = dict(row(), address='192.168.0.0/16')
+        stale = dict(row(OWNER), id='new-stale')
+        before = state()
+        before['rows'] = [manual]
+        with patch.object(client_panel, 'read_state', return_value=before), \
+                patch.dict(LEASE, disabled=True):
+            change = client_batch.plan(
+                [manual, stale], client_panel.fingerprint(before), Router())
+        self.assertEqual(change['desired'], [manual])
+
     def test_manual_client_with_same_ip_survives_unpin(self):
         change = self.planned(state(), [row()])
         self.assertEqual(change['desired'][0]['id'], '*1')
