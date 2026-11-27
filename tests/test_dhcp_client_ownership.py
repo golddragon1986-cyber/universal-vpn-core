@@ -51,6 +51,22 @@ def unpin():
 
 
 class OwnershipTests(unittest.TestCase):
+    def setUp(self):
+        choices = patch.object(client_policy, 'choices', return_value=['RULES'])
+        choices.start()
+        self.addCleanup(choices.stop)
+
+    def test_disabling_lease_removes_only_its_owned_route(self):
+        action = dict(unpin(), action='disable')
+        for owner in ('', OWNER):
+            with self.subTest(owner=owner):
+                before = state(owner)
+                with patch.object(client_panel, 'read_state', return_value=before):
+                    change = client_batch.plan(
+                        [row(owner)], client_panel.fingerprint(before), Router(),
+                        lease_actions=[action])
+                self.assertEqual(change['desired'], [] if owner else [row()])
+
     def planned(self, before, desired):
         with patch.object(client_panel, 'read_state', return_value=before):
             return client_batch.plan(desired, client_panel.fingerprint(before), Router(),

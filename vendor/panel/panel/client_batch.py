@@ -58,7 +58,6 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
         if target in existing_lists:raise ValueError('Отдельный список '+target+' уже существует, но не подключён к управлению. Проверьте настройки RouterOS.')
         migrations[name]=target
     import client_policy
-    client_policy.effective(desired)
     import dhcp_leases
     dhcp_static = dhcp_leases.plan(lease_requests or [], desired, router)
     dhcp_actions = dhcp_leases.plan_actions(lease_actions or [], dhcp_static, router)
@@ -71,13 +70,16 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
             if (not lease or lease['ip']!=row['address'] or lease['disabled']
                     or (lease['dynamic'] and lease['id'] not in pinned)):
                 raise ValueError('Новый DHCP-клиент не связан с закреплённой арендой')
+    disabled_owners = set()
     for item in dhcp_actions:
         owner=dhcp_leases.owner_key(item['identity'])
         linked = [row for row in desired if owner and row['dhcp_owner'] == owner]
         if item['action'] == 'unpin' and linked:
             raise ValueError('Сначала удалите маршрут DHCP-клиента')
-        if item['action'] == 'disable' and any(row['enabled'] for row in linked):
-            raise ValueError('Отключите маршрут DHCP-клиента вместе с арендой')
+        if item['action'] == 'disable' and owner:
+            disabled_owners.add(owner)
+    desired = [row for row in desired if row['dhcp_owner'] not in disabled_owners]
+    client_policy.effective(desired)
     return {'baseline':baseline,'before':state['raw'],'bindings':state['management_bindings'],
             'policy_before':client_policy.owned_snapshot(router),'state':state,
             'desired':desired,'migrations':migrations,'lists':list(state['lists']),
