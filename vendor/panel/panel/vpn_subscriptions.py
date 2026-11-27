@@ -45,11 +45,11 @@ def fetch(url, profile):
         if origin is not None and endpoint != origin:
             headers.pop("X-Hwid", None)
         origin = endpoint
-        status, location, body = fetch_subscription_response(target, port, addresses, headers, context)
+        status, location, body, userinfo = fetch_subscription_response(target, port, addresses, headers, context)
         if status == 200:
             if len(body) > MAX_BYTES:
                 raise ValueError("Ответ подписки превышает 2 МиБ.")
-            return body.decode("utf-8-sig", errors="replace").strip()
+            return body.decode("utf-8-sig", errors="replace").strip(), parse_userinfo(userinfo)
         if status not in (301, 302, 303, 307, 308) or not location:
             raise ValueError(f"Источник подписки вернул HTTP {status}.")
         url = urljoin(url, location)
@@ -89,11 +89,67 @@ def fetch_subscription_response(target, port, addresses, headers, context):
             path += "?" + target.query
         conn.request("GET", path, headers=headers)
         response = conn.getresponse()
-        return response.status, response.getheader("Location"), response.read(MAX_BYTES + 1) if response.status == 200 else b""
+        return (response.status, response.getheader("Location"),
+                response.read(MAX_BYTES + 1) if response.status == 200 else b"",
+                response.getheader("Subscription-Userinfo") if response.status == 200 else None)
     except (OSError, http.client.HTTPException, UnicodeError):
         raise ValueError("Ошибка HTTPS при загрузке подписки.") from None
     finally:
         conn.close()
+
+
+def parse_userinfo(header):
+    """Parse provider-reported bytes and Unix expiry; ignore malformed fields."""
+    if not header or len(header) > 1024:
+        return None
+    result = {}
+    for item in header.split(";"):
+        key, sep, value = item.partition("=")
+        key, value = key.strip().lower(), value.strip()
+        if sep and key in ("upload", "download", "total", "expire") and re.fullmatch(r"[0-9]{1,19}", value):
+            number = int(value)
+            if number <= 2**63 - 1:
+                result[key] = number
+    return result or None
+
+
+def format_bytes(value):
+    amount = float(value)
+    units = ("Б", "КиБ", "МиБ", "ГиБ", "ТиБ", "ПиБ")
+    index = 0
+    while amount >= 1024 and index < len(units) - 1:
+        amount /= 1024
+        index += 1
+    return f"{amount:.1f}".rstrip("0").rstrip(".") + " " + units[index] if index else f"{value} Б"
+
+
+def usage_html(usage):
+    if not isinstance(usage, dict):
+        return f'<span class="vpn-subscription-usage">{html.escape(_ui("Лимит и срок: провайдер не сообщил"))}</span>'
+    parts = []
+    upload, download, total, expiry = (usage.get(key) for key in ("upload", "download", "total", "expire"))
+    if isinstance(upload, int) and isinstance(download, int):
+        used = upload + download
+        parts.append(f'{_ui("Использовано")} {format_bytes(used)}')
+        if isinstance(total, int):
+            parts[-1] += f' / {format_bytes(total)}' if total else f' · {_ui("без лимита")}'
+            if total:
+                parts.append(f'{_ui("Осталось")} {format_bytes(max(0, total - used))}')
+        parts.append(f'↓ {format_bytes(download)} / ↑ {format_bytes(upload)}')
+    elif isinstance(total, int):
+        parts.append(f'{_ui("Лимит")} {format_bytes(total)}' if total else _ui("Без лимита трафика"))
+    if isinstance(expiry, int):
+        if expiry == 0:
+            parts.append(_ui("Без срока действия"))
+        else:
+            try:
+                date = datetime.fromtimestamp(expiry, timezone.utc).strftime("%d.%m.%Y %H:%M UTC")
+                parts.append(f'{_ui("Срок до")} {date}')
+            except (OverflowError, OSError, ValueError):
+                pass
+    if not parts:
+        parts.append(_ui("Лимит и срок: провайдер не сообщил"))
+    return '<span class="vpn-subscription-usage">' + html.escape(" · ".join(parts)) + '</span>'
 
 
 def xray_vless(outbound, name, engine):
@@ -238,7 +294,8 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
         engine = sub["engine"]
         if not clients.binary(engine):
             raise ValueError("Выбранный движок не установлен.")
-        incoming = parse_response(fetch(sub["url"], sub["profile"]), engine)
+        source, usage = fetch(sub["url"], sub["profile"])
+        incoming = parse_response(source, engine)
         previous_nodes = [n for n in new["nodes"] if n.get("subscription") == subscription_id]
         existing = {}
         for node in sorted(previous_nodes, key=lambda n: (bool(n.get("stale")), not n.get("balance", False))):
@@ -291,6 +348,7 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
                 if cleaned != cfg and cleaned.get("inbounds"):
                     configs[node_engine] = (path, cleaned)
         sub["updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        sub["usage"] = usage
         subscriptions[subscription_id] = sub
         for node_engine, (_, cfg) in configs.items():
             clients.validate(node_engine, cfg)
@@ -385,7 +443,7 @@ def render():
         )
         groups[sid] = (sub["name"],
                      f'<small class="vpn-group-meta">{escape(clients.NAMES[sub["engine"]])} · {escape(_ui(PROFILES[sub["profile"]]))}'
-                     f' · {escape(sub["updated"])}</small>',
+                     f' · {escape(sub.get("updated", "—"))}</small>{usage_html(sub.get("usage"))}',
                      ''.join(('<form method="post" action="/action"><input type="hidden" name="action" value="subscription_refresh"><input type="hidden" name="subscription" value="', f'{escape(sid)}', _ui('"><button type="submit">Обновить подписку</button></form>'))),
                      ''.join((_ui('<form class="vpn-group-delete" method="post" action="/action" onsubmit="return confirm(\'Удалить подписку и все её соединения?\')"><input type="hidden" name="action" value="subscription_delete"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', _ui('"><button type="submit">Удалить</button></form>'))), controls)
     return manager.render(navigation(True), subscription_controls="".join(parts), subscription_groups=groups)

@@ -400,6 +400,7 @@ body .proxy-manager .subscription-table .vpn-group-bar button{width:auto!importa
 body .proxy-manager .subscription-table .vpn-group-toggle{display:flex;align-items:center;gap:8px;text-align:left;background:transparent;border-color:transparent;min-height:40px}
 .vpn-group-toggle::before{content:"▸"}.vpn-group-toggle[aria-expanded=true]::before{content:"▾"}
 .vpn-group-meta{display:block;margin-top:3px;color:var(--ui-muted);font-weight:400}
+.vpn-subscription-usage{display:block;margin-top:4px;color:var(--ui-text);font-size:13px;font-weight:500;line-height:1.35}
 @media(max-width:850px){.vpn-subscription-form,.vpn-subscription-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){body .subscription-table tbody tr.vpn-group-heading,body .subscription-table .vpn-group-heading th{display:block}}
 
