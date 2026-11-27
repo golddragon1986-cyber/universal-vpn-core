@@ -16,7 +16,7 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
     state=panel.read_state(router,cache=False)
     if baseline!=panel.fingerprint(state):raise ValueError('Список клиентов изменён в RouterOS. Обновите страницу или отмените черновик.')
     if not isinstance(rows,list) or len(rows)>512:raise ValueError('Допустимо до 512 записей клиентов')
-    originals={row['id']:row for row in state['rows']};seen=set();ids=set();desired=[]
+    originals={row['id']:row for row in state['rows']};seen=set();ids=set();owners=set();desired=[]
     for row in rows:
         if not isinstance(row,dict) or type(row.get('enabled')) is not bool:raise ValueError('Некорректная запись клиента')
         ident=row.get('id','')
@@ -37,7 +37,16 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
         if route not in client_policy.choices():raise ValueError('Канал клиента недоступен: '+str(route))
         if len(alias)>100 or any(ord(ch)<32 for ch in alias):raise ValueError('Внутреннее имя: максимум 100 символов')
         if len(label)>100 or any(ord(ch)<32 for ch in label):raise ValueError('Название клиента: максимум 100 символов')
-        desired.append({'id':ident,'list':name,'address':value,'label':label,'name':alias,'route':route,'enabled':row['enabled']})
+        owner=row.get('dhcp_owner','')
+        if not isinstance(owner,str) or len(owner)>300 or (ident in originals and owner!=originals[ident].get('dhcp_owner','')):
+            raise ValueError('Связь клиента с DHCP-арендой изменилась. Обновите страницу.')
+        if owner and ident in originals and value!=originals[ident]['address']:
+            raise ValueError('Адрес DHCP-клиента изменяется через аренду RouterOS')
+        if owner:
+            if owner in owners:raise ValueError('DHCP-аренда связана с несколькими клиентами')
+            owners.add(owner)
+        desired.append({'id':ident,'list':name,'address':value,'label':label,'name':alias,
+                        'route':route,'enabled':row['enabled'],'dhcp_owner':owner})
     migrations={}
     existing_lists={row['list'] for row in router.call('ip/firewall/address-list')}
     for name in state['protected']:
@@ -53,8 +62,18 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
     import dhcp_leases
     dhcp_static = dhcp_leases.plan(lease_requests or [], desired, router)
     dhcp_actions = dhcp_leases.plan_actions(lease_actions or [], dhcp_static, router)
+    new_owned=[row for row in desired if row['dhcp_owner'] and row['id'] not in originals]
+    if new_owned:
+        leases={dhcp_leases.owner_key(row):row for row in dhcp_leases.snapshot(router)['leases']}
+        pinned={row['id'] for row in dhcp_static}
+        for row in new_owned:
+            lease=leases.get(row['dhcp_owner'])
+            if (not lease or lease['ip']!=row['address'] or lease['disabled']
+                    or (lease['dynamic'] and lease['id'] not in pinned)):
+                raise ValueError('Новый DHCP-клиент не связан с закреплённой арендой')
     for item in dhcp_actions:
-        linked = [row for row in desired if row['address'] == item['identity']['ip']]
+        owner=dhcp_leases.owner_key(item['identity'])
+        linked = [row for row in desired if owner and row['dhcp_owner'] == owner]
         if item['action'] == 'unpin' and linked:
             raise ValueError('Сначала удалите маршрут DHCP-клиента')
         if item['action'] == 'disable' and any(row['enabled'] for row in linked):
@@ -67,7 +86,7 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
 
 def apply(router, change, report=lambda _:None):
     def external_fingerprint(state):
-        state={**state,'rows':[{k:v for k,v in row.items() if k not in {'name','route'}} for row in state['rows']]}
+        state={**state,'rows':[{k:v for k,v in row.items() if k not in {'name','route','dhcp_owner'}} for row in state['rows']]}
         return panel.fingerprint(state)
     if external_fingerprint(panel.read_state(router,cache=False))!=external_fingerprint(change['state']):
         raise ValueError('Клиенты RouterOS изменились во время сборки конфигурации')

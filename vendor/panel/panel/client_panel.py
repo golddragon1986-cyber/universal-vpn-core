@@ -49,7 +49,7 @@ def model(row):
 
 
 def rows_fingerprint(rows):
-    fields=('id','list','address','label','enabled','name','route')
+    fields=('id','list','address','label','enabled','name','route','dhcp_owner')
     clean=[{key:row.get(key, 'RULES' if key=='route' else '') for key in fields} for row in rows]
     return hashlib.sha256(json.dumps(sorted(clean,key=lambda x:x['id']),sort_keys=True).encode()).hexdigest()
 

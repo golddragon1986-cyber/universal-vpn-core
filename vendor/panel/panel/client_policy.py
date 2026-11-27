@@ -21,7 +21,8 @@ def key(row):return (row['list'],row['address'])
 def enrich(rows):
     saved={key(row):row for row in read()}
     return [{**row,'name':saved.get(key(row),{}).get('name',''),
-             'route':saved.get(key(row),{}).get('route','RULES')} for row in rows]
+             'route':saved.get(key(row),{}).get('route','RULES'),
+             'dhcp_owner':saved.get(key(row),{}).get('dhcp_owner','')} for row in rows]
 
 def choices():
     return ['RULES','BYPASS']+[value for value in rr.target_choices() if value!='DIRECT']

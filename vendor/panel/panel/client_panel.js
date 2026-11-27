@@ -36,7 +36,7 @@ const clone=value=>JSON.parse(JSON.stringify(value));
 const original=seed.state.rows,old=new Map(original.map(row=>[row.id,row]));
 let rows=clone(seed.pending?.rows||original),leaseRequests=clone(seed.pending?.lease_requests||[]),leaseActions=clone(seed.pending?.lease_actions||[]),view={...seed.view,page:1},error='',dhcpLeases=[];
 const baseline=seed.pending?.baseline||seed.baseline,stale=baseline!==seed.baseline;
-const signature=row=>JSON.stringify({id:row.id,list:row.list,address:row.address,label:row.label,name:(row.name||'').trim(),route:row.route||'RULES',enabled:row.enabled});
+const signature=row=>JSON.stringify({id:row.id,list:row.list,address:row.address,label:row.label,name:(row.name||'').trim(),route:row.route||'RULES',enabled:row.enabled,dhcp_owner:row.dhcp_owner||''});
 const ip=value=>{const parts=value.split('.');if(parts.length!==4||parts.some(p=>!/^\d{1,3}$/.test(p)||Number(p)>255))throw Error('Укажите IPv4-адрес');return parts.reduce((n,p)=>n*256+Number(p),0);};
 function canonical(value){
  value=value.trim();
@@ -71,8 +71,8 @@ function updateStatus(){
 }
 function draw(){
  const ids=new Set(rows.map(row=>row.id));
- const dhcpAddresses=new Set(dhcpLeases.map(lease=>lease.active_ip||lease.ip).filter(Boolean));
- const list=[...rows.map(row=>({row,removed:false,readonly:false})),...original.filter(row=>!ids.has(row.id)).map(row=>({row,removed:true,readonly:false})),...seed.state.readonly.map(row=>({row,removed:false,readonly:true}))].filter(item=>!dhcpAddresses.has(item.row.address)&&matches(item.row));
+ const dhcpOwners=new Set(dhcpLeases.map(leaseOwner).filter(Boolean));
+ const list=[...rows.map(row=>({row,removed:false,readonly:false})),...original.filter(row=>!ids.has(row.id)).map(row=>({row,removed:true,readonly:false})),...seed.state.readonly.map(row=>({row,removed:false,readonly:true}))].filter(item=>!dhcpOwners.has(item.row.dhcp_owner)&&matches(item.row));
  list.sort((a,b)=>{if(!a.row.address||!b.row.address)return Number(!a.row.address)-Number(!b.row.address);try{return interval(a.row.address)[0]-interval(b.row.address)[0]||a.row.address.localeCompare(b.row.address);}catch(e){return a.row.address.localeCompare(b.row.address);}});
  const pages=Math.max(1,Math.ceil(list.length/25));view.page=Math.min(view.page,pages);body.replaceChildren();
  for(const {row,removed,readonly} of list.slice((view.page-1)*25,view.page*25)){
@@ -154,7 +154,13 @@ function assignedRoute(address){
 }
 const leaseAddress=lease=>lease.active_ip||lease.ip;
 const leaseIdentity=lease=>({id:lease.id,ip:lease.ip,mac:lease.mac,server:lease.server,client_id:lease.client_id});
-const linkedRow=lease=>rows.find(row=>row.address===leaseAddress(lease));
+const leaseOwner=lease=>leaseAddress(lease)&&lease.mac?JSON.stringify([lease.server||'',String(lease.mac).toUpperCase(),lease.client_id||'',leaseAddress(lease)]):'';
+const linkedRow=lease=>{
+ const request=leaseRequests.find(item=>item.id===lease.id);
+ if(request?.client_row_id){const pending=rows.find(row=>row.id===request.client_row_id);if(pending)return pending;}
+ const owner=leaseOwner(lease);
+ return owner?rows.find(row=>row.dhcp_owner===owner):undefined;
+};
 function pinLease(lease){
  if(!lease.dynamic||leaseRequests.some(request=>request.id===lease.id))return;
  leaseRequests.push({...leaseIdentity(lease),client_row_id:''});
@@ -167,8 +173,11 @@ function configureLease(lease,route){
  const leaseName=String(lease.comment||lease.host||'').replace(/[\x00-\x1f]/g,' ').trim().slice(0,100);
  let row=linkedRow(lease);
  if(!row){
-  row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:leaseName,route,enabled:!lease.disabled};
-  rows.push(row);
+  row=rows.find(item=>!item.dhcp_owner&&item.address===address);
+  if(!row){
+   row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:leaseName,route,enabled:!lease.disabled,dhcp_owner:leaseOwner(lease)};
+   rows.push(row);
+  }else{row.route=route;}
  }else{row.route=route;if(!row.name)row.name=leaseName;}
  pinLease(lease);
  const request=leaseRequests.find(request=>request.id===lease.id);
@@ -185,7 +194,7 @@ function toggleLease(lease){
  const next=!disabled;
  setLeaseAction(lease,next===lease.disabled?null:next?'disable':'enable');
  if(lease.dynamic&&next)pinLease(lease);
- const row=linkedRow(lease);if(row)row.enabled=!next;
+ const row=linkedRow(lease);if(row?.dhcp_owner===leaseOwner(lease))row.enabled=!next;
  persist();draw();
 }
 function togglePin(lease){
@@ -193,15 +202,17 @@ function togglePin(lease){
  const action=leaseActions.find(request=>request.id===lease.id);
  if(lease.dynamic){
   if(pending){leaseRequests=leaseRequests.filter(request=>request.id!==lease.id);setLeaseAction(lease,null);
-   const row=linkedRow(lease);if(row?.id.startsWith('new-'))rows=rows.filter(item=>item!==row);
+   const row=rows.find(item=>item.id===pending.client_row_id);
+   if(row?.id.startsWith('new-')&&row.dhcp_owner===leaseOwner(lease))rows=rows.filter(item=>item!==row);
   }else pinLease(lease);
  }else if(action?.action==='unpin'){
   setLeaseAction(lease,null);
-  const saved=original.find(row=>row.address===leaseAddress(lease));
-  if(saved&&!linkedRow(lease))rows.push(clone(saved));
+  const owner=leaseOwner(lease),saved=owner?original.find(row=>row.dhcp_owner===owner):null;
+  if(saved&&!rows.some(row=>row.id===saved.id))rows.push(clone(saved));
  }else{
   setLeaseAction(lease,'unpin');
-  rows=rows.filter(row=>row.address!==leaseAddress(lease));
+  const owner=leaseOwner(lease);
+  if(owner)rows=rows.filter(row=>row.dhcp_owner!==owner);
  }
  persist();draw();
 }

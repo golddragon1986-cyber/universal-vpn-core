@@ -1,5 +1,6 @@
 """Read RouterOS DHCP leases and validate staged client pinning."""
 import ipaddress
+import json
 import router_routes as rr
 
 PATH = 'ip/dhcp-server/lease'
@@ -43,6 +44,16 @@ def _identity(row):
     return tuple(row.get(key, '') for key in ('ip', 'mac', 'server'))
 
 
+def owner_key(row):
+    """Stable lease identity across make-static, scoped to its assigned address."""
+    address = row.get('active_ip') or row.get('ip', '')
+    mac = str(row.get('mac', '')).upper()
+    if not address or not mac:
+        return ''
+    return json.dumps([row.get('server', ''), mac, row.get('client_id', ''), address],
+                      ensure_ascii=False, separators=(',', ':'))
+
+
 def plan(requests, desired, router):
     if not isinstance(requests, list) or len(requests) > 64:
         raise ValueError('Допустимо закрепить до 64 DHCP-аренд за одно применение')
@@ -66,7 +77,8 @@ def plan(requests, desired, router):
                 or _identity(observed) != _identity(request)):
             raise ValueError('DHCP-аренда изменилась. Обновите список клиентов и черновик.')
         client = by_id.get(request['client_row_id'])
-        if request['client_row_id'] and (not client or not client['enabled'] or client['address'] != observed['active_ip']):
+        if request['client_row_id'] and (not client or not client['enabled'] or client['address'] != observed['active_ip']
+                or client.get('dhcp_owner', '') not in ('', owner_key(observed))):
             raise ValueError('Закрепляемая DHCP-аренда не связана с активным правилом клиента')
         validated.append(observed)
     return validated
