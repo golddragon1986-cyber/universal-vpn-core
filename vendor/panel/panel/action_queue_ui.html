@@ -104,7 +104,6 @@ more.addEventListener("click",async()=>{
 });
 
 try{wasPending=sessionStorage.getItem("mihomo-actions-pending")==="1";}catch(e){}
-function dirty(){return !!document.querySelector('form[data-queue-dirty="1"]');}
 const viewRefreshJobs=new Set();
 const vpnHeaderJobs=new Set();
 async function refreshVpnHeader(){
@@ -186,6 +185,7 @@ document.addEventListener("submit",async event=>{
   const r=await fetch("/api/actions/queue",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:data});
   const result=await r.json();if(!r.ok||!result.ok)throw new Error(result.message||"Не удалось добавить действие");
   if(["subscription_add","subscription_refresh","subscription_info_refresh","subscription_delete","subscription_automation"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
+  if(["proxy_import","proxy_enable_selected","proxy_delete","proxy_delete_selected","component_change"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
   if(["service_geodata_import","service_refresh_geodata","service_update_source","service_set_target","service_move","service_reorder","service_toggle","service_delete","service_save"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
   if(form.classList.contains("domain-toggle"))viewRefreshJobs.add(result.job_id);
   if(["dns_flush","core_restart"].includes(data.get("action"))){maintenanceJobs.set(result.job_id,form);form.dataset.inlineBusy="1";maintenanceLock(form,true);}
@@ -237,8 +237,7 @@ async function poll(){
   const failed=data.jobs.filter(j=>j.status==="failed");
   if(pending){box.hidden=false;title.textContent="Применяется: "+data.running+". В очереди: "+data.queued+".";refresh.hidden=true;}
   else if(wasPending){box.hidden=false;title.textContent=failed.length?"Очередь завершена. Есть ошибки — откройте список действий.":"Все изменения применены.";refresh.hidden=false;
-   if(vpnDone.length&&!requests){wasPending=false;try{sessionStorage.removeItem("mihomo-actions-pending");}catch(e){}}
-   else if(!dirty()&&!requests&&!box.open&&!inlineRouteJobs.size){reloadView();return;}}
+   if(!requests&&!inlineRouteJobs.size&&!maintenanceJobs.size){wasPending=false;try{sessionStorage.removeItem("mihomo-actions-pending");}catch(e){}}}
   else if(failed.length){box.hidden=false;title.textContent="Некоторые действия не выполнены — откройте список.";refresh.hidden=true;}
   else{box.hidden=false;title.textContent="Очередь пуста";refresh.hidden=true;}
   mergeRecent(data);
