@@ -7,6 +7,7 @@ import html
 import http.client
 import ipaddress
 import json
+import os
 import re
 import socket
 import ssl
@@ -135,6 +136,8 @@ def xray_vless(outbound, name, engine):
         if security == "reality":
             node["reality-opts"] = {"public-key": opts.get("password") or opts["publicKey"],
                                     "short-id": opts.get("shortId", "")}
+            if os.environ.get("MIHOMO_REALITY_COMPAT") == "1":
+                node["reality-opts"]["support-x25519mlkem768"] = True
         elif opts.get("allowInsecure"):
             node["skip-cert-verify"] = True
     return node
@@ -195,6 +198,10 @@ def identity(node):
     profile["type"] = profile["type"].lower()
     profile["server"] = normalized_server(profile["server"])
     profile["port"] = int(profile["port"])
+    # This local compatibility flag is absent from Xray subscriptions. Its
+    # introduction must update an existing node instead of replacing it.
+    if isinstance(profile.get("reality-opts"), dict):
+        profile["reality-opts"].pop("support-x25519mlkem768", None)
     if "uuid" in profile:
         try:
             profile["uuid"] = str(uuid.UUID(profile["uuid"]))
