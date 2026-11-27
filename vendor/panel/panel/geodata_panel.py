@@ -64,7 +64,7 @@ def download(url):
     for _ in range(6):
         try:
             target, port, addresses = subscription_target(url)
-            status, location, data = fetch_subscription_response(
+            status, location, data, *_subscription_metadata = fetch_subscription_response(
                 target, port, addresses, {"User-Agent": "UvpnC/GeoDAT"}, context)
         except ValueError:
             raise ValueError("Не удалось загрузить файл по публичному HTTPS-адресу.") from None
