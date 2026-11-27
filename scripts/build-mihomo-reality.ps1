@@ -38,13 +38,16 @@ try {
     & (Join-Path $work 'go\bin\go.exe') test ./adapter/outbound -run TestRealityClientVersion -count=1
     if ($LASTEXITCODE -ne 0) { throw 'REALITY patch test failed' }
     $env:GOOS = 'linux'
-    $env:GOARCH = 'arm64'
     $env:CGO_ENABLED = '0'
     $flags = '-X github.com/metacubex/mihomo/constant.Version=v1.19.34 -X github.com/metacubex/mihomo/constant.BuildTime=uvpnc-reality-version -w -s'
-    $output = Join-Path $work 'mihomo-reality-arm64'
-    & (Join-Path $work 'go\bin\go.exe') build -tags with_gvisor -trimpath -ldflags $flags -o $output .
-    if ($LASTEXITCODE -ne 0) { throw 'Mihomo build failed' }
-    Get-FileHash -Algorithm SHA256 -LiteralPath $output | Select-Object Path, Hash
+    foreach ($arch in @('armv7','arm64')) {
+        $env:GOARCH = if ($arch -eq 'armv7') { 'arm' } else { 'arm64' }
+        $env:GOARM = if ($arch -eq 'armv7') { '7' } else { '' }
+        $output = Join-Path $work "mihomo-$arch"
+        & (Join-Path $work 'go\bin\go.exe') build -tags with_gvisor -trimpath -ldflags $flags -o $output .
+        if ($LASTEXITCODE -ne 0) { throw "Mihomo $arch build failed" }
+        Get-FileHash -Algorithm SHA256 -LiteralPath $output | Select-Object Path, Hash
+    }
 }
 finally {
     Pop-Location

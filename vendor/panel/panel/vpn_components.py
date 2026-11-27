@@ -78,9 +78,12 @@ def installed_version(package):
 
 
 def status():
-    core=run(['/mihomo','-v']).splitlines()[0]
+    core_output=run(['/mihomo','-v'])
+    core=core_output.splitlines()[0]
+    core_patched='uvpnc-reality-version' in core_output
     bundled=json.loads(BUNDLED_APK_VERSIONS.read_text()) if BUNDLED_APK_VERSIONS.is_file() else {}
-    items=[{'id':'mihomo','title':'Mihomo','installed':True,'version':core.split()[2],'detail':core,'reserve':80_000_000,'local':False,'core':True}]
+    items=[{'id':'mihomo','title':'Mihomo','installed':True,'version':core.split()[2],
+            'detail':core_output.strip(),'patched':core_patched,'reserve':80_000_000,'local':False,'core':True}]
     for key,(title,package,reserve) in CATALOG.items():
         local=(key=='sing-box' and LOCAL_SING_BOX.is_file()) or (key=='xray' and Path('/usr/local/bin/xray').is_file())
         present=local or installed(package)
@@ -196,7 +199,8 @@ def render():
         if item['id'] in SYSTEM_PACKAGES:
             rows.append(''.join(('<tr data-system-component="', f'{key}', '"><td><strong>', f"{esc(_ui(item['title']))}", _ui('</strong><span class="component-state">Системный пакет Alpine</span></td><td>'), f"{esc(item['version'])}", _ui('</td><td><span class="component-version-note">Проверьте доступные версии</span>'), f'{actions}', '</td></tr>')))
             continue
-        rows.append('<tr data-component="'+key+'" data-installed="'+('1' if present else '0')+'"><td><strong>'+esc(_ui(item['title']))+'</strong><span class="component-state '+('installed' if present else '')+'">'+(_ui('Установлен') if present else _ui('Не установлен'))+'</span></td><td title="'+esc(item.get('detail',item['version']))+'">'+esc(item['version'] or '—')+'</td><td><div class="component-controls"><form method="post" class="component-version-form"><input type="hidden" name="action" value="component_change"><input type="hidden" name="component" value="'+key+_ui('"><select name="version_id" required disabled aria-label="Версия ')+esc(_ui(item['title']))+_ui('"><option value="">Сначала проверьте версии</option></select><button name="operation" value="set_version" class="install-selected" disabled>')+(_ui('Переустановить') if present else _ui('Установить'))+'</button>'+(_ui('<button name="operation" value="restart" formnovalidate>Перезапустить</button>') if present and item['id'] in ('mihomo','sing-box','xray') else '')+_ui('<button name="operation" value="set_version" class="update-selected" hidden disabled>Обновить</button></form>')+actions+'</div><small class="component-version-note"></small></td></tr>')
+        patch_note=' · '+_ui('Патч REALITY/Xray') if item.get('patched') else ''
+        rows.append('<tr data-component="'+key+'" data-installed="'+('1' if present else '0')+'"><td><strong>'+esc(_ui(item['title']))+'</strong><span class="component-state '+('installed' if present else '')+'">'+(_ui('Установлен') if present else _ui('Не установлен'))+patch_note+'</span></td><td title="'+esc(item.get('detail',item['version']))+'">'+esc(item['version'] or '—')+'</td><td><div class="component-controls"><form method="post" class="component-version-form"><input type="hidden" name="action" value="component_change"><input type="hidden" name="component" value="'+key+_ui('"><select name="version_id" required disabled aria-label="Версия ')+esc(_ui(item['title']))+_ui('"><option value="">Сначала проверьте версии</option></select><button name="operation" value="set_version" class="install-selected" disabled>')+(_ui('Переустановить') if present else _ui('Установить'))+'</button>'+(_ui('<button name="operation" value="restart" formnovalidate>Перезапустить</button>') if present and item['id'] in ('mihomo','sing-box','xray') else '')+_ui('<button name="operation" value="set_version" class="update-selected" hidden disabled>Обновить</button></form>')+actions+'</div><small class="component-version-note"></small></td></tr>')
     body=_ui(Path(__file__).with_name('components_ui.html').read_text(encoding='utf-8'))
     body=body.replace('DISK_USED',str(round(state['used']/1_000_000,1)))
     body=body.replace('DISK_FREE',str(round(shutil.disk_usage('/').free/1_000_000,1)))

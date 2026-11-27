@@ -1354,5 +1354,6 @@ window.uiCatalog = {
   "Преобразовать GeoSite .dat в правило": "Convert a GeoSite .dat file into a rule",
   "Источник GeoSite": "GeoSite source",
   "Онлайн-база скачивается при первом использовании и заново по кнопке «Обновить» у правила.": "The online database is downloaded on first use and again when you click Update on the rule.",
-  "На вкладке GeoDAT добавьте файл GeoSite .dat или ссылку на него.": "Add a GeoSite .dat file or its URL on the GeoDAT tab."
+  "На вкладке GeoDAT добавьте файл GeoSite .dat или ссылку на него.": "Add a GeoSite .dat file or its URL on the GeoDAT tab.",
+  "Патч REALITY/Xray": "REALITY/Xray patch"
 };
