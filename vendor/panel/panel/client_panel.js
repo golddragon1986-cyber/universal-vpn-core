@@ -236,6 +236,10 @@ function togglePin(lease){
 }
 function renderDhcp(){
  if(!dhcpBody)return;
+ const heading=dhcpBody.closest('table')?.tHead?.rows[0]?.cells[3];
+ if(heading&&['Аренда','Lease'].includes(heading.textContent.trim())){
+  heading.textContent=heading.textContent.trim()==='Lease'?'Status':'Состояние';
+ }
  dhcpBody.replaceChildren();
  const visible=filteredLeases();dhcpStatus.textContent='Аренд DHCP: '+dhcpLeases.length+(Object.values(dhcpFilter).some(Boolean)?' · Найдено: '+visible.length:'');
  if(!visible.length){const cell=dhcpBody.insertRow().insertCell();cell.colSpan=6;cell.textContent=dhcpLeases.length?'Совпадений не найдено':'Аренд DHCP пока нет';return;}
@@ -250,7 +254,7 @@ function renderDhcp(){
   const state=tr.insertCell(),active=lease.status==='bound'&&!lease.disabled;
   const pending=leaseRequests.some(request=>request.id===lease.id),action=leaseActions.find(request=>request.id===lease.id);
   const effectiveDisabled=action?.action==='disable'?true:action?.action==='enable'?false:lease.disabled;
-  state.append(document.createTextNode(active?(lease.dynamic?'Динамическая':'Закреплена'):'off'));
+  state.append(document.createTextNode(active?'Online':'Offline'));
   if(active){const seen=document.createElement('small');seen.textContent=lease.last_seen||lease.expires_after||'';state.append(seen);
   }
   if(pending){const note=document.createElement('small');note.textContent='Станет статической после применения';state.append(note);}
