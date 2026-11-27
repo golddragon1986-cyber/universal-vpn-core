@@ -161,6 +161,10 @@ const linkedRow=lease=>{
  const owner=leaseOwner(lease);
  return owner?rows.find(row=>row.dhcp_owner===owner):undefined;
 };
+function manualRoute(lease){
+ const address=leaseAddress(lease);
+ return address&&rows.find(row=>!row.dhcp_owner&&(row.address===address||row.address===address+'/32'));
+}
 function pinLease(lease){
  if(!lease.dynamic||leaseRequests.some(request=>request.id===lease.id))return;
  leaseRequests.push({...leaseIdentity(lease),client_row_id:''});
@@ -173,11 +177,11 @@ function configureLease(lease,route){
  const leaseName=String(lease.comment||lease.host||'').replace(/[\x00-\x1f]/g,' ').trim().slice(0,100);
  let row=linkedRow(lease);
  if(!row){
-  row=rows.find(item=>!item.dhcp_owner&&item.address===address);
-  if(!row){
-   row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:leaseName,route,enabled:!lease.disabled,dhcp_owner:leaseOwner(lease)};
-   rows.push(row);
-  }else{row.route=route;}
+  if(manualRoute(lease))return;
+  const owner=leaseOwner(lease);
+  if(!owner)return;
+  row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:leaseName,route,enabled:!lease.disabled,dhcp_owner:owner};
+  rows.push(row);
  }else{row.route=route;if(!row.name)row.name=leaseName;}
  pinLease(lease);
  const request=leaseRequests.find(request=>request.id===lease.id);
@@ -238,9 +242,14 @@ function renderDhcp(){
   if(pending){const note=document.createElement('small');note.textContent='Станет статической после применения';state.append(note);}
   const select=document.createElement('select');select.setAttribute('aria-label','Маршрут DHCP-клиента '+(lease.ip||lease.mac));
   for(const value of seed.routes){const option=document.createElement('option');option.value=value;option.textContent=routeLabels[value]||value.replace(/^CHANNEL-/,'');select.append(option);}
-  select.value=linkedRow(lease)?.route||assignedRoute(leaseAddress(lease));
-  select.disabled=!leaseAddress(lease)||effectiveDisabled||action?.action==='unpin'||!seed.state.live;
-  select.addEventListener('change',()=>configureLease(lease,select.value));tr.insertCell().append(select);
+  const linked=linkedRow(lease),manual=linked?null:manualRoute(lease);
+  select.value=effectiveDisabled?assignedRoute(leaseAddress(lease)):linked?.route||assignedRoute(leaseAddress(lease));
+  select.disabled=!leaseAddress(lease)||Boolean(manual)||effectiveDisabled||action?.action==='unpin'||!seed.state.live;
+  const routeCell=tr.insertCell();
+  select.addEventListener('change',()=>configureLease(lease,select.value));routeCell.append(select);
+  if(manual){
+   const note=document.createElement('small');note.textContent=window.uiText('Маршрут задаётся в списке клиентов контейнера');routeCell.append(note);
+  }
   const actions=tr.insertCell(),buttons=document.createElement('div');buttons.className='dhcp-actions';actions.append(buttons);
   if(active){const pin=button(lease.dynamic?(pending?'Отменить закрепление':'Закрепить'):(action?.action==='unpin'?'Отменить отвязку':'Отвязать'),()=>togglePin(lease));pin.disabled=!seed.state.live;buttons.append(pin);}
   const toggle=button(effectiveDisabled?'Отключено':'Включено',()=>toggleLease(lease));
@@ -255,9 +264,9 @@ async function refreshDhcp(){
  try{
   const response=await fetch('/api/clients/dhcp',{cache:'no-store'}),data=await response.json();
   if(!response.ok||!data.ok)throw Error(data.message||'RouterOS не ответил');
-  const before=dhcpLeases.map(lease=>leaseAddress(lease)).join('|');
+  const before=dhcpLeases.map(leaseOwner).join('|');
   dhcpLeases=data.leases||[];updateDhcpServers();
-  if(before!==dhcpLeases.map(lease=>leaseAddress(lease)).join('|'))draw();else renderDhcp();
+  if(before!==dhcpLeases.map(leaseOwner).join('|'))draw();else renderDhcp();
  }catch(e){dhcpStatus.textContent='Не удалось прочитать DHCP-аренды: '+e.message;}
  finally{dhcpLoading=false;}
 }
