@@ -64,9 +64,12 @@ function mergeRecent(data){
  for(const job of rows)jobs.set(job.id,job);
  renderJobs();
 }
+const backgroundSubscriptionLabels=new Set(["Обновление данных подписки","Автообновление подписки","Автобалансировка подписки"]);
 function renderJobs(){
- const rows=[...jobs.values()].sort((a,b)=>b.id-a.id);
- more.hidden=rows.length>=total||cursor===null||cursor===0;
+ const rows=[...jobs.values()]
+  .filter(job=>job.status!=="done"||!backgroundSubscriptionLabels.has(job.label))
+  .sort((a,b)=>b.id-a.id);
+ more.hidden=jobs.size>=total||cursor===null||cursor===0;
  const key=JSON.stringify(rows);if(key===lastRender)return;lastRender=key;
  const opened=new Set([...list.querySelectorAll("details[open]")].map(d=>d.dataset.job));
  const scroll=list.scrollTop;list.replaceChildren();
