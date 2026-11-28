@@ -176,7 +176,7 @@ const linkedRow=lease=>{
 };
 function manualRoute(lease){
  const host=singleAddress(leaseAddress(lease));
- return host===null?undefined:rows.find(row=>!row.dhcp_owner&&singleAddress(row.address)===host);
+ return host===null?undefined:rows.find(row=>row.enabled&&!row.dhcp_owner&&singleAddress(row.address)===host);
 }
 function pinLease(lease){
  if(!lease.dynamic||leaseRequests.some(request=>request.id===lease.id))return;
@@ -191,7 +191,7 @@ function configureLease(lease,route){
  let row=linkedRow(lease);
  if(!row){
   const manual=manualRoute(lease);
-  if(manual){error=manual.enabled?conflictMessage(address):'Для '+address+' уже есть запись в списке клиентов контейнера. Удалите её, чтобы задать маршрут DHCP.';draw();return;}
+  if(manual){error=conflictMessage(address);draw();return;}
   const owner=leaseOwner(lease);
   if(!owner)return;
   row={id:'new-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),list:source,address,label:'',name:leaseName,route,enabled:!lease.disabled,dhcp_owner:owner};

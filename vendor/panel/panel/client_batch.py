@@ -27,8 +27,6 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
         if name not in state['lists']:raise ValueError('Этот список не используется для клиентов контейнера')
         if ident in originals and originals[ident]['list']!=name:raise ValueError('Нельзя переносить существующую запись в другой список')
         value=panel.address(row.get('address',''))
-        if (name,value) in seen:raise ValueError('Адрес уже присутствует в списке клиентов: '+value)
-        seen.add((name,value))
         label=originals[ident]['label'] if ident in originals else ''
         if ident in originals and row.get('label')!=label:raise ValueError('Комментарий RouterOS доступен только для чтения')
         alias=str(row.get('name','')).strip()
@@ -42,6 +40,9 @@ def plan(rows, baseline, router=None, lease_requests=None, lease_actions=None):
             raise ValueError('Связь клиента с DHCP-арендой изменилась. Обновите страницу.')
         if owner and ident in originals and value!=originals[ident]['address']:
             raise ValueError('Адрес DHCP-клиента изменяется через аренду RouterOS')
+        identity=(name,value,bool(owner))
+        if identity in seen:raise ValueError('Адрес уже присутствует в списке клиентов: '+value)
+        seen.add(identity)
         if owner:
             if owner in owners:raise ValueError('DHCP-аренда связана с несколькими клиентами')
             owners.add(owner)
@@ -121,12 +122,15 @@ def apply(router, change, report=lambda _:None):
     for binding in change['bindings']:
         if binding['list'] in migrations:
             router.call(binding['path']+'/'+rr.rid(binding['id']),'PATCH',{'src-address-list':migrations[binding['list']]})
-    for row in desired:
-        if row['id'] not in before:
-            router.call('ip/firewall/address-list','PUT',payload(row))
-    for row in sorted(desired,key=lambda r:not r['enabled']):
+    assigned_ids={}
+    for row in sorted(desired,key=lambda r:r['enabled']):
         if row['id'] in before:
             router.call('ip/firewall/address-list/'+rr.rid(row['id']),'PATCH',payload(row))
+        else:
+            created=router.call('ip/firewall/address-list','PUT',payload(row))
+            if not isinstance(created,dict) or not created.get('.id'):
+                raise RuntimeError('RouterOS не вернул идентификатор новой записи клиента')
+            assigned_ids[row['id']]=created['.id']
     wanted={row['id'] for row in desired}
     for ident,row in before.items():
         if ident not in wanted:
@@ -141,6 +145,7 @@ def apply(router, change, report=lambda _:None):
     import dhcp_leases
     dhcp_leases.apply(router,change.get('dhcp_static',[]),report)
     dhcp_leases.apply_actions(router,change.get('dhcp_actions',[]),report)
+    client_policy.save([{**row,'id':assigned_ids.get(row['id'],row['id'])} for row in desired])
 
 
 def restore(router, change):

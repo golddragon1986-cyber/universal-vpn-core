@@ -3,6 +3,7 @@ import ipaddress
 import json
 import re
 import subprocess
+from collections import Counter, defaultdict
 from pathlib import Path
 import router_routes as rr
 from durable_io import write
@@ -19,10 +20,20 @@ def read():
 def key(row):return (row['list'],row['address'])
 
 def enrich(rows):
-    saved={key(row):row for row in read()}
-    return [{**row,'name':saved.get(key(row),{}).get('name',''),
-             'route':saved.get(key(row),{}).get('route','RULES'),
-             'dhcp_owner':saved.get(key(row),{}).get('dhcp_owner','')} for row in rows]
+    saved=defaultdict(list)
+    for row in read():
+        saved[key(row)].append(row)
+    counts=Counter(map(key,rows))
+    enriched=[]
+    for row in rows:
+        candidates=saved.get(key(row),[])
+        metadata=next((item for item in candidates if item.get('id')==row['id']),None)
+        if metadata is None and counts[key(row)]==1 and len(candidates)==1:
+            metadata=candidates[0]  # Older settings used a temporary ID or only the address.
+        metadata=metadata or {}
+        enriched.append({**row,'name':metadata.get('name',''),
+                         'route':metadata.get('route','RULES'),'dhcp_owner':metadata.get('dhcp_owner','')})
+    return enriched
 
 def choices():
     return ['RULES','BYPASS']+[value for value in rr.target_choices() if value!='DIRECT']

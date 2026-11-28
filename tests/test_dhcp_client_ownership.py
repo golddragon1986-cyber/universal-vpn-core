@@ -108,6 +108,24 @@ class OwnershipTests(unittest.TestCase):
                                             'address': ADDRESS, 'label': '', 'enabled': True}])
         self.assertEqual(manual[0]['dhcp_owner'], '')
 
+    def test_disabled_manual_host_can_coexist_with_dhcp(self):
+        before = state()
+        manual = dict(row(), enabled=False)
+        owned = dict(row(OWNER), id='new-dhcp')
+        with patch.object(client_panel, 'read_state', return_value=before):
+            plan = client_batch.plan([manual, owned], client_panel.fingerprint(before), Router())
+            self.assertEqual(plan['desired'], [manual, owned])
+            with self.assertRaisesRegex(ValueError, 'Конфликт маршрутов'):
+                client_batch.plan([row(), owned], client_panel.fingerprint(before), Router())
+
+    def test_same_address_keeps_distinct_metadata_by_router_id(self):
+        manual = dict(row(), enabled=False, name='Manual')
+        owned = dict(row(OWNER), id='*3', name='DHCP')
+        live = [{k: item[k] for k in ('id', 'list', 'address', 'label', 'enabled')}
+                for item in (manual, owned)]
+        with patch.object(client_policy, 'read', return_value=[manual, owned]):
+            self.assertEqual(client_policy.enrich(live), [manual, owned])
+
 
 if __name__ == '__main__':
     unittest.main()
