@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)][string]$Version,
-    [string]$PanelSource
+    [string]$PanelSource, [string]$ReleaseOutput
 )
 
 # Rebuild both images from 0.43b with patched Mihomo and the current panel.
@@ -11,6 +11,7 @@ Set-Location -LiteralPath $root
 $previous = Join-Path $root 'version\0.43b\universal-vpn'
 $defaultsArchive = Join-Path $previous 'SEED-STATE.tgz'
 $release = Join-Path $root (Join-Path 'version' (Join-Path $Version 'universal-vpn'))
+if ($ReleaseOutput) { $release = [IO.Path]::GetFullPath($ReleaseOutput, $root) }
 $livePanelSource = if ($PanelSource) { (Resolve-Path -LiteralPath $PanelSource).Path } else { Join-Path $root 'vendor\panel\panel' }
 $patchedDirectory = Join-Path $root 'build\mihomo-043'
 $packagePrefix = 'usr/local/lib/mihomo-panel/'
@@ -184,10 +185,15 @@ function Build-Image([string]$Architecture, $DefaultFiles, $PanelFiles, $BuildIn
     foreach ($name in @('initialize.py','default-config.yaml','entrypoint.sh')) {
         $file = Join-Path $root (Join-Path 'vendor\panel' $name)
         $scriptMode = $name -eq 'entrypoint.sh'
+        $data = [IO.File]::ReadAllBytes($file)
+        if ($scriptMode) {
+            $scriptText = [Text.Encoding]::UTF8.GetString($data).TrimStart([char]0xFEFF)
+            $data = [Text.Encoding]::UTF8.GetBytes($scriptText.Replace("`r`n", "`n").Replace("`r", "`n"))
+        }
         $mode = if ($scriptMode) { [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite -bor [IO.UnixFileMode]::UserExecute -bor [IO.UnixFileMode]::GroupRead -bor [IO.UnixFileMode]::GroupExecute -bor [IO.UnixFileMode]::OtherRead -bor [IO.UnixFileMode]::OtherExecute } else { [IO.UnixFileMode]::UserRead -bor [IO.UnixFileMode]::UserWrite -bor [IO.UnixFileMode]::GroupRead -bor [IO.UnixFileMode]::OtherRead }
         $records.Add([pscustomobject]@{
             Name = $packagePrefix + $name; Type = [System.Formats.Tar.TarEntryType]::RegularFile; Mode = $mode
-            Uid = 0; Gid = 0; UserName = 'root'; GroupName = 'root'; LinkName = ''; MTime = $now; Data = [IO.File]::ReadAllBytes($file)
+            Uid = 0; Gid = 0; UserName = 'root'; GroupName = 'root'; LinkName = ''; MTime = $now; Data = $data
         })
     }
     $records.Add([pscustomobject]@{

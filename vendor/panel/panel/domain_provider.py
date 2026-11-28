@@ -17,7 +17,12 @@ def split_config(text, fmt, base):
     text = provider_block(text, fmt, base / ("ru-blocked-mihomo.mrs" if fmt == "mrs" else "ru-blocked-domain.txt"))
     if "  RU-BLOCKED-LOCAL:\n" in text:
         return text
-    anchors = ("  - RULE-SET,RU-BLOCKED,SELECTOR", "    - RULE-SET,RU-BLOCKED,fake-ip\n",
+    filters = list(re.finditer(r"(?m)^    - RULE-SET,RU-BLOCKED,(fake-ip|real-ip)\n", text))
+    if len(filters) != 1:
+        raise ValueError("The current configuration is missing the managed domain DNS filter")
+    filter_line = filters[0][0]
+    dns_mode = filters[0][1]
+    anchors = ("  - RULE-SET,RU-BLOCKED,SELECTOR", filter_line,
                "    # END SERVICE-FAKE-IP\n", "    'rule-set:RU-BLOCKED':\n")
     if any(text.count(anchor) != 1 for anchor in anchors):
         raise ValueError("The current configuration is missing managed domain rules")
@@ -33,13 +38,13 @@ def split_config(text, fmt, base):
         "  - AND,((NOT,((RULE-SET,RU-BLOCKED-EXCLUDED))),(OR,((RULE-SET,RU-BLOCKED-LOCAL),(RULE-SET,RU-BLOCKED)))),SELECTOR",
         1,
     )
-    text = text.replace("    - RULE-SET,RU-BLOCKED,fake-ip\n", "", 1)
+    text = text.replace(filter_line, "", 1)
     text = text.replace(
         "    # END SERVICE-FAKE-IP\n",
         "    # END SERVICE-FAKE-IP\n"
         "    - RULE-SET,RU-BLOCKED-EXCLUDED,real-ip\n"
-        "    - RULE-SET,RU-BLOCKED-LOCAL,fake-ip\n"
-        "    - RULE-SET,RU-BLOCKED,fake-ip\n",
+        f"    - RULE-SET,RU-BLOCKED-LOCAL,{dns_mode}\n"
+        + filter_line,
         1,
     )
     return text.replace(

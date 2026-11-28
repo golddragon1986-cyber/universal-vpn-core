@@ -1,8 +1,9 @@
-param([Parameter(Mandatory=$true)][string]$Version, [string]$PanelSource)
+param([Parameter(Mandatory=$true)][string]$Version, [string]$PanelSource, [string]$ReleaseOutput)
 
 $ErrorActionPreference = 'Stop'
 $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $release = Join-Path $root (Join-Path 'version' (Join-Path $Version 'universal-vpn'))
+if ($ReleaseOutput) { $release = [IO.Path]::GetFullPath($ReleaseOutput, $root) }
 $panelSource = if ($PanelSource) { (Resolve-Path -LiteralPath $PanelSource).Path } else { Join-Path $root 'vendor\panel\panel' }
 $binarySource = Join-Path $root 'build\mihomo-043'
 $buildInfo = Get-Content (Join-Path $release 'BUILD-INFO.json') -Raw | ConvertFrom-Json
@@ -55,6 +56,10 @@ foreach ($arch in @('armv7','arm64')) {
     $layer = Read-Archive $layerBytes $true
     $prefix = 'usr/local/lib/mihomo-panel/'
     if (-not $layer.ContainsKey($prefix + 'entrypoint.sh')) { throw "$arch entrypoint missing" }
+    $entrypoint = [Text.Encoding]::UTF8.GetString($layer[$prefix + 'entrypoint.sh'])
+    if (!$entrypoint.StartsWith("#!/bin/sh`n") -or $entrypoint.Contains("`r")) {
+        throw "$arch entrypoint must use LF and have no byte order mark"
+    }
     if ([Text.Encoding]::UTF8.GetString($layer[$prefix + 'VERSION']).Trim() -ne $Version) { throw "$arch version mismatch" }
     $panelVersion = [Text.Encoding]::UTF8.GetString($layer[$prefix + 'default-state/panel-version.json']) | ConvertFrom-Json
     if ($panelVersion.version -ne '0.4.4' -or $panelVersion.tag -ne "v$Version") { throw "$arch panel version mismatch" }
