@@ -113,6 +113,16 @@ more.addEventListener("click",async()=>{
 try{wasPending=sessionStorage.getItem("mihomo-actions-pending")==="1";}catch(e){}
 const viewRefreshJobs=new Set();
 const deleteJobs=new Map();
+const editorActions=new Set(["vpn_edit","subscription_edit","subscription_automation"]);
+const editorValues=new WeakMap(),editorJobs=new Map();
+const formValues=form=>new URLSearchParams(new FormData(form)).toString();
+document.addEventListener("DOMContentLoaded",()=>{
+ setTimeout(()=>{
+  for(const form of document.querySelectorAll("dialog form")){
+   if(editorActions.has(form.elements.namedItem("action")?.value))editorValues.set(form,formValues(form));
+  }
+ },0);
+});
 function backdropDialog(event){
  const dialog=event.target;
  if(!(dialog instanceof HTMLDialogElement)||!dialog.open)return null;
@@ -228,8 +238,14 @@ document.addEventListener("submit",async event=>{
  const form=event.target;if(event.defaultPrevented||form.method.toLowerCase()!=="post")return;
  if(form.dataset.queueSending==="1"||form.dataset.inlineBusy==="1"){event.preventDefault();return;}
  const data=new URLSearchParams(new FormData(form,event.submitter));
- const baseline=new URLSearchParams(new FormData(form)).toString();
+ const baseline=formValues(form);
  if(!data.has("action"))return;
+ if(editorValues.get(form)===baseline){
+  event.preventDefault();
+  delete form.dataset.queueDirty;
+  form.closest("dialog")?.close();
+  return;
+ }
  const component=data.get('action')==='component_change'?data.get('component'):null;
  if(component&&componentBusy(component)){event.preventDefault();return;}
  event.preventDefault();form.dataset.queueSending="1";requests++;
@@ -238,6 +254,7 @@ document.addEventListener("submit",async event=>{
  try{
   const r=await fetch("/api/actions/queue",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:data});
   const result=await r.json();if(!r.ok||!result.ok)throw new Error(result.message||"Не удалось добавить действие");
+  if(editorValues.has(form))editorJobs.set(result.job_id,{form,baseline});
   const dialog=form.closest("dialog");
   if(dialog?.open)dialog.close();
   if(["subscription_delete","proxy_delete","proxy_delete_selected"].includes(data.get("action")))deleteJobs.set(result.job_id,data);
@@ -262,6 +279,12 @@ async function poll(){
  try{
   const r=await fetch("/api/actions/status",{cache:"no-store"});if(!r.ok)return;
   const data=await r.json(),pending=data.queued+data.running;
+  for(const job of data.jobs){
+   const editor=editorJobs.get(job.id);
+   if(!editor||!["done","failed"].includes(job.status))continue;
+   editorJobs.delete(job.id);
+   if(job.status==="done")editorValues.set(editor.form,editor.baseline);
+  }
   for(const job of data.jobs){
    const form=maintenanceJobs.get(job.id);if(!form||!["done","failed"].includes(job.status))continue;
    maintenanceJobs.delete(job.id);delete form.dataset.inlineBusy;maintenanceLock(form,false);
