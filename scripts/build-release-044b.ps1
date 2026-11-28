@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory=$true)][string]$Version,
-    [string]$PanelSource, [string]$ReleaseOutput
+    [string]$PanelSource, [string]$ReleaseOutput, [string]$SeedArchive
 )
 
 # Rebuild both images from 0.43b with patched Mihomo and the current panel.
@@ -9,7 +9,7 @@ $root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 Set-Location -LiteralPath $root
 
 $previous = Join-Path $root 'version\0.43b\universal-vpn'
-$defaultsArchive = Join-Path $previous 'SEED-STATE.tgz'
+$defaultsArchive = if ($SeedArchive) { (Resolve-Path -LiteralPath $SeedArchive).Path } else { Join-Path $previous 'SEED-STATE.tgz' }
 $release = Join-Path $root (Join-Path 'version' (Join-Path $Version 'universal-vpn'))
 if ($ReleaseOutput) { $release = [IO.Path]::GetFullPath($ReleaseOutput, $root) }
 $livePanelSource = if ($PanelSource) { (Resolve-Path -LiteralPath $PanelSource).Path } else { Join-Path $root 'vendor\panel\panel' }
