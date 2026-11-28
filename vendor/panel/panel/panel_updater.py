@@ -83,7 +83,7 @@ def read_manifest():
     version = str(data.get('version', ''))
     _version(version)
     tag = str(data.get('tag', ''))
-    if tag != 'panel-v' + version and not re.fullmatch(r'v\d+\.\d+[a-z]?\.\d{6}\.\d{4}', tag):
+    if tag != 'panel-v' + version and not re.fullmatch(r'v\d+\.\d+[a-z]?(?:\.\d{6}\.\d{4})?', tag):
         raise ValueError('Некорректный тег выпуска панели или контейнера')
     url = str(data.get('url', ''))
     expected_release = 'https://github.com/' + REPOSITORY + '/releases/download/' + tag + '/panel.tar.gz'
