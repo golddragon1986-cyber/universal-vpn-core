@@ -12,6 +12,7 @@ import re
 import socket
 import ssl
 import uuid
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
@@ -290,7 +291,43 @@ def identity(node):
     return hashlib.sha256(raw).hexdigest()
 
 
-def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
+def source_label(name):
+    return re.sub(r"(?i)[\s_-]+\d+(?:[.,]\d+)?\s*[KMGT]i?B[\s_-]+\d+\s*D$", "", name).strip() or name
+
+
+def pinned_channels(names):
+    import router_routes
+    targets = {"CHANNEL-" + re.sub(r"[^A-Za-z0-9_-]+", "-", name).strip("-"): name
+               for name in names}
+    targets.update({name: name for name in names})
+    pinned = {name for _, name in manager.client_route_references(names)}
+
+    def collect(value):
+        if isinstance(value, str) and value in targets:
+            pinned.add(targets[value])
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    for filename in ("routing-settings.json", "service-routes.json", "route-targets.json", "dns-settings.json"):
+        path = router_routes.ROOT / "rules" / filename
+        if path.is_file():
+            collect(json.loads(path.read_bytes()))
+    return pinned
+
+
+def replacement_ready(node):
+    try:
+        delay = manager.delay(node["proxy"]["name"], expected=204)
+        return type(delay) in (int, float) and delay > 0
+    except (OSError, ValueError):
+        return False
+
+
+def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *, _fetched=None):
     with clients.LOCK:
         old = manager.read()
         new = copy.deepcopy(old)
@@ -308,39 +345,72 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
         engine = sub["engine"]
         if not clients.binary(engine):
             raise ValueError("Выбранный движок не установлен.")
-        source, usage = fetch(sub["url"], sub["profile"])
-        incoming = parse_response(source, engine)
+        if _fetched is None:
+            source, usage = fetch(sub["url"], sub["profile"])
+            incoming = parse_response(source, engine)
+        else:
+            incoming, usage = _fetched
         previous_nodes = [n for n in new["nodes"] if n.get("subscription") == subscription_id]
+        unique_sources = {}
+        for source in incoming:
+            unique_sources.setdefault(identity(source), source)
+        incoming_keys = unique_sources.keys()
+        labels = Counter(source_label(node["name"]).casefold() for node in unique_sources.values())
+        previous_names = {node["proxy"]["name"] for node in previous_nodes}
+        pinned = pinned_channels(previous_names)
+        overrides = new.get("balance_overrides", {})
+        protected = pinned | {node["proxy"]["name"] for node in previous_nodes
+                              if overrides.get(node["proxy"]["name"], node.get("balance", False))}
+        missing_by_label = {}
         existing = {}
         for node in sorted(previous_nodes, key=lambda n: (bool(n.get("stale")), not n.get("balance", False))):
-            existing.setdefault(identity(clients.canonical(node)), node)
+            key = node.get("source_key") or identity(clients.canonical(node))
+            existing.setdefault(key, node)
+            if key not in incoming_keys and not node.get("replacement_for"):
+                label = node.get("source_label") or source_label(node["proxy"]["name"].removeprefix(sub["name"] + "-"))
+                missing_by_label.setdefault(label.casefold(), []).append(node)
         used = {n["proxy"]["name"] for n in new["nodes"]} | {
             "DIRECT", "REJECT", "GLOBAL", "SELECTOR", "LOADBALANCE", "TRANSIT", "PASS", "COMPATIBLE",
         }
-        seen = set()
         retained = set()
         configs = {}
-        for source in incoming:
-            key = identity(source)
-            if key in seen:
-                continue
-            seen.add(key)
+        staged_replacement = False
+        for key, source in unique_sources.items():
             node = existing.get(key)
+            label = source_label(source["name"])
+            matches = missing_by_label.get(label.casefold(), [])
+            predecessor = matches[0] if len(matches) == 1 and labels[label.casefold()] == 1 else None
+            if predecessor is not None:
+                previous_name = predecessor["proxy"]["name"]
+                if node is None and previous_name not in protected:
+                    node = predecessor
+                elif (node is not None and node.get("replacement_for") == previous_name
+                      and node["proxy"]["name"] not in protected
+                      and clients.current(node) == clients.current(predecessor)
+                      and node.get("tls_fingerprint") == predecessor.get("tls_fingerprint")
+                      and identity(clients.canonical(node)) == key
+                      and replacement_ready(node)):
+                    node = predecessor
             if node is not None:
                 retained.add(node["proxy"]["name"])
                 node_engine = clients.current(node)
+                if node.get("source_key") == key:
+                    node["source_label"] = label
+                    node.pop("stale", None)
+                    continue
             else:
-                source_name = re.sub(
-                    r"(?i)[\s_-]+\d+(?:[.,]\d+)?\s*(?:[KMGT]i?B)[\s_-]+\d+\s*D$",
-                    "", source["name"]
-                ).strip() or source["name"]
-                normalized = unique({**source, "name": sub["name"] + "-" + source_name}, used)
+                normalized = unique({**source, "name": sub["name"] + "-" + label}, used)
                 node = {"proxy": normalized, "balance": False, "subscription": subscription_id,
                         "source_key": key}
+                if predecessor is not None:
+                    node["replacement_for"] = predecessor["proxy"]["name"]
+                    if fingerprint := predecessor.get("tls_fingerprint"):
+                        node["tls_fingerprint"] = fingerprint
+                    staged_replacement = True
                 new["nodes"].append(node)
-                node_engine = engine
+                node_engine = clients.current(predecessor) if predecessor is not None else engine
             canonical = {**source, "name": node["proxy"]["name"]}
-            node.update(connection=canonical, client=node_engine, source_key=key)
+            node.update(connection=canonical, client=node_engine, source_key=key, source_label=label)
             node.pop("stale", None)
             if node_engine == "mihomo":
                 node["proxy"] = clients.convert(clients.effective_profile(node), node_engine)
@@ -351,7 +421,7 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
                 node["proxy"] = {"name": canonical["name"], "type": "socks5",
                                  "server": "127.0.0.1", "port": port, "udp": canonical.get("udp", True)}
         removed = {n["proxy"]["name"] for n in previous_nodes} - retained
-        referenced = {name for _, name in manager.client_route_references(removed)}
+        referenced = removed & protected
         for node in previous_nodes:
             if node["proxy"]["name"] in referenced:
                 node["stale"] = True
@@ -402,7 +472,16 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None):
                     clients.ensure_runtime(node_engine)
             manager.sync()
             raise ValueError("Не удалось применить обновление подписки.") from None
-        return f"Подписка обновлена. Уникальных узлов: {len(seen)}. Удалено устаревших или повторных записей: {len(removed)}. Дублей в ответе пропущено: {len(incoming) - len(seen)}. Сохранено каналов, используемых клиентами: {len(referenced)}."
+        if staged_replacement and _fetched is None:
+            try:
+                return refresh(subscription_id, _fetched=(incoming, usage))
+            except (OSError, ValueError):
+                pass  # The first pass has already saved the working channels and inactive candidates.
+        pending = sum(bool(node.get("replacement_for")) for node in new["nodes"]
+                      if node.get("subscription") == subscription_id)
+        return (f"Подписка обновлена. Уникальных узлов: {len(unique_sources)}. "
+                f"Удалено записей: {len(removed)}. Дублей в ответе пропущено: {len(incoming) - len(unique_sources)}. "
+                f"Сохранено активных или привязанных каналов: {len(referenced)}. Кандидатов ожидают замены: {pending}.")
 
 
 def refresh_info(subscription_id):

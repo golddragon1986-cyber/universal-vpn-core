@@ -128,7 +128,7 @@ def check(pool, settings, nodes, state):
     enable = []
     if slots:
         candidates = [node["proxy"]["name"] for node in nodes
-                      if not node.get("balance") and not node.get("stale")]
+                      if not node.get("balance") and not node.get("stale") and not node.get("replacement_for")]
         if candidates:
             start = state.get("cursor", 0) % len(candidates)
             batch = (candidates[start:] + candidates[:start])[:CANDIDATE_BATCH]
