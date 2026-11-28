@@ -200,6 +200,21 @@ def client_route_references(names):
  return [(row['address'],targets[row['route']]) for row in client_policy.read()
          if row['enabled'] and row.get('route') in targets]
 
+def direct_route_references(names):
+ from router_routes import read_targets
+ from service_routes_panel import read_services
+ targets={name:name for name in names}
+ targets.update({'CHANNEL-'+re.sub(r'[^A-Za-z0-9_-]+','-',name).strip('-'):name for name in names})
+ references=[f'{channel} → клиент или сеть {address}'
+             for address,channel in client_route_references(names)]
+ for rule in read_services():
+  if rule.get('enabled',True) and rule.get('target') in targets:
+   references.append(f"{targets[rule['target']]} → правило «{rule.get('name','')}»")
+ for network,route in read_targets().items():
+  if route.get('enabled',True) and route.get('target') in targets:
+   references.append(f"{targets[route['target']]} → маршрут {network}")
+ return list(dict.fromkeys(references))
+
 def delete_many(names=(), *, subscription=None):
  d=read(); old=json.loads(json.dumps(d))
  if subscription is not None:
@@ -209,10 +224,11 @@ def delete_many(names=(), *, subscription=None):
  else:
   names=list(dict.fromkeys(x for x in names if x))
   if not names: raise ValueError("Не выбраны прокси для удаления")
- references=client_route_references(names)
+ references=direct_route_references(names)
  if references:
-  address,node=references[0]
-  raise ValueError(f'Канал «{node}» используется клиентом или сетью {address}. Сначала измените маршрут во вкладке «Клиенты» и примените конфигурацию.')
+  raise ValueError('Удаление заблокировано. Каналы используются напрямую:\n'
+                   +'\n'.join(references)
+                   +'\nСначала измените привязки и примените конфигурацию.')
  managed_names={x['proxy']['name'] for x in d['nodes']}
  native=[x for x in names if x not in managed_names]
  d['nodes']=[x for x in d['nodes'] if x['proxy']['name'] not in names]
