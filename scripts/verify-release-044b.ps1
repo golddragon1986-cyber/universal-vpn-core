@@ -8,6 +8,18 @@ $panelSource = if ($PanelSource) { (Resolve-Path -LiteralPath $PanelSource).Path
 $binarySource = Join-Path $root 'build\mihomo-043'
 $buildInfo = Get-Content (Join-Path $release 'BUILD-INFO.json') -Raw | ConvertFrom-Json
 
+# The queue passes list.append itself. The installer must call that callback
+# after staging the bundle, rather than treating it as the underlying list.
+$queueSource = Get-Content -LiteralPath (Join-Path $panelSource 'action_queue.py') -Raw
+$handlerSource = Get-Content -LiteralPath (Join-Path $panelSource 'manage_ru_blocked.py') -Raw
+$handler = [regex]::Match($handlerSource, "(?ms)^            if action == 'panel_update_install':\r?\n(?<body>.*?)^                return\s*$")
+if ($queueSource -notmatch '(?m)payload\["_after_commit"\]\s*=\s*after_commit\.append\s*$' -or
+    !$handler.Success -or
+    $handler.Groups['body'].Value -notmatch '(?m)^\s+after_commit\(panel_updater\.schedule_restart\)\s*$' -or
+    $handler.Groups['body'].Value -match 'after_commit\.append') {
+    throw 'Panel update must register its restart through the action queue callback'
+}
+
 function Get-Sha256([byte[]]$Bytes) {
     return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($Bytes)).ToLowerInvariant()
 }
