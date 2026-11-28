@@ -376,7 +376,7 @@ def render(message=""):
             actions += button("remove", _ui('Удалить'), _ui('onsubmit="return confirm(\'Удалить этот источник?\')" '))
         rows.append(f'<tr><td title="{escape(source)}"><strong>{escape(item["name"])}</strong></td>'
                     f'<td>{kind}</td><td>{size}</td>'
-                    f'<td>{escape(item["updated"])}</td><td class="geodata-actions"><div class="geodata-action-grid">{actions}</div></td></tr>')
+                    f'<td>{escape(item.get("updated") or "—")}</td><td class="geodata-actions"><div class="geodata-action-grid">{actions}</div></td></tr>')
     status = f'<p class="msg" role="status">{escape(message)}</p>' if message else ""
     listing = (_ui('<table class="geodata-sources-table"><thead><tr><th>Название</th><th>Тип</th><th>Размер</th><th>Добавлен / обновлён</th><th>Управление</th></tr></thead><tbody>') + "".join(rows) + '</tbody></table>') if rows else _ui('<p>Источники ещё не добавлены.</p>')
     return ('<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>GeoDAT</title></head><body>'
