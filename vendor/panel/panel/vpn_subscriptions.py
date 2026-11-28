@@ -11,6 +11,7 @@ import os
 import re
 import socket
 import ssl
+import time
 import uuid
 from collections import Counter
 from datetime import datetime, timezone
@@ -333,7 +334,21 @@ def replacement_ready(node):
         return False
 
 
-def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *, _fetched=None):
+def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *,
+            before_apply=None, report=None, _fetched=None, _timings=None):
+    timings = {} if _timings is None else _timings
+
+    def stage(label):
+        if report:
+            report(label)
+        return time.monotonic()
+
+    def elapsed(label, start):
+        timings[label] = timings.get(label, 0) + time.monotonic() - start
+
+    def finish(message):
+        return message + "\nЭтапы: " + ", ".join(f"{key} {value:.2f} с" for key, value in timings.items()) + "."
+
     with clients.LOCK:
         old = manager.read()
         new = copy.deepcopy(old)
@@ -352,10 +367,15 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *, 
         if not clients.binary(engine):
             raise ValueError("Выбранный движок не установлен.")
         if _fetched is None:
+            started = stage("Загрузка подписки по HTTPS")
             source, usage = fetch(sub["url"], sub["profile"])
+            elapsed("HTTPS", started)
+            started = stage("Разбор списка серверов")
             incoming = parse_response(source, engine)
+            elapsed("разбор", started)
         else:
             incoming, usage = _fetched
+        started = stage("Сопоставление серверов и проверка кандидатов")
         previous_nodes = [n for n in new["nodes"] if n.get("subscription") == subscription_id]
         unique_sources = {}
         for source in incoming:
@@ -473,9 +493,25 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *, 
         sub["usage"] = usage
         sub["usage_updated"] = sub["updated"]
         subscriptions[subscription_id] = sub
+        elapsed("сопоставление и пробы", started)
+        if not configs and old["nodes"] == new["nodes"]:
+            started = stage("Сохранение данных подписки")
+            if old != new:
+                manager.put(manager.DB, new)
+            elapsed("сохранение данных", started)
+            pending = sum(bool(node.get("replacement_for")) for node in previous_nodes)
+            return finish(f"Подписка обновлена. Список серверов не изменился. "
+                          f"Уникальных узлов: {len(unique_sources)}. Кандидатов ожидают замены: {pending}.")
+        started = stage("Проверка конфигурации VPN")
         for node_engine, (_, cfg) in configs.items():
             clients.validate(node_engine, cfg)
         clients.validate("mihomo", {"proxies": [n["proxy"] for n in new["nodes"]], "rules": ["MATCH,DIRECT"]})
+        elapsed("проверка конфигурации", started)
+        if before_apply:
+            if report:
+                report("Подготовка снимка для отката")
+            before_apply()
+        started = stage("Применение конфигурации VPN")
         applied = []
         try:
             for node_engine, (path, cfg) in configs.items():
@@ -501,14 +537,16 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *, 
                     clients.ensure_runtime(node_engine)
             manager.sync()
             raise ValueError("Не удалось применить обновление подписки.") from None
+        elapsed("применение", started)
         if staged_replacement and _fetched is None:
             try:
-                return refresh(subscription_id, _fetched=(incoming, usage))
+                return refresh(subscription_id, before_apply=before_apply, report=report,
+                               _fetched=(incoming, usage), _timings=timings)
             except (OSError, ValueError):
                 pass  # The first pass has already saved the working channels and inactive candidates.
         pending = sum(bool(node.get("replacement_for")) for node in new["nodes"]
                       if node.get("subscription") == subscription_id)
-        return (f"Подписка обновлена. Уникальных узлов: {len(unique_sources)}. "
+        return finish(f"Подписка обновлена. Уникальных узлов: {len(unique_sources)}. "
                 f"Удалено записей: {len(removed)}. Дублей в ответе пропущено: {len(incoming) - len(unique_sources)}. "
                 f"Сохранено активных или привязанных каналов: {len(referenced)}. Кандидатов ожидают замены: {pending}.")
 
@@ -562,13 +600,13 @@ def edit_subscription(sid, name, url, profile, interval=None):
     return "Настройки подписки сохранены."
 
 
-def handle(action, data):
+def handle(action, data, *, before_apply=None, report=None):
     def field(name, default=""):
         return data.get(name, [default])[0].strip()
     if action == "subscription_add":
         return refresh(uuid.uuid4().hex, field("name"), field("url"), field("client"), field("profile"))
     if action == "subscription_refresh":
-        return refresh(field("subscription"))
+        return refresh(field("subscription"), before_apply=before_apply, report=report)
     if action == "subscription_edit":
         return edit_subscription(field("subscription"), field("name"), field("url"), field("profile"),
                                  field("usage_interval") if "usage_interval" in data else None)

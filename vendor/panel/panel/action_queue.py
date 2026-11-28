@@ -117,35 +117,53 @@ class ActionQueue:
     if row:db.execute("UPDATE jobs SET status='running',started=?,updated=? WHERE id=?",(started,started,row["id"]))
    if not row:self.wake.wait(.5);self.wake.clear();continue
    clock=time.monotonic();subject=row["label"];change="";after_commit=[]
-   transactional=True
+   recovery_started=False
+   recovery_times=[]
    try:
     payload=json.loads(row["payload"])
     action=parse_qs(payload.get("body","")).get("action",[""])[0]
     transactional=action not in RUNTIME_ACTIONS and action!="geodata_source_download"
-    if self.recovery and transactional:self.recovery.begin(row["id"],payload)
+    subscription_refresh=(action=="subscription_refresh"
+                          or payload.get("subscription_automation",{}).get("operation")=="refresh")
+    def begin_recovery():
+     nonlocal recovery_started
+     if not self.recovery or recovery_started:return
+     recovery_started=True
+     start=time.monotonic()
+     self.recovery.begin(row["id"],payload)
+     recovery_times.append(f"снимок для отката {time.monotonic()-start:.2f} с")
+    if transactional and not subscription_refresh:begin_recovery()
     if self.describe:
      try:subject,change=self.describe(payload)
      except Exception:subject=row["label"];change="Применение настроек"
     with self.db() as db:db.execute("UPDATE jobs SET subject=?,change_text=? WHERE id=?",(subject,change,row["id"]))
     def report(stage):
      with self.live_lock:self.live_messages[row["id"]]=(str(stage),time.time())
+    if subscription_refresh:
+     payload["_progress"]=report
+     payload["_before_subscription_apply"]=begin_recovery
     if parse_qs(payload.get("body","")).get("action",[""])[0] in {"service_refresh_geodata","service_update_source","geodata_source_download","route_apply","configuration_apply","panel_update_install",*RUNTIME_ACTIONS}:
      payload["_job_id"]=row["id"]
      payload["_progress"]=report
      payload["_after_commit"]=after_commit.append
     message=self.execute(payload)
-    if self.recovery and transactional:self.recovery.flush(row["id"])
+    if recovery_started:
+     start=time.monotonic()
+     self.recovery.flush(row["id"])
+     recovery_times.append(f"запись журнала {time.monotonic()-start:.2f} с")
     state="done";message=str(message or "Изменения применены")
+    if subscription_refresh:
+     message+="\nОткат: "+(", ".join(recovery_times) if recovery_times else "снимок не потребовался.")
    except Exception as error:
     state="failed";message=str(error) or type(error).__name__
-    if self.recovery and transactional:
+    if recovery_started:
      try:self.recovery.abort(row["id"])
      except Exception as rollback_error:message+="; ошибка отката: "+str(rollback_error)
    duration=time.monotonic()-clock;finished=time.time()
    with self.db() as db:
     db.execute("UPDATE jobs SET status=?,message=?,payload=NULL,updated=?,finished=?,duration=? WHERE id=?",(state,message,finished,finished,duration,row["id"]))
    with self.live_lock:self.live_messages.pop(row["id"],None)
-   if self.recovery and transactional:
+   if recovery_started:
     try:self.recovery.finish(row["id"],state)
     except Exception as journal_error:
      print("Journal cleanup error:",journal_error,flush=True)

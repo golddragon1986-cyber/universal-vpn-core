@@ -54,7 +54,7 @@ def has_enabled_node(db, nodes):
                for node in nodes)
 
 
-def apply(task):
+def apply(task, *, before_apply=None, report=None):
     sid = task["subscription"]
     with clients.LOCK:
         db = manager.read()
@@ -63,7 +63,7 @@ def apply(task):
             return "Настройки изменились, автоматическое действие пропущено."
         if task["operation"] == "refresh":
             if refresh_due(sub, settings):
-                return subscriptions.refresh(sid)
+                return subscriptions.refresh(sid,before_apply=before_apply,report=report)
             return "Подписка уже обновлена."
         if time.time() - task["checked_at"] > 2 * CHECK_INTERVAL or signature(nodes) != task["signature"]:
             return "Состав подписки изменился или результаты проверки устарели."

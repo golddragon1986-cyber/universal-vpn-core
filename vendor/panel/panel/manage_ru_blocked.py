@@ -727,13 +727,16 @@ def execute_queued_action(payload):
 def _execute_queued_action(payload):
     if "subscription_automation" in payload:
         import subscription_automation
-        return subscription_automation.apply(payload["subscription_automation"])
+        return subscription_automation.apply(payload["subscription_automation"],
+                                             before_apply=payload.get("_before_subscription_apply"),
+                                             report=payload.get("_progress"))
     import io
     from types import MethodType
     handler=object.__new__(Handler)
     body=payload["body"].encode("utf-8")
     handler.path=payload["path"]
     handler.action_progress=payload.get("_progress", lambda _stage: None)
+    handler.before_subscription_apply=payload.get("_before_subscription_apply")
     handler.after_commit=payload.get("_after_commit")
     handler.action_job_id=payload.get("_job_id")
     handler.headers={"Content-Length":str(len(body))}
@@ -1327,7 +1330,9 @@ class Handler(BaseHTTPRequestHandler):
             if action in ('subscription_add', 'subscription_refresh', 'subscription_info_refresh', 'subscription_delete', 'subscription_automation', 'subscription_edit'):
                 import vpn_subscriptions
                 try:
-                    message = vpn_subscriptions.handle(action, data)
+                    message = vpn_subscriptions.handle(action, data,
+                                                       before_apply=getattr(self, "before_subscription_apply", None),
+                                                       report=getattr(self, "action_progress", None))
                 except ValueError as error:
                     message = "Ошибка подписки: " + str(error)
                 except Exception:
