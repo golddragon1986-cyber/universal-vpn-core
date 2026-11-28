@@ -287,7 +287,12 @@ foreach ($name in $panelFiles.Keys) { $buildInfo.panel_sha256[$name] = Get-Sha25
 foreach ($architecture in @('armv7','arm64')) { Build-Image $architecture $defaultFiles $panelFiles $buildInfo }
 
 @('01-install.rsc','02-enable-routing.rsc','03-disable-routing.rsc','04-uninstall.rsc') | ForEach-Object {
-    Copy-Item -LiteralPath (Join-Path $previous $_) -Destination (Join-Path $release $_)
+    $scriptSource = if ($_ -in @('01-install.rsc','04-uninstall.rsc')) {
+        Join-Path (Join-Path $root 'version/0.44b/universal-vpn') $_
+    } else {
+        Join-Path $previous $_
+    }
+    Copy-Item -LiteralPath $scriptSource -Destination (Join-Path $release $_)
 }
 Copy-Item -LiteralPath $defaultsArchive -Destination (Join-Path $release 'SEED-STATE.tgz')
 Copy-Item -LiteralPath (Join-Path $previous 'install-latest.rsc') -Destination (Join-Path $release 'install-latest.rsc')
@@ -297,9 +302,13 @@ $changes = @(
     'Редактор подписок, раздельный учёт трафика и срока, настраиваемый фоновый опрос. Обновление неизменившихся узлов обходится без пересборки ядра и показывает время каждого этапа.',
     'Кандидаты на замену проверяются до переключения. Панель сохраняет имена и прямые привязки используемых каналов.',
     'При удалении канала панель предлагает перенести прямые привязки клиентов, правил, маршрутов и DNS.',
-    'Исправлены обновление GeoDAT и конфликты DHCP-маршрутов с ручными адресами. Экран восстановления резервной копии ждёт окончательного результата.'
+    'Исправлены обновление GeoDAT и конфликты DHCP-маршрутов с ручными адресами. Экран восстановления резервной копии ждёт окончательного результата.',
+    'GeoDAT: пять источников доступны по ссылкам. Скачанные базы источников и поисковый индекс не входят в комплект.',
+    'Установщик определяет клиентские IPv4-подсети по интерфейсам списка LAN в RouterOS.',
+    'При удалении очищаются клиентские правила маршрутизации и DNS, а также DHCP-закрепления, созданные панелью.',
+    'HTTPS-адрес в форме добавления подписки виден при вводе.'
 )
-$changelog = "# $Version" + $newline + $newline + "Дата: $($now.ToString('dd.MM.yyyy HH:mm')) MSK. Релиз **0.44b** для ARMv7 и ARM64." + $newline + $newline + '## Изменения после 0.43b' + $newline + $newline + (($changes | ForEach-Object { '- ' + $_ }) -join $newline) + $newline + $newline + 'VPN-профили, подписки, ключи и параметры RouterOS в образы не включены.' + $newline
+$changelog = "# $Version" + $newline + $newline + "Дата: $($now.ToString('dd.MM.yyyy HH:mm')) MSK. Релиз **0.44b** для ARMv7 и ARM64." + $newline + $newline + '## Изменения после 0.43b' + $newline + $newline + (($changes | ForEach-Object { '- ' + $_ }) -join $newline) + $newline + $newline
 [IO.File]::WriteAllText((Join-Path $release 'CHANGELOG.md'), $changelog, $utf8)
 $oldReadme = [IO.File]::ReadAllText((Join-Path $previous 'README.md'), $utf8)
 $readme = $oldReadme

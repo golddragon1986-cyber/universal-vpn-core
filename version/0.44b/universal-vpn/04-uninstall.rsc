@@ -72,6 +72,10 @@
     :foreach id in=[/ip firewall filter find where comment=$tag] do={ /ip firewall filter remove $id }
     :foreach id in=[/ip route find where comment=$tag] do={ /ip route remove $id }
 }
+# Release only leases made static by this panel.
+:foreach lease in=[/ip dhcp-server lease find where dynamic=no and (comment="uvpn-main: dhcp-pin" or comment~"^uvpn-main: dhcp-pin [|] ")] do={
+    /ip dhcp-server lease remove $lease
+}
 :local stopped false
 :foreach scope in=$scopes do={
     :local vethName ($scope . "-veth")
@@ -105,6 +109,14 @@
     :foreach id in=[/interface bridge find where name=$bridgeName] do={ /interface bridge remove $id }
     :foreach id in=[/interface veth find where name=$vethName] do={ /interface veth remove $id }
 }
+
+# Remove policies created by the panel before tearing down their WAN fallback table.
+:local policyTag "uvpn-main: client policy"
+:foreach id in=[/ip firewall mangle find where comment=$policyTag] do={ /ip firewall mangle remove $id }
+:foreach id in=[/ip firewall nat find where comment=$policyTag] do={ /ip firewall nat remove $id }
+:foreach id in=[/ip firewall filter find where comment=$policyTag] do={ /ip firewall filter remove $id }
+:foreach id in=[/ip route find where comment=$policyTag] do={ /ip route remove $id }
+:foreach id in=[/routing table find where name="uvpn-main-clients" and comment=$policyTag] do={ /routing table remove $id }
 
 :if ([:len [/routing table find where name="uvpn-main-direct"]] = 1) do={
     :foreach id in=[/ip route find where gateway="172.31.41.2" and comment="universal-vpn: service"] do={ /ip route remove $id }

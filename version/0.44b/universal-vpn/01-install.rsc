@@ -64,12 +64,16 @@
 :if ([:len [/ip firewall filter find where comment=$tag]] > 0 || [:len [/ip firewall nat find where comment=$tag]] > 0 || [:len [/ip address find where comment=$tag]] > 0) do={ :error "Existing installer rules or address" }
 :if ([:len [/ip firewall address-list find where list=$clients]] > 0) do={ :error "Existing client address list" }
 :local panelAddresses ""
-:foreach addressId in=[/ip address find where disabled=no] do={
+:local clientNetworks [:toarray ""]
+:foreach addressId in=[/ip address find where disabled=no and invalid=no] do={
     :local iface [/ip address get $addressId interface]
     :if ([:len [/interface list member find where list=$lan and interface=$iface]] > 0) do={
         :local cidr [:tostr [/ip address get $addressId address]]
         :local localIp [:pick $cidr 0 [:find $cidr "/"]]
         :set panelAddresses ($panelAddresses . $localIp . ",")
+        :local network [/ip address get $addressId network]
+        :local prefix [:pick $cidr ([:find $cidr "/"] + 1) [:len $cidr]]
+        :set ($clientNetworks->($network . "/" . $prefix)) true
     }
 }
 :if ([:len $panelAddresses] = 0) do={ :error "No IPv4 address on an interface in the LAN list; panel forwarding cannot be configured" }
@@ -142,9 +146,9 @@
 :if ([:len [/file find where name=$base]] = 0) do={ /file add name=$base type=directory }
 /file add name=$marker type=file
 :onerror installError in={
-    /ip firewall address-list add list=$clients address=10.0.0.0/8 comment=$tag
-    /ip firewall address-list add list=$clients address=172.16.0.0/12 comment=$tag
-    /ip firewall address-list add list=$clients address=192.168.0.0/16 comment=$tag
+    :foreach network,present in=$clientNetworks do={
+        /ip firewall address-list add list=$clients address=$network comment=$tag
+    }
     /interface veth add name=uvpn-main-veth address=172.31.41.2/24 gateway=172.31.41.1
     /interface bridge add name=uvpn-main-br protocol-mode=none comment=$tag
     /interface bridge port add bridge=uvpn-main-br interface=uvpn-main-veth

@@ -97,6 +97,13 @@ def apply(router, requests, report=lambda _: None):
                    and _identity(row) == _identity(request)]
         if len(updated) != 1:
             raise RuntimeError('RouterOS не подтвердил закрепление DHCP-аренды')
+        lease = updated[0]
+        comment = 'uvpn-main: dhcp-pin'
+        if lease['comment']:
+            comment += ' | ' + lease['comment']
+        router.call(PATH + '/' + rr.rid(lease['id']), 'PATCH', {'comment': comment})
+        if _match(router, request).get('comment') != comment:
+            raise RuntimeError('RouterOS не подтвердил метку закрепления DHCP-аренды')
 
 
 def restore(router, requests):
