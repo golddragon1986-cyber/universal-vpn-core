@@ -820,6 +820,13 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?",1)[0]
         if path == "/api/configuration/status":
             self.send_json({"ok":True, **status()});return
+        if path == "/api/panel-update/local":
+            from panel_updater import local_versions
+            try:
+                self.send_json({"ok":True, **local_versions()})
+            except (OSError, ValueError):
+                self.send_json({"ok":False,"message":"Не удалось прочитать локальную историю версий"},503)
+            return
         if path == "/api/panel-update/check":
             try:
                 from panel_updater import check

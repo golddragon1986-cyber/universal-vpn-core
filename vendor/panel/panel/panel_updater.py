@@ -23,6 +23,7 @@ MAX_ARCHIVE = 32 * 1024 * 1024
 MAX_UNPACKED = 32 * 1024 * 1024
 MAX_FILES = 256
 VERSION_FILE = BASE / 'panel-version.json'
+IMAGE_VERSION_FILE = Path('/usr/local/lib/mihomo-panel/VERSION')
 BACKUP_ROOT = BASE / '.panel-update-backup'
 TRANSACTION = BASE / '.panel-update-transaction.json'
 MODULE_LOADED_AT = time.time()
@@ -30,7 +31,7 @@ EXTENSIONS = {'.py', '.js', '.html', '.css', '.sh', '.json'}
 PROTECTED = {'routing-settings.json', 'dns-settings.json', 'service-routes.json',
              'route-targets.json', 'client-settings.json', 'local-domain-dns.json',
              'routeros-local-dns.json', 'managed-proxies.json', 'container-clients-observed.json',
-             'router-routes-observed.json', 'panel-version.json'}
+             'router-routes-observed.json', 'panel-version.json', 'container-version-history.json'}
 
 
 def _opener(proxy):
@@ -64,13 +65,48 @@ def _version(value):
 def current_version():
     try:
         data = json.loads(VERSION_FILE.read_bytes())
-        value = data.get('version', '')
+        value = data.get('version', '') if isinstance(data, dict) else ''
         if re.fullmatch(r'\d+\.\d+\.\d+', str(value)):
             return str(value)
     except (OSError, ValueError, TypeError):
         pass
     return 'сборка из образа'
 
+
+def local_versions():
+    try:
+        image = IMAGE_VERSION_FILE.read_text(encoding='utf-8').strip() or None
+    except FileNotFoundError:
+        image = None
+    try:
+        panel = json.loads(VERSION_FILE.read_bytes())
+    except (FileNotFoundError, ValueError):
+        panel = {}
+    if not isinstance(panel, dict):
+        panel = {}
+    current = {
+        'image': image,
+        'panel': current_version(),
+        'tag': panel.get('tag'),
+        'sha256': panel.get('sha256'),
+    }
+    try:
+        history = json.loads((BASE / 'container-version-history.json').read_bytes())
+    except FileNotFoundError:
+        history = []
+    if not isinstance(history, list) or any(not isinstance(entry, dict) for entry in history):
+        raise ValueError('Некорректный файл истории версий')
+    return {'current': current, 'history': history}
+
+
+def record_start():
+    versions = local_versions()
+    current, history = versions['current'], versions['history']
+    if history and all(history[-1].get(key) == value for key, value in current.items()):
+        return
+    history.append({**current, 'observed_at': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())})
+    write(BASE / 'container-version-history.json',
+          json.dumps(history, ensure_ascii=False).encode(), mode=0o600)
 
 def read_manifest():
     try:
@@ -264,7 +300,7 @@ def install(expected_version):
                 old_mode = destination.stat().st_mode & 0o777 if destination.exists() else (stage / name).stat().st_mode & 0o777
                 write(destination, (stage / name).read_bytes(), mode=old_mode)
                 changed.append(name)
-            write(VERSION_FILE, json.dumps({'version': release['version'], 'tag': release['tag']}).encode())
+            write(VERSION_FILE, json.dumps({'version': release['version'], 'tag': release['tag'], 'sha256': release['sha256']}).encode())
             transaction.update(phase='await_start', pid=os.getpid(), restart_after=time.time() + 3.0)
             write(TRANSACTION, json.dumps(transaction).encode())
         except Exception:
@@ -293,6 +329,10 @@ def recover():
 
 
 def complete_start():
+    try:
+        record_start()
+    except (OSError, ValueError) as error:
+        print('Could not record local panel version history:', error, flush=True)
     try:
         transaction = json.loads(TRANSACTION.read_bytes())
     except FileNotFoundError:
