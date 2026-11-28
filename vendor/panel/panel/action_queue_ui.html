@@ -113,6 +113,20 @@ more.addEventListener("click",async()=>{
 try{wasPending=sessionStorage.getItem("mihomo-actions-pending")==="1";}catch(e){}
 const viewRefreshJobs=new Set();
 const deleteJobs=new Map();
+function backdropDialog(event){
+ const dialog=event.target;
+ if(!(dialog instanceof HTMLDialogElement)||!dialog.open)return null;
+ const rect=dialog.getBoundingClientRect();
+ return event.clientX<rect.left||event.clientX>=rect.right||
+        event.clientY<rect.top||event.clientY>=rect.bottom?dialog:null;
+}
+let backdropPress=null;
+document.addEventListener("pointerdown",event=>{backdropPress=backdropDialog(event);},true);
+document.addEventListener("click",event=>{
+ const dialog=backdropDialog(event);
+ if(dialog&&dialog===backdropPress)dialog.close();
+ backdropPress=null;
+},true);
 function offerRouteTransfer(message,data){
  if(!message?.includes("Каналы используются напрямую:")){window.alert(message||"Не удалось удалить VPN-канал");return;}
  const excluded=new Set([...data.getAll("selected"),data.get("name")].filter(Boolean));
@@ -143,7 +157,6 @@ function offerRouteTransfer(message,data){
  const apply=document.createElement("button");apply.type="submit";apply.textContent="Перенести и удалить";
  const cancel=document.createElement("button");cancel.type="button";cancel.textContent="Отмена";
  cancel.addEventListener("click",()=>dialog.close());actions.append(apply,cancel);form.append(actions);
- form.addEventListener("submit",()=>queueMicrotask(()=>dialog.close()),{once:true});
  dialog.append(title,summary,form);document.body.append(dialog);
  dialog.addEventListener("close",()=>dialog.remove(),{once:true});dialog.showModal();
 }
@@ -225,6 +238,8 @@ document.addEventListener("submit",async event=>{
  try{
   const r=await fetch("/api/actions/queue",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:data});
   const result=await r.json();if(!r.ok||!result.ok)throw new Error(result.message||"Не удалось добавить действие");
+  const dialog=form.closest("dialog");
+  if(dialog?.open)dialog.close();
   if(["subscription_delete","proxy_delete","proxy_delete_selected"].includes(data.get("action")))deleteJobs.set(result.job_id,data);
   if(["subscription_add","subscription_refresh","subscription_info_refresh","subscription_delete","subscription_automation","subscription_edit"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
   if(["proxy_import","proxy_enable_selected","proxy_delete","proxy_delete_selected","component_change"].includes(data.get("action")))viewRefreshJobs.add(result.job_id);
