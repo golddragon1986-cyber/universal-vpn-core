@@ -1324,7 +1324,7 @@ class Handler(BaseHTTPRequestHandler):
                     after_commit(panel_updater.schedule_restart)
                 self.redirect_message(message,tab='components')
                 return
-            if action in ('subscription_add', 'subscription_refresh', 'subscription_info_refresh', 'subscription_delete', 'subscription_automation'):
+            if action in ('subscription_add', 'subscription_refresh', 'subscription_info_refresh', 'subscription_delete', 'subscription_automation', 'subscription_edit'):
                 import vpn_subscriptions
                 try:
                     message = vpn_subscriptions.handle(action, data)

@@ -15,6 +15,7 @@ def describe(payload):
  if action=="route_apply":return "Ручные маршруты","применение набора изменений"
  if action=="dns_save":return "DNS-сервер","обновление адресов DNS"
  if action.startswith("subscription_"):
+  if action=="subscription_edit":return "VPN-подписки", "Изменение настроек подписки"
   return "VPN-подписки", {"subscription_add":"Добавление подписки","subscription_refresh":"Обновление подписки","subscription_info_refresh":"Обновление данных подписки","subscription_delete":"Удаление подписки","subscription_automation":"Настройки автобалансировки"}[action]
  if action=="vpn_client":return "VPN «"+value('name')+"»","выбор клиента "+value('client')
  if action=="vpn_edit":return "VPN «"+value('name')+"»","параметры соединения обновлены (секреты скрыты)"

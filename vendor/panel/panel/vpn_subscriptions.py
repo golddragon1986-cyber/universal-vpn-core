@@ -367,7 +367,8 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *, 
             key = node.get("source_key") or identity(clients.canonical(node))
             existing.setdefault(key, node)
             if key not in incoming_keys and not node.get("replacement_for"):
-                label = node.get("source_label") or source_label(node["proxy"]["name"].removeprefix(sub["name"] + "-"))
+                label = node.get("source_label") or source_label(
+                    node["proxy"]["name"].removeprefix(sub.get("original_name", sub["name"]) + "-"))
                 missing_by_label.setdefault(label.casefold(), []).append(node)
         used = {n["proxy"]["name"] for n in new["nodes"]} | {
             "DIRECT", "REJECT", "GLOBAL", "SELECTOR", "LOADBALANCE", "TRANSIT", "PASS", "COMPATIBLE",
@@ -503,6 +504,29 @@ def refresh_info(subscription_id):
     return "Данные подписки обновлены." if usage else "Провайдер не передал лимит и срок действия."
 
 
+def edit_subscription(sid, name, url, profile):
+    name, url = name.strip(), url.strip()
+    if not name or len(name) > 80 or any(ord(char) < 32 for char in name) or profile not in PROFILES:
+        raise ValueError("Проверьте имя и профиль запроса.")
+    with clients.LOCK:
+        db = manager.read()
+        subscriptions = db.get("subscriptions", {})
+        sub = subscriptions.get(sid)
+        if sub is None:
+            raise ValueError("Подписка не найдена.")
+        if url and url != sub["url"]:
+            if any(key != sid and item["url"] == url for key, item in subscriptions.items()):
+                raise ValueError("Этот URL уже добавлен. Используйте обновление подписки.")
+            subscription_target(url)
+            sub["url"] = url
+            sub.pop("usage", None)
+            sub.pop("usage_updated", None)
+        sub.setdefault("original_name", sub["name"])
+        sub.update(name=name, profile=profile)
+        manager.save(db)
+    return "Настройки подписки сохранены."
+
+
 def handle(action, data):
     def field(name, default=""):
         return data.get(name, [default])[0].strip()
@@ -510,6 +534,8 @@ def handle(action, data):
         return refresh(uuid.uuid4().hex, field("name"), field("url"), field("client"), field("profile"))
     if action == "subscription_refresh":
         return refresh(field("subscription"))
+    if action == "subscription_edit":
+        return edit_subscription(field("subscription"), field("name"), field("url"), field("profile"))
     if action == "subscription_info_refresh":
         return refresh_info(field("subscription"))
     if action == "subscription_automation":
@@ -576,6 +602,24 @@ def automation_dialog(sid, sub):
             '</div></form></dialog>')
 
 
+def edit_dialog(sid, sub):
+    e = lambda value: html.escape(str(value), quote=True)
+    options = "".join(
+        f'<option value="{key}" {"selected" if key == sub["profile"] else ""}>{_ui(label)}</option>'
+        for key, label in PROFILES.items())
+    return (
+        f'<dialog class="vpn-auto-dialog" id="vpn-edit-sub-{e(sid)}">'
+        f'<h2>{_ui("Редактировать подписку")}</h2>'
+        '<form method="post" action="/action"><input type="hidden" name="action" value="subscription_edit">'
+        f'<input type="hidden" name="subscription" value="{e(sid)}">'
+        f'<div class="vpn-auto-fields"><label>{_ui("Имя")}<input name="name" maxlength="80" value="{e(sub["name"])}" required></label>'
+        f'<label>{_ui("Профиль запроса")}<select name="profile">{options}</select></label>'
+        f'<label class="vpn-subscription-url">{_ui("Новый HTTPS-адрес")}<input name="url" type="password"'
+        f' autocomplete="off" maxlength="4096" placeholder="{e(_ui("Пустое поле сохраняет текущий адрес"))}"></label></div>'
+        f'<div class="vpn-auto-actions"><button type="submit">{_ui("Сохранить")}</button>'
+        f'<button type="button" data-vpn-auto-close>{_ui("Отмена")}</button></div></form></dialog>')
+
+
 def render():
     escape = html.escape
     db = manager.read()
@@ -588,6 +632,7 @@ def render():
     dialogs = []
     for sid, sub in db.get("subscriptions", {}).items():
         dialogs.append(automation_dialog(sid, sub))
+        dialogs.append(edit_dialog(sid, sub))
         groups[sid] = (sub["name"],
                      f'<small class="vpn-group-meta" title="{escape(sub.get("updated", "—"), quote=True)}">'
                      f'{escape(clients.NAMES[sub["engine"]])} · {escape(_ui(PROFILES[sub["profile"]]))}</small>'
@@ -595,6 +640,7 @@ def render():
                      f'<form method="post" action="/action"><input type="hidden" name="action" value="subscription_refresh">'
                      f'<input type="hidden" name="subscription" value="{escape(sid, quote=True)}">'
                      f'<button type="submit" title="{escape(_ui("Обновить подписку"), quote=True)}">{_ui("Обновить")}</button></form>'
+                     f'<button type="button" data-vpn-sub-edit="{escape(sid, quote=True)}">{_ui("Изменить")}</button>'
                      f'<button type="button" data-vpn-auto-open="{escape(sid, quote=True)}" title="{escape(_ui("Автобалансировка"), quote=True)}">{_ui("Балансировка")}</button>',
                      ''.join((_ui('<form class="vpn-group-delete" method="post" action="/action" onsubmit="return confirm(\'Удалить подписку и все её соединения?\')"><input type="hidden" name="action" value="subscription_delete"><input type="hidden" name="subscription" value="'), f'{escape(sid)}', _ui('"><button type="submit">Удалить</button></form>'))), '')
     assets = _ui('''<style>
@@ -603,13 +649,16 @@ body .vpn-auto-dialog::backdrop{background:rgba(0,0,0,.7)}
 body .vpn-auto-dialog h2{margin:0 0 18px;font-size:20px}
 body .vpn-auto-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 body .vpn-auto-fields label{display:grid;gap:6px;min-width:0;font-size:14px}
-body .vpn-auto-fields input{width:100%;height:40px;margin:0}
+body .vpn-auto-fields :is(input,select){width:100%;height:40px;margin:0}
+body .vpn-auto-fields .vpn-subscription-url{grid-column:1/-1}
 body .vpn-auto-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:20px}
 body .vpn-auto-actions button{min-height:40px;margin:0;padding:8px 12px;white-space:nowrap}
 body .vpn-auto-toggle[data-toggle-on="1"]{background:#128038;border-color:#128038;color:#fff;font-weight:700}
 body .vpn-auto-toggle[data-toggle-on="0"]{background:#c62828;border-color:#c62828;color:#fff;font-weight:700}
 </style><script>
 document.addEventListener('click',event=>{
+ const edit=event.target.closest('[data-vpn-sub-edit]');
+ if(edit){document.getElementById('vpn-edit-sub-'+edit.dataset.vpnSubEdit)?.showModal();return;}
  const open=event.target.closest('[data-vpn-auto-open]');
  if(open){document.getElementById('vpn-auto-'+open.dataset.vpnAutoOpen)?.showModal();return;}
  const close=event.target.closest('[data-vpn-auto-close]');
