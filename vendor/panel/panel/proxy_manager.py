@@ -309,17 +309,22 @@ def render(navigation="", *, subscription_controls=None, subscription_groups=Non
  grouped_rows={sid:[] for sid in (subscription_groups or {})}
  active_groups=set()
  filters={key:{} for key in ('subscription','type','client','status')}
+ replacements={(n.get('subscription'),n['replacement_for']) for n in managed.values()
+               if n.get('replacement_for') and not n.get('stale')}
  for name in names:
   n=managed.get(name); proxy=n['proxy'] if n else {}
   subscription=n.get('subscription') if n else None
-  if bool(subscription)!=subscriptions:continue
+  if n and n.get('replacement_for'):continue
+  pending=(subscription,name) in replacements
+  legacy=bool(n and subscription and n.get('stale') and not pending)
+  if (bool(subscription) and not legacy)!=subscriptions:continue
   host=proxy.get('server') or hosts.get(name,{}).get('server','')
   port=proxy.get('port') or hosts.get(name,{}).get('port','')
   remote=bridges.get(str(port),{}) if host in ('127.0.0.1','::1','localhost') and proxy.get('type') in ('socks5','http') else {}
   if remote:host,port=remote['server'],remote['port']
   if ':' in str(host):host='['+str(host)+']'
   enabled=db.get('balance_overrides',{}).get(name,n.get('balance',True) if n else True)
-  if subscriptions and enabled and not n.get('stale'):active_groups.add(subscription)
+  if subscriptions and enabled:active_groups.add(subscription)
   e=lambda value: html.escape(str(value),quote=True)
   toggle=(_ui('Включено') if enabled else _ui('Отключено'))
   color='#16803c' if enabled else '#c62828'
@@ -339,8 +344,8 @@ def render(navigation="", *, subscription_controls=None, subscription_groups=Non
            'client':(engine,vpn_clients.NAMES.get(engine,engine)), 'status':('1' if enabled else '0',toggle)}
    for key,(value,label) in values.items():filters[key][value]=label
    row_attrs=''.join(f' data-{key}="{e(value)}"' for key,(value,label) in values.items())
-   stale=_ui(' · Исчез из ответа') if n.get('stale') else ''
-  if not subscriptions:stale=''
+  stale=(_ui(' · Ожидает проверки замены') if pending else
+         _ui(' · Исчез из ответа') if legacy else '')
   editor_id=vpn_editor.dialog_id(name) if n else ''
   if n:dialogs.append(vpn_editor.render(n))
   name_cell=('<button type="button" class="vpn-open-editor" data-vpn-editor="'+e(editor_id)+'" title="'+e(name)+'">'+e(name)+'</button>' if n else '<span title="'+e(name)+'">'+e(name)+'</span>')

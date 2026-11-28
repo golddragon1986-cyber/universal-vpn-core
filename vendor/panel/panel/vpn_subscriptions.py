@@ -381,8 +381,30 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *, 
             label = source_label(source["name"])
             matches = missing_by_label.get(label.casefold(), [])
             predecessor = matches[0] if len(matches) == 1 and labels[label.casefold()] == 1 else None
+            if labels[label.casefold()] == 1 and source.get("uuid"):
+                base = sub.get("original_name", sub["name"]) + "-" + label
+                same_endpoint = []
+                for previous in previous_nodes:
+                    previous_name = previous["proxy"]["name"]
+                    if (previous.get("replacement_for")
+                            or (previous.get("source_key") or identity(clients.canonical(previous))) in incoming_keys):
+                        continue
+                    if not re.fullmatch(re.escape(base) + r"(?:-\d+)?", previous_name, re.IGNORECASE):
+                        continue
+                    profile = clients.canonical(previous)
+                    if (normalized_server(profile["server"]) == normalized_server(source["server"])
+                            and int(profile["port"]) == int(source["port"])
+                            and str(profile.get("uuid", "")).lower() == str(source["uuid"]).lower()):
+                        same_endpoint.append(previous)
+                if len(same_endpoint) == 1:
+                    predecessor = same_endpoint[0]
+            if node is not None and predecessor is None:
+                node.pop("replacement_for", None)
             if predecessor is not None:
                 previous_name = predecessor["proxy"]["name"]
+                if (node is not None and node.get("replacement_for")
+                        and node["proxy"]["name"] not in protected):
+                    node["replacement_for"] = previous_name
                 if node is None and previous_name not in protected:
                     node = predecessor
                 elif (node is not None and node.get("replacement_for") == previous_name
