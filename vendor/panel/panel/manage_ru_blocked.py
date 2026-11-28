@@ -1354,7 +1354,8 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if action == "proxy_delete_selected":
                 import proxy_manager
-                count = proxy_manager.delete_many(data.get("selected", []))
+                count = proxy_manager.delete_many(data.get("selected", []),
+                                                 destination=data.get("replacement_route", [""])[0])
                 self.redirect_message("Удалено прокси: " + str(count), tab="proxies")
                 return
             if action == "proxy_enable_selected":
@@ -1368,7 +1369,7 @@ class Handler(BaseHTTPRequestHandler):
                 if action == "proxy_balance":
                     proxy_manager.set_balance(name, data.get("enabled", ["0"])[-1] == "1")
                 else:
-                    proxy_manager.delete(name)
+                    proxy_manager.delete(name, destination=data.get("replacement_route", [""])[0])
                 self.redirect_message("Настройки прокси применены", tab="proxies")
                 return
             if action == "routing_save":

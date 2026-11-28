@@ -596,7 +596,8 @@ def handle(action, data):
         return "Настройки автобалансировки сохранены."
     if action == "subscription_delete":
         with clients.LOCK:
-            count = manager.delete_many(subscription=field("subscription"))
+            count = manager.delete_many(subscription=field("subscription"),
+                                        destination=field("replacement_route"))
         return f"Подписка удалена. Удалено соединений: {count}."
     raise ValueError("Неизвестное действие подписки.")
 

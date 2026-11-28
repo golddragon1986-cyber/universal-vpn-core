@@ -200,22 +200,51 @@ def client_route_references(names):
  return [(row['address'],targets[row['route']]) for row in client_policy.read()
          if row['enabled'] and row.get('route') in targets]
 
-def direct_route_references(names):
+def route_transfer(names, destination=None):
+ import client_policy
+ import dns_panel
+ import routing_panel
+ from configuration_draft import load
  from router_routes import read_targets
  from service_routes_panel import read_services
  targets={name:name for name in names}
  targets.update({'CHANNEL-'+re.sub(r'[^A-Za-z0-9_-]+','-',name).strip('-'):name for name in names})
- references=[f'{channel} → клиент или сеть {address}'
-             for address,channel in client_route_references(names)]
- for rule in read_services():
-  if rule.get('enabled',True) and rule.get('target') in targets:
-   references.append(f"{targets[rule['target']]} → правило «{rule.get('name','')}»")
- for network,route in read_targets().items():
-  if route.get('enabled',True) and route.get('target') in targets:
-   references.append(f"{targets[route['target']]} → маршрут {network}")
- return list(dict.fromkeys(references))
+ if not targets:return [],{}
+ settings=routing_panel.read_settings()
+ clients=client_policy.read()
+ rules=read_services()
+ routes=read_targets()
+ dns=dns_panel.read_settings()
+ sources=[
+  ('client-settings.json',clients,'route',[(r,f"Клиент или сеть {r['address']}") for r in clients]),
+  ('service-routes.json',rules,'target',[(r,f"Правило «{r.get('name','')}»") for r in rules]),
+  ('route-targets.json',routes,'target',[(r,f'Маршрут {net}') for net,r in routes.items()]),
+  ('dns-settings.json',dns,'route',[(r,f"DNS «{r.get('name') or r['address']}»") for r in dns['servers']]),
+  ('routing-settings.json',settings,'main_proxy',[(settings,'Основной маршрут')]),
+ ]
+ references=[];changes={}
+ for filename,data,key,rows in sources:
+  for row,label in rows:
+   if row.get(key) not in targets:continue
+   references.append(f"{targets[row[key]]} → {label}"+(' (выключено)' if not row.get('enabled',True) else ''))
+   if destination:
+    row[key]=destination
+    changes[Path(B)/filename]=data
+ if changes:
+  choices=routing_panel.available_main_routes(routing_panel.global_info())
+  if destination in targets or destination not in choices or not (destination=='LOADBALANCE' or destination.startswith('CHANNEL-')):
+   raise ValueError('Выберите доступный маршрут, который останется после удаления.')
+  draft=load()
+  if draft.get('files') or draft.get('clients') or draft.get('routes'):
+   raise ValueError('Перед переносом маршрутов примените или отмените текущий черновик.')
+ return references,changes
 
-def delete_many(names=(), *, subscription=None):
+def delete_many(names=(), *, subscription=None, destination=None):
+ import vpn_clients
+ with vpn_clients.LOCK:
+  return _delete_many(names,subscription=subscription,destination=destination)
+
+def _delete_many(names, *, subscription, destination):
  d=read(); old=json.loads(json.dumps(d))
  if subscription is not None:
   if subscription not in d.get('subscriptions',{}):raise ValueError('Подписка не найдена')
@@ -224,11 +253,11 @@ def delete_many(names=(), *, subscription=None):
  else:
   names=list(dict.fromkeys(x for x in names if x))
   if not names: raise ValueError("Не выбраны прокси для удаления")
- references=direct_route_references(names)
- if references:
+ references,changes=route_transfer(names,destination)
+ if references and not destination:
   raise ValueError('Удаление заблокировано. Каналы используются напрямую:\n'
                    +'\n'.join(references)
-                   +'\nСначала измените привязки и примените конфигурацию.')
+                   +'\nВыберите маршрут для переноса всех привязок.')
  managed_names={x['proxy']['name'] for x in d['nodes']}
  native=[x for x in names if x not in managed_names]
  d['nodes']=[x for x in d['nodes'] if x['proxy']['name'] not in names]
@@ -247,16 +276,30 @@ def delete_many(names=(), *, subscription=None):
   shutil.copy2(active,active+'.bak-proxy-delete-'+stamp)
  import vpn_clients
  client_configs={path:path.read_bytes() if path.exists() else None for path in (vpn_clients.SB,vpn_clients.XR)}
+ originals={path:path.read_bytes() if path.exists() else None for path in changes}
+ router=None;client_snapshot=None
+ if Path(B)/'client-settings.json' in changes:
+  import client_policy, client_panel, router_routes
+  router=router_routes.Router()
+  state=client_panel.read_state(router,cache=False)
+  client_snapshot=client_policy.owned_snapshot(router)
  try:
+  for path,data in changes.items():
+   write_text_atomic(path,json.dumps(data,ensure_ascii=False))
   if native:
    write_text_atomic(startup,new_start)
    write_text_atomic(active,new_active)
   save(d)
   if names:
    sync()
+   if router is not None:
+    client_policy.apply(router,changes[Path(B)/'client-settings.json'],state)
    from vpn_clients import remove_unused
    remove_unused(names)
  except Exception:
+  for path,raw in originals.items():
+   if raw is None:path.unlink(missing_ok=True)
+   else:vpn_clients.write(path,raw,0o600)
   for path,raw in client_configs.items():
    if raw is None:path.unlink(missing_ok=True)
    else:vpn_clients.write(path,raw,0o600)
@@ -269,11 +312,13 @@ def delete_many(names=(), *, subscription=None):
   save(old)
   try: sync()
   except Exception: pass
+  if router is not None:
+   client_policy.restore(router,client_snapshot)
   raise
  return len(names)
 
-def delete(name):
- return delete_many([name])
+def delete(name, destination=None):
+ return delete_many([name],destination=destination)
 
 def delay(name, url=TEST, timeout_ms=5000, expected=None):
  from urllib.parse import quote
