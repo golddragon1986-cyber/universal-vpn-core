@@ -65,6 +65,19 @@ class SubscriptionInfoScheduleTests(unittest.TestCase):
         db["balance_overrides"]["node"] = True
         self.assertTrue(automation.has_enabled_node(db, db["nodes"]))
 
+    def test_zero_interval_disables_metadata_requests(self):
+        db = self.db()
+        db["subscriptions"]["subscription-id"]["usage_interval"] = 0
+        self.assertEqual(self.run_watch(db), [])
+
+    def test_custom_interval_controls_when_metadata_is_due(self):
+        now = datetime(2026, 11, 28, 12, 0, tzinfo=timezone.utc)
+        sub = {"usage_updated": "2026-11-28 11:50 UTC", "usage_interval": 30}
+        with patch.object(automation.time, "time", return_value=now.timestamp()):
+            self.assertFalse(automation.info_due(sub))
+            sub["usage_interval"] = 10
+            self.assertTrue(automation.info_due(sub))
+
 
 if __name__ == "__main__":
     unittest.main()

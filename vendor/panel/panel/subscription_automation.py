@@ -14,7 +14,6 @@ import vpn_subscriptions as subscriptions
 
 
 CHECK_INTERVAL = 30
-INFO_INTERVAL = 300
 CANDIDATE_BATCH = 8
 
 
@@ -39,9 +38,12 @@ def refresh_due(sub, settings):
 
 
 def info_due(sub):
+    seconds = subscriptions.usage_interval(sub) * 60
+    if not seconds:
+        return False
     try:
         updated = datetime.strptime(sub["usage_updated"], "%Y-%m-%d %H:%M UTC")
-        return time.time() - updated.replace(tzinfo=timezone.utc).timestamp() >= INFO_INTERVAL
+        return time.time() - updated.replace(tzinfo=timezone.utc).timestamp() >= seconds
     except (KeyError, ValueError):
         return True
 
@@ -154,7 +156,8 @@ def watch(queue):
                 info_states = {sid: state for sid, state in info_states.items() if sid in configured}
                 for sid in configured:
                     sub, settings, nodes = snapshot(db, sid)
-                    if has_enabled_node(db, nodes):
+                    info_interval = subscriptions.usage_interval(sub) * 60
+                    if info_interval and has_enabled_node(db, nodes):
                         info = info_states.setdefault(sid, {})
                         if job := info.get("job"):
                             with queue.db() as conn:
@@ -165,11 +168,11 @@ def watch(queue):
                         else:
                             busy = False
                         now = time.monotonic()
-                        if not busy and now >= info.get("next_try", 0) and info_due(sub):
-                            info["next_try"] = now + INFO_INTERVAL
+                        if not busy and now - info.get("last_try", float("-inf")) >= info_interval and info_due(sub):
+                            info["last_try"] = now
                             info["job"] = queue.submit("Обновление данных подписки",
                                 {"path": "/action", "body": urlencode({
-                                    "action": "subscription_info_refresh", "subscription": sid})})
+                                    "action": "subscription_info_refresh", "subscription": sid, "automatic": "1"})})
                     if not settings.get("enabled"):
                         continue
                     state = states.setdefault(sid, {})

@@ -27,6 +27,12 @@ HAPP_UA = "Happ/4.1.1/Windows/2608211947607"
 PROFILES = {"standard": "Обычный", "happ": "Happ", "happ-hwid": "Happ + HWID"}
 HWID = Path("/etc/mihomo/.subscription-hwid")
 MAX_BYTES = 2 * 1024 * 1024
+DEFAULT_USAGE_INTERVAL = 5
+MAX_USAGE_INTERVAL = 10080
+
+
+def usage_interval(sub):
+    return sub.get("usage_interval", DEFAULT_USAGE_INTERVAL)
 
 
 def installation_hwid():
@@ -507,12 +513,14 @@ def refresh(subscription_id, name=None, url=None, engine=None, profile=None, *, 
                 f"Сохранено активных или привязанных каналов: {len(referenced)}. Кандидатов ожидают замены: {pending}.")
 
 
-def refresh_info(subscription_id):
+def refresh_info(subscription_id, *, automatic=False):
     """Update provider usage without touching nodes, routes, or VPN clients."""
     with clients.LOCK:
         sub = manager.read().get("subscriptions", {}).get(subscription_id)
         if sub is None:
             raise ValueError("Подписка не найдена.")
+        if automatic and usage_interval(sub) == 0:
+            return "Автообновление данных подписки отключено."
         url, profile = sub["url"], sub["profile"]
     _, usage = fetch(url, profile)
     with clients.LOCK:
@@ -526,10 +534,13 @@ def refresh_info(subscription_id):
     return "Данные подписки обновлены." if usage else "Провайдер не передал лимит и срок действия."
 
 
-def edit_subscription(sid, name, url, profile):
+def edit_subscription(sid, name, url, profile, interval=None):
     name, url = name.strip(), url.strip()
     if not name or len(name) > 80 or any(ord(char) < 32 for char in name) or profile not in PROFILES:
         raise ValueError("Проверьте имя и профиль запроса.")
+    if interval is not None and (not re.fullmatch(r"[0-9]{1,5}", interval)
+                                 or int(interval) > MAX_USAGE_INTERVAL):
+        raise ValueError("Интервал обновления данных должен быть от 0 до 10080 минут.")
     with clients.LOCK:
         db = manager.read()
         subscriptions = db.get("subscriptions", {})
@@ -545,6 +556,8 @@ def edit_subscription(sid, name, url, profile):
             sub.pop("usage_updated", None)
         sub.setdefault("original_name", sub["name"])
         sub.update(name=name, profile=profile)
+        if interval is not None:
+            sub["usage_interval"] = int(interval)
         manager.save(db)
     return "Настройки подписки сохранены."
 
@@ -557,9 +570,10 @@ def handle(action, data):
     if action == "subscription_refresh":
         return refresh(field("subscription"))
     if action == "subscription_edit":
-        return edit_subscription(field("subscription"), field("name"), field("url"), field("profile"))
+        return edit_subscription(field("subscription"), field("name"), field("url"), field("profile"),
+                                 field("usage_interval") if "usage_interval" in data else None)
     if action == "subscription_info_refresh":
-        return refresh_info(field("subscription"))
+        return refresh_info(field("subscription"), automatic=field("automatic") == "1")
     if action == "subscription_automation":
         sid = field("subscription")
         limits = {"refresh": (5, 10080), "target": (1, 32), "grace": (1, 1440)}
@@ -636,8 +650,11 @@ def edit_dialog(sid, sub):
         f'<input type="hidden" name="subscription" value="{e(sid)}">'
         f'<div class="vpn-auto-fields"><label>{_ui("Имя")}<input name="name" maxlength="80" value="{e(sub["name"])}" required></label>'
         f'<label>{_ui("Профиль запроса")}<select name="profile">{options}</select></label>'
-        f'<label class="vpn-subscription-url">{_ui("Новый HTTPS-адрес")}<input name="url" type="password"'
-        f' autocomplete="off" maxlength="4096" placeholder="{e(_ui("Пустое поле сохраняет текущий адрес"))}"></label></div>'
+        f'<label class="vpn-subscription-url">{_ui("HTTPS-адрес")}<input name="url" type="text"'
+        f' autocomplete="off" spellcheck="false" maxlength="4096" value="{e(sub["url"])}" required></label>'
+        f'<label class="vpn-subscription-url">{_ui("Обновлять трафик и срок, мин (0 — отключено)")}'
+        f'<input name="usage_interval" type="number" min="0" max="{MAX_USAGE_INTERVAL}"'
+        f' value="{e(usage_interval(sub))}" required></label></div>'
         f'<div class="vpn-auto-actions"><button type="submit">{_ui("Сохранить")}</button>'
         f'<button type="button" data-vpn-auto-close>{_ui("Отмена")}</button></div></form></dialog>')
 
